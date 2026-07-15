@@ -1,0 +1,62 @@
+/* Telecalling CRM – custom styles */
+
+body {
+  background-color: #f5f7fa;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main.container-fluid {
+  flex: 1;
+}
+
+.navbar-brand {
+  letter-spacing: 0.5px;
+}
+
+/* Status/outcome badge colours are handled inline via Jinja helpers */
+
+.card {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e3e8ee;
+}
+
+.card-header {
+  background-color: #f8f9fb;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.table > :not(caption) > * > th,
+.table > :not(caption) > * > td {
+  padding: 0.55rem 0.75rem;
+  vertical-align: middle;
+}
+
+a {
+  color: #0d6efd;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Summary cards */
+.card.text-white .card-footer a {
+  opacity: 0.9;
+  text-decoration: none;
+}
+.card.text-white .card-footer a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+dl.row dt {
+  font-weight: 600;
+  color: #555;
+}
+
+footer {
+  font-size: 0.8rem;
+}

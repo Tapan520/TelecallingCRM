@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard – Telecalling CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h4>
+  <span class="text-muted small">Today: {{ now.strftime('%d %b %Y') }}</span>
+</div>
+
+<!-- Summary cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card text-white bg-primary h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fs-2 fw-bold">{{ total_leads }}</div>
+            <div class="small">Total Leads</div>
+          </div>
+          <i class="bi bi-people-fill fs-1 opacity-50"></i>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent border-0 pt-0">
+        <a href="{{ url_for('leads_list') }}" class="text-white small">View all &rarr;</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-white bg-success h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fs-2 fw-bold">{{ calls_today }}</div>
+            <div class="small">Calls Today</div>
+          </div>
+          <i class="bi bi-telephone-fill fs-1 opacity-50"></i>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent border-0 pt-0">
+        <a href="{{ url_for('calls_list') }}" class="text-white small">View all &rarr;</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-white bg-warning h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fs-2 fw-bold">{{ pending_follow_ups }}</div>
+            <div class="small">Pending Follow-ups</div>
+          </div>
+          <i class="bi bi-calendar-check fs-1 opacity-50"></i>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent border-0 pt-0">
+        <a href="{{ url_for('follow_ups_list') }}" class="text-white small">View all &rarr;</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-white bg-info h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fs-2 fw-bold">{{ converted_leads }}</div>
+            <div class="small">Converted</div>
+          </div>
+          <i class="bi bi-trophy-fill fs-1 opacity-50"></i>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent border-0 pt-0">
+        <a href="{{ url_for('leads_list') }}?status=Converted" class="text-white small">View all &rarr;</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent calls & Upcoming follow-ups -->
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-1"></i>Recent Calls</span>
+        <a href="{{ url_for('calls_list') }}" class="btn btn-sm btn-outline-secondary">View all</a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_calls %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th>Lead</th>
+                <th>Outcome</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for call in recent_calls %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('lead_detail', lead_id=call.lead.id) }}" class="text-decoration-none">
+                    {{ call.lead.name }}
+                  </a>
+                </td>
+                <td>
+                  <span class="badge {{ outcome_badge(call.outcome) }}">{{ call.outcome }}</span>
+                </td>
+                <td class="text-muted">{{ call.called_at.strftime('%d %b, %H:%M') }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-3 text-muted text-center">No calls logged yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar-event me-1"></i>Upcoming Follow-ups</span>
+        <a href="{{ url_for('follow_ups_list') }}" class="btn btn-sm btn-outline-secondary">View all</a>
+      </div>
+      <div class="card-body p-0">
+        {% if upcoming_follow_ups %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th>Lead</th>
+                <th>Scheduled</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for fu in upcoming_follow_ups %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('lead_detail', lead_id=fu.lead.id) }}" class="text-decoration-none">
+                    {{ fu.lead.name }}
+                  </a>
+                  {% if fu.reason %}<br><small class="text-muted">{{ fu.reason }}</small>{% endif %}
+                </td>
+                <td class="text-muted">{{ fu.scheduled_at.strftime('%d %b, %H:%M') }}</td>
+                <td>
+                  <form method="post" action="{{ url_for('follow_up_complete', follow_up_id=fu.id) }}" class="d-inline">
+                    <input type="hidden" name="from_lead" value="0">
+                    <button type="submit" class="btn btn-sm btn-success py-0">
+                      <i class="bi bi-check"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-3 text-muted text-center">No upcoming follow-ups.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
