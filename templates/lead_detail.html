@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% block title %}{{ lead.name }} – Telecalling CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+  <a href="{{ url_for('leads_list') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h4 class="mb-0 me-auto">{{ lead.name }}</h4>
+  <span class="badge fs-6 {{ status_badge(lead.status) }}">{{ lead.status }}</span>
+  <a href="{{ url_for('lead_edit', lead_id=lead.id) }}" class="btn btn-sm btn-outline-primary">
+    <i class="bi bi-pencil me-1"></i>Edit
+  </a>
+</div>
+
+<!-- Lead info -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-person me-1"></i>Contact Details</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Phone</dt>
+          <dd class="col-sm-8"><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></dd>
+          <dt class="col-sm-4">Email</dt>
+          <dd class="col-sm-8">{{ lead.email or '—' }}</dd>
+          <dt class="col-sm-4">Company</dt>
+          <dd class="col-sm-8">{{ lead.company or '—' }}</dd>
+          <dt class="col-sm-4">Source</dt>
+          <dd class="col-sm-8">{{ lead.source or '—' }}</dd>
+          <dt class="col-sm-4">Added</dt>
+          <dd class="col-sm-8">{{ lead.created_at.strftime('%d %b %Y, %H:%M') }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-sticky me-1"></i>Notes</div>
+      <div class="card-body small">
+        {{ lead.notes or '<span class="text-muted">No notes added yet.</span>' | safe }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Log a call -->
+<div class="card mb-4">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-telephone-plus me-1"></i>Log a Call
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('call_log_new', lead_id=lead.id) }}" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Outcome</label>
+        <select name="outcome" class="form-select form-select-sm">
+          {% for o in outcomes %}
+          <option value="{{ o }}">{{ o }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Duration (min)</label>
+        <input type="number" name="duration_minutes" class="form-control form-control-sm"
+               min="0" placeholder="Optional">
+      </div>
+      <div class="col-md-5">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control form-control-sm"
+               placeholder="Brief call summary…">
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-success btn-sm">
+          <i class="bi bi-telephone me-1"></i>Save Call Log
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Schedule a follow-up -->
+<div class="card mb-4">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-calendar-plus me-1"></i>Schedule Follow-up
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('follow_up_new', lead_id=lead.id) }}" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Date &amp; Time</label>
+        <input type="datetime-local" name="scheduled_at" class="form-control form-control-sm" required>
+      </div>
+      <div class="col-md-8">
+        <label class="form-label">Reason / Notes</label>
+        <input type="text" name="reason" class="form-control form-control-sm"
+               placeholder="Reason for follow-up…">
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-warning btn-sm">
+          <i class="bi bi-calendar-check me-1"></i>Schedule Follow-up
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Call history -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="bi bi-clock-history me-1"></i>Call History</span>
+    <span class="badge bg-secondary">{{ call_logs|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    {% if call_logs %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th>Date &amp; Time</th>
+            <th>Outcome</th>
+            <th>Duration</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for call in call_logs %}
+          <tr>
+            <td>{{ call.called_at.strftime('%d %b %Y, %H:%M') }}</td>
+            <td><span class="badge {{ outcome_badge(call.outcome) }}">{{ call.outcome }}</span></td>
+            <td>{{ call.duration_minutes ~ ' min' if call.duration_minutes else '—' }}</td>
+            <td>{{ call.notes or '—' }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('call_log_delete', call_id=call.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                        onclick="return confirm('Delete this call log?')">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-3 text-muted text-center small">No calls logged yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Follow-ups -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="bi bi-calendar-check me-1"></i>Follow-ups</span>
+    <span class="badge bg-secondary">{{ follow_ups|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    {% if follow_ups %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th>Scheduled</th>
+            <th>Reason</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fu in follow_ups %}
+          <tr>
+            <td>{{ fu.scheduled_at.strftime('%d %b %Y, %H:%M') }}</td>
+            <td>{{ fu.reason or '—' }}</td>
+            <td>
+              {% if fu.completed %}
+                <span class="badge bg-success">Completed</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Pending</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if not fu.completed %}
+              <form method="post" action="{{ url_for('follow_up_complete', follow_up_id=fu.id) }}" class="d-inline">
+                <input type="hidden" name="from_lead" value="1">
+                <button type="submit" class="btn btn-sm btn-success py-0 me-1">
+                  <i class="bi bi-check"></i>
+                </button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('follow_up_delete', follow_up_id=fu.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                        onclick="return confirm('Delete this follow-up?')">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-3 text-muted text-center small">No follow-ups scheduled.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

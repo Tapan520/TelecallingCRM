@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# SQLite database
+*.db
+*.sqlite3
+
+# pytest
+.pytest_cache/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
