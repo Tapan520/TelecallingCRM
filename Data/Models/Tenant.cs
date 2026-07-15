@@ -31,4 +31,8 @@ public class Tenant
     public ICollection<EmailTemplate> EmailTemplates { get; set; } = new List<EmailTemplate>();
     public ICollection<WebhookConfig> Webhooks { get; set; } = new List<WebhookConfig>();
     public ICollection<IntegrationConfig> Integrations { get; set; } = new List<IntegrationConfig>();
+    public ICollection<Meeting> Meetings { get; set; } = new List<Meeting>();
+    public ICollection<Escalation> Escalations { get; set; } = new List<Escalation>();
+    public ICollection<EscalationRule> EscalationRules { get; set; } = new List<EscalationRule>();
+    public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }

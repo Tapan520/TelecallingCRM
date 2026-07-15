@@ -27,6 +27,12 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<WebhookDeliveryLog> WebhookDeliveryLogs => Set<WebhookDeliveryLog>();
     public DbSet<IntegrationConfig> IntegrationConfigs => Set<IntegrationConfig>();
     public DbSet<TaskComment> TaskComments => Set<TaskComment>();
+    public DbSet<Meeting> Meetings => Set<Meeting>();
+    public DbSet<MeetingAttendee> MeetingAttendees => Set<MeetingAttendee>();
+    public DbSet<Escalation> Escalations => Set<Escalation>();
+    public DbSet<EscalationRule> EscalationRules => Set<EscalationRule>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<CallControlEvent> CallControlEvents => Set<CallControlEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -205,6 +211,75 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
              .HasForeignKey(i => i.TenantId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(i => new { i.TenantId, i.Provider }).IsUnique();
             e.Property(i => i.ConfigJson).HasColumnType("LONGTEXT");
+        });
+
+        builder.Entity<Meeting>(e =>
+        {
+            e.HasOne(m => m.Tenant).WithMany(t => t.Meetings)
+             .HasForeignKey(m => m.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(m => m.Lead).WithMany(l => l.Meetings)
+             .HasForeignKey(m => m.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(m => m.OrganisedBy).WithMany(u => u.OrganisedMeetings)
+             .HasForeignKey(m => m.OrganisedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(m => new { m.TenantId, m.ScheduledAt });
+            e.HasIndex(m => m.LeadId);
+        });
+
+        builder.Entity<MeetingAttendee>(e =>
+        {
+            e.HasOne(a => a.Meeting).WithMany(m => m.Attendees)
+             .HasForeignKey(a => a.MeetingId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.User).WithMany(u => u.MeetingAttendances)
+             .HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(a => a.MeetingId);
+        });
+
+        builder.Entity<EscalationRule>(e =>
+        {
+            e.HasOne(r => r.Tenant).WithMany(t => t.EscalationRules)
+             .HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.EscalateTo).WithMany(u => u.EscalationRules)
+             .HasForeignKey(r => r.EscalateToId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(r => r.TenantId);
+        });
+
+        builder.Entity<Escalation>(e =>
+        {
+            e.HasOne(es => es.Tenant).WithMany(t => t.Escalations)
+             .HasForeignKey(es => es.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(es => es.Lead).WithMany(l => l.Escalations)
+             .HasForeignKey(es => es.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(es => es.AssignedAgent).WithMany(u => u.EscalationsAssigned)
+             .HasForeignKey(es => es.AssignedAgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(es => es.EscalatedTo).WithMany(u => u.EscalationsReceived)
+             .HasForeignKey(es => es.EscalatedToId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(es => es.Rule).WithMany(r => r.Escalations)
+             .HasForeignKey(es => es.RuleId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(es => new { es.TenantId, es.Status });
+            e.HasIndex(es => es.LeadId);
+        });
+
+        builder.Entity<Payment>(e =>
+        {
+            e.HasOne(p => p.Tenant).WithMany(t => t.Payments)
+             .HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.Lead).WithMany(l => l.Payments)
+             .HasForeignKey(p => p.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(p => p.RecordedBy).WithMany(u => u.RecordedPayments)
+             .HasForeignKey(p => p.RecordedById).OnDelete(DeleteBehavior.Restrict);
+            e.Property(p => p.Amount).HasColumnType("decimal(18,2)");
+            e.HasIndex(p => p.TenantId);
+            e.HasIndex(p => p.LeadId);
+            e.HasIndex(p => p.RazorpayOrderId);
+        });
+
+        builder.Entity<CallControlEvent>(e =>
+        {
+            e.HasOne(c => c.Call).WithMany(ca => ca.ControlEvents)
+             .HasForeignKey(c => c.CallId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(c => c.Agent).WithMany(u => u.CallControlEvents)
+             .HasForeignKey(c => c.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(c => c.CallId);
         });
     }
 }

@@ -50,5 +50,8 @@ public class Lead
     public ICollection<WhatsAppMessage> WhatsAppMessages { get; set; } = new List<WhatsAppMessage>();
     public ICollection<SmsMessage> SmsMessages { get; set; } = new List<SmsMessage>();
     public ICollection<EmailMessage> EmailMessages { get; set; } = new List<EmailMessage>();
+    public ICollection<Meeting> Meetings { get; set; } = new List<Meeting>();
+    public ICollection<Escalation> Escalations { get; set; } = new List<Escalation>();
+    public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }
 

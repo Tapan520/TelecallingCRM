@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
+using EscalationStatus = TelecallingCRM.Data.Models.EscalationStatus;
 
 namespace TelecallingCRM.Services;
 
@@ -130,6 +131,91 @@ public class ScheduledJobService
                 Body = $"\"{t.Title}\" was due on {t.DueAt:dd MMM HH:mm}.",
                 Link = $"/Tasks"
             });
+
+        // ?? 6. Auto-escalate leads based on active escalation rules ????????
+        var activeRules = await _db.EscalationRules
+            .Where(r => r.IsActive)
+            .ToListAsync();
+
+        foreach (var rule in activeRules)
+        {
+            switch (rule.Trigger)
+            {
+                case EscalationTrigger.MissedFollowUp:
+                {
+                    // Leads with >= ThresholdValue missed follow-ups that are not yet escalated
+                    var missedCounts = await _db.FollowUps
+                        .Where(f => f.TenantId == rule.TenantId && f.Status == FollowUpStatus.Missed)
+                        .GroupBy(f => f.LeadId)
+                        .Where(g => g.Count() >= rule.ThresholdValue)
+                        .Select(g => g.Key)
+                        .ToListAsync();
+
+                    foreach (var leadId in missedCounts)
+                    {
+                        var alreadyOpen = await _db.Escalations.AnyAsync(e =>
+                            e.TenantId == rule.TenantId && e.LeadId == leadId
+                            && e.RuleId == rule.Id
+                            && e.Status == EscalationStatus.Pending);
+                        if (alreadyOpen) continue;
+
+                        var lead = await _db.Leads.FindAsync(leadId);
+                        if (lead == null) continue;
+
+                        _db.Escalations.Add(new Escalation {
+                            TenantId = rule.TenantId, LeadId = leadId,
+                            AssignedAgentId = lead.AssignedToId ?? rule.EscalateToId,
+                            EscalatedToId = rule.EscalateToId, RuleId = rule.Id,
+                            Reason = $"Lead has {rule.ThresholdValue}+ missed follow-ups."
+                        });
+                        _db.Notifications.Add(new Notification {
+                            TenantId = rule.TenantId, UserId = rule.EscalateToId,
+                            Type = NotificationType.SystemAlert,
+                            Title = "Auto Escalation: Missed Follow-ups",
+                            Body = $"Lead \"{lead.Name}\" has {rule.ThresholdValue}+ missed follow-ups.",
+                            Link = $"/Leads/Timeline/{leadId}"
+                        });
+                    }
+                    break;
+                }
+
+                case EscalationTrigger.NoContactDays:
+                {
+                    var cutoff = now.AddDays(-rule.ThresholdValue);
+                    var neglectedLeads = await _db.Leads
+                        .Where(l => l.TenantId == rule.TenantId
+                                 && l.Status != LeadStatus.Converted
+                                 && l.Status != LeadStatus.Dead
+                                 && (l.LastContactedAt == null || l.LastContactedAt < cutoff))
+                        .Select(l => new { l.Id, l.Name, l.AssignedToId })
+                        .ToListAsync();
+
+                    foreach (var lead in neglectedLeads)
+                    {
+                        var alreadyOpen = await _db.Escalations.AnyAsync(e =>
+                            e.TenantId == rule.TenantId && e.LeadId == lead.Id
+                            && e.RuleId == rule.Id
+                            && e.Status == EscalationStatus.Pending);
+                        if (alreadyOpen) continue;
+
+                        _db.Escalations.Add(new Escalation {
+                            TenantId = rule.TenantId, LeadId = lead.Id,
+                            AssignedAgentId = lead.AssignedToId ?? rule.EscalateToId,
+                            EscalatedToId = rule.EscalateToId, RuleId = rule.Id,
+                            Reason = $"No contact for {rule.ThresholdValue}+ days."
+                        });
+                        _db.Notifications.Add(new Notification {
+                            TenantId = rule.TenantId, UserId = rule.EscalateToId,
+                            Type = NotificationType.SystemAlert,
+                            Title = "Auto Escalation: No Contact",
+                            Body = $"Lead \"{lead.Name}\" not contacted for {rule.ThresholdValue}+ days.",
+                            Link = $"/Leads/Timeline/{lead.Id}"
+                        });
+                    }
+                    break;
+                }
+            }
+        }
 
         await _db.SaveChangesAsync();
         _logger.LogInformation("ScheduledJobService: {Overdue} overdue tasks, {Missed} missed follow-ups, {FollowUps} follow-up notifications",

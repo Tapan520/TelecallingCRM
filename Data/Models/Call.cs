@@ -41,5 +41,6 @@ public class Call
 
     public Lead Lead { get; set; } = null!;
     public AppUser Agent { get; set; } = null!;
+    public ICollection<CallControlEvent> ControlEvents { get; set; } = new List<CallControlEvent>();
 }
 

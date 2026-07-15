@@ -25,4 +25,11 @@ public class AppUser : IdentityUser<Guid>
     public ICollection<WhatsAppMessage> WhatsAppMessages { get; set; } = new List<WhatsAppMessage>();
     public ICollection<SmsMessage> SmsMessages { get; set; } = new List<SmsMessage>();
     public ICollection<EmailMessage> EmailMessages { get; set; } = new List<EmailMessage>();
+    public ICollection<Meeting> OrganisedMeetings { get; set; } = new List<Meeting>();
+    public ICollection<MeetingAttendee> MeetingAttendances { get; set; } = new List<MeetingAttendee>();
+    public ICollection<Escalation> EscalationsReceived { get; set; } = new List<Escalation>();
+    public ICollection<Escalation> EscalationsAssigned { get; set; } = new List<Escalation>();
+    public ICollection<EscalationRule> EscalationRules { get; set; } = new List<EscalationRule>();
+    public ICollection<Payment> RecordedPayments { get; set; } = new List<Payment>();
+    public ICollection<CallControlEvent> CallControlEvents { get; set; } = new List<CallControlEvent>();
 }

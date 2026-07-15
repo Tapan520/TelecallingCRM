@@ -16,7 +16,12 @@ public enum ActivityType
     SmsSent,
     WhatsAppSent,
     LeadAssigned,
-    LeadConverted
+    LeadConverted,
+    MeetingScheduled,
+    MeetingCompleted,
+    EscalationRaised,
+    EscalationResolved,
+    PaymentReceived
 }
 
 public class ActivityLog

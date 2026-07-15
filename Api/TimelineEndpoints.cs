@@ -74,9 +74,46 @@ public static class TimelineEndpoints
                 })
                 .ToListAsync();
 
+            var meetings = await db.Meetings
+                .Where(m => m.LeadId == leadId)
+                .Include(m => m.OrganisedBy)
+                .OrderByDescending(m => m.ScheduledAt)
+                .Select(m => new {
+                    m.Id, m.Title, m.Type, m.Status, m.ScheduledAt,
+                    m.DurationMinutes, m.Location, m.MeetingLink,
+                    m.Outcome, m.Notes,
+                    OrganisedBy = m.OrganisedBy.FullName,
+                    ItemType = "meeting"
+                })
+                .ToListAsync();
+
+            var escalations = await db.Escalations
+                .Where(e => e.LeadId == leadId)
+                .Include(e => e.EscalatedTo)
+                .OrderByDescending(e => e.CreatedAt)
+                .Select(e => new {
+                    e.Id, e.Status, e.Reason, e.CreatedAt,
+                    e.AcknowledgedAt, e.ResolvedAt, e.ResolutionNote,
+                    EscalatedTo = e.EscalatedTo.FullName,
+                    ItemType = "escalation"
+                })
+                .ToListAsync();
+
+            var payments = await db.Payments
+                .Where(p => p.LeadId == leadId)
+                .Include(p => p.RecordedBy)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new {
+                    p.Id, p.Amount, p.Currency, p.Status,
+                    p.Description, p.ReceiptNumber, p.CreatedAt, p.CapturedAt,
+                    RecordedBy = p.RecordedBy.FullName,
+                    ItemType = "payment"
+                })
+                .ToListAsync();
+
             return Results.Ok(new {
                 lead = new { lead.Id, lead.Name, lead.Phone, lead.Email, lead.Status, lead.AiScore, lead.AiInsight, lead.CreatedAt },
-                activities, calls, followups, tasks, documents
+                activities, calls, followups, tasks, documents, meetings, escalations, payments
             });
         });
     }
