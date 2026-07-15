@@ -1,0 +1,242 @@
+@page
+@model TelecallingCRM.Pages.SuperAdmin.TenantsModel
+@{
+    ViewData["Title"] = "Tenant Management";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold">All Tenants</h5>
+        <small class="text-muted">Every organization on this platform</small>
+    </div>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tenantModal">
+        <i class="bi bi-building-add"></i> New Tenant
+    </button>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0" id="tenants-table">
+            <thead class="table-light">
+                <tr>
+                    <th>Organization</th>
+                    <th>Slug</th>
+                    <th>Plan</th>
+                    <th>Users</th>
+                    <th>Leads</th>
+                    <th>Limits</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="tenants-tbody">
+                <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Tenant Modal -->
+<div class="modal fade" id="tenantModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="bi bi-building-add me-2"></i>Create New Tenant</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Company Name *</label>
+                        <input type="text" id="t-name" class="form-control" placeholder="Acme Corp">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Slug (URL identifier) *</label>
+                        <input type="text" id="t-slug" class="form-control" placeholder="acme-corp">
+                        <div class="form-text">Lowercase, letters, numbers and hyphens only.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Plan</label>
+                        <select id="t-plan" class="form-select">
+                            <option value="free">Free</option>
+                            <option value="starter">Starter</option>
+                            <option value="pro" selected>Pro</option>
+                            <option value="enterprise">Enterprise</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Max Users</label>
+                        <input type="number" id="t-max-users" class="form-control" value="10">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Max Leads</label>
+                        <input type="number" id="t-max-leads" class="form-control" value="1000">
+                    </div>
+                    <div class="col-12"><hr class="my-1"><p class="fw-semibold mb-2 text-muted small">FIRST ADMIN ACCOUNT</p></div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Admin Full Name *</label>
+                        <input type="text" id="t-admin-name" class="form-control" placeholder="Jane Doe">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Admin Email *</label>
+                        <input type="email" id="t-admin-email" class="form-control" placeholder="admin@acmecorp.com">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Admin Password *</label>
+                        <input type="password" id="t-admin-password" class="form-control" placeholder="Min 8 chars">
+                    </div>
+                </div>
+                <div id="tenant-error" class="alert alert-danger mt-3 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createTenant()">
+                    <i class="bi bi-check-lg me-1"></i>Create Tenant
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Plan Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Plan & Limits</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-id">
+                <div class="mb-3">
+                    <label class="form-label">Plan</label>
+                    <select id="edit-plan" class="form-select">
+                        <option value="free">Free</option>
+                        <option value="starter">Starter</option>
+                        <option value="pro">Pro</option>
+                        <option value="enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label">Max Users</label>
+                        <input type="number" id="edit-max-users" class="form-control">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Max Leads</label>
+                        <input type="number" id="edit-max-leads" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="savePlan()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const planColors = { free:'secondary', starter:'info', pro:'primary', enterprise:'warning' };
+
+async function loadTenants() {
+    const res = await fetch('/api/superadmin/tenants');
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('tenants-tbody').innerHTML = data.length === 0
+        ? '<tr><td colspan="9" class="text-center text-muted py-4">No tenants yet.</td></tr>'
+        : data.map(t => `
+        <tr>
+            <td class="fw-semibold">${t.name}</td>
+            <td><code>${t.slug}</code></td>
+            <td><span class="badge bg-${planColors[t.plan] ?? 'secondary'}">${t.plan}</span></td>
+            <td>${t.userCount}</td>
+            <td>${t.leadCount}</td>
+            <td><small>${t.userCount}/${t.maxUsers} users &bull; ${t.leadCount}/${t.maxLeads} leads</small></td>
+            <td>${t.isActive
+                ? '<span class="badge bg-success">Active</span>'
+                : '<span class="badge bg-danger">Suspended</span>'}</td>
+            <td><small>${new Date(t.createdAt).toLocaleDateString()}</small></td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="openEdit('${t.id}','${t.plan}',${t.maxUsers},${t.maxLeads})" title="Edit plan">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-${t.isActive ? 'warning' : 'success'}"
+                        onclick="toggleTenant('${t.id}')" title="${t.isActive ? 'Suspend' : 'Activate'}">
+                        <i class="bi bi-${t.isActive ? 'pause-circle' : 'play-circle'}"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteTenant('${t.id}','${t.name}')" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>`).join('');
+}
+
+async function createTenant() {
+    const errEl = document.getElementById('tenant-error');
+    errEl.classList.add('d-none');
+    const body = {
+        companyName: document.getElementById('t-name').value,
+        slug: document.getElementById('t-slug').value,
+        plan: document.getElementById('t-plan').value,
+        maxUsers: parseInt(document.getElementById('t-max-users').value),
+        maxLeads: parseInt(document.getElementById('t-max-leads').value),
+        adminFullName: document.getElementById('t-admin-name').value,
+        adminEmail: document.getElementById('t-admin-email').value,
+        adminPassword: document.getElementById('t-admin-password').value
+    };
+    const res = await fetch('/api/superadmin/tenants', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('tenantModal')).hide();
+        loadTenants();
+    } else {
+        const err = await res.json();
+        errEl.textContent = typeof err === 'string' ? err : JSON.stringify(err);
+        errEl.classList.remove('d-none');
+    }
+}
+
+function openEdit(id, plan, maxUsers, maxLeads) {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-plan').value = plan;
+    document.getElementById('edit-max-users').value = maxUsers;
+    document.getElementById('edit-max-leads').value = maxLeads;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+async function savePlan() {
+    const id = document.getElementById('edit-id').value;
+    const body = {
+        plan: document.getElementById('edit-plan').value,
+        maxUsers: parseInt(document.getElementById('edit-max-users').value),
+        maxLeads: parseInt(document.getElementById('edit-max-leads').value)
+    };
+    const res = await fetch(`/api/superadmin/tenants/${id}`, {
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+        loadTenants();
+    }
+}
+
+async function toggleTenant(id) {
+    await fetch(`/api/superadmin/tenants/${id}/toggle`, { method: 'POST' });
+    loadTenants();
+}
+
+async function deleteTenant(id, name) {
+    if (!confirm(`Permanently delete "${name}" and ALL its data? This cannot be undone.`)) return;
+    const res = await fetch(`/api/superadmin/tenants/${id}`, { method: 'DELETE' });
+    if (res.ok) loadTenants();
+}
+
+loadTenants();
+</script>
+}

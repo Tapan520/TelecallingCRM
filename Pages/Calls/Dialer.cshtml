@@ -1,0 +1,318 @@
+@page
+@model TelecallingCRM.Pages.Calls.DialerModel
+@{
+    ViewData["Title"] = "Dialer";
+}
+
+<div class="row g-3">
+    <!-- Left: Lead Search + Queue -->
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold"><i class="bi bi-search"></i> Find Lead to Call</div>
+            <div class="card-body">
+                <input type="text" id="dialer-search" class="form-control form-control-sm mb-2" placeholder="Search name or phone...">
+                <div id="search-results" style="max-height:300px;overflow-y:auto;"></div>
+            </div>
+        </div>
+        <!-- Today's Follow-ups Queue -->
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-list-task"></i> Today's Call Queue</div>
+            <div class="card-body p-0">
+                <div id="call-queue" style="max-height:350px;overflow-y:auto;">
+                    <div class="text-center text-muted py-3 small">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Center: Dialer Panel -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <!-- Current Lead Info -->
+                <div id="dialer-lead-info" class="mb-3">
+                    <div class="text-muted small">No lead selected</div>
+                </div>
+
+                <!-- Call Status Display -->
+                <div id="call-status-display" class="mb-3">
+                    <div class="fs-1 fw-bold text-primary" id="call-timer">00:00</div>
+                    <div class="badge bg-secondary" id="call-status-badge">Idle</div>
+                </div>
+
+                <!-- Number Display -->
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                    <input type="text" id="dial-number" class="form-control text-center fw-bold" placeholder="+91 98765 43210" readonly>
+                </div>
+
+                <!-- Call Action Buttons -->
+                <div class="d-grid gap-2 mb-3">
+                    <button id="btn-call" class="btn btn-success btn-lg" onclick="startCall()" disabled>
+                        <i class="bi bi-telephone-fill"></i> Call
+                    </button>
+                    <button id="btn-hangup" class="btn btn-danger btn-lg d-none" onclick="hangUp()">
+                        <i class="bi bi-telephone-x-fill"></i> Hang Up
+                    </button>
+                </div>
+
+                <!-- In-call controls -->
+                <div id="in-call-controls" class="d-none">
+                    <div class="d-flex justify-content-center gap-2 mb-3">
+                        <button class="btn btn-outline-secondary btn-sm" id="btn-mute" onclick="toggleMute()" title="Mute">
+                            <i class="bi bi-mic-mute-fill"></i> Mute
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" id="btn-hold" onclick="toggleHold()" title="Hold">
+                            <i class="bi bi-pause-circle-fill"></i> Hold
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="openTransfer()" title="Transfer">
+                            <i class="bi bi-arrow-right-circle-fill"></i> Transfer
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" id="btn-record" onclick="toggleRecord()" title="Record">
+                            <i class="bi bi-record-circle text-danger"></i> Rec
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Disposition (shown after call) -->
+                <div id="disposition-panel" class="d-none">
+                    <hr>
+                    <p class="fw-semibold text-muted mb-2">Call Disposition</p>
+                    <div class="d-flex flex-wrap gap-1 justify-content-center mb-3">
+                        @foreach (var d in new[] {
+                            ("Interested","success"), ("NotInterested","danger"), ("Callback","warning"),
+                            ("HotLead","warning"), ("Converted","success"), ("Busy","secondary"),
+                            ("NoAnswer","secondary"), ("SwitchOff","dark"), ("WrongNumber","dark"), ("CallLater","info")
+                        })
+                        {
+                            <button class="btn btn-outline-@d.Item2 btn-sm" onclick="setDisposition('@d.Item1')">@d.Item1</button>
+                        }
+                    </div>
+                    <textarea id="call-notes" class="form-control form-control-sm mb-2" rows="2" placeholder="Call notes..."></textarea>
+                    <button class="btn btn-primary w-100" onclick="saveDisposition()">
+                        <i class="bi bi-check-lg"></i> Save & Next Lead
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Call Script + AI Insight -->
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold"><i class="bi bi-file-text"></i> Call Script</div>
+            <div class="card-body">
+                <div id="call-script" class="text-muted small" style="white-space:pre-wrap;">
+                    Select a lead to view the campaign script...
+                </div>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header fw-semibold"><i class="bi bi-robot"></i> AI Insight</div>
+            <div class="card-body">
+                <div id="ai-insight" class="small">
+                    <span class="text-muted">No AI insight available yet.</span>
+                </div>
+            </div>
+        </div>
+        <!-- Recent calls for selected lead -->
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-clock-history"></i> Recent Calls</div>
+            <div class="card-body p-0">
+                <div id="recent-calls" class="small p-2 text-muted">Select a lead...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Transfer Call</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <select id="transfer-agent" class="form-select mb-2"></select>
+                <button class="btn btn-primary w-100" onclick="confirmTransfer()">Transfer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentCallId = null;
+let currentLeadId = null;
+let currentLeadPhone = null;
+let timerInterval = null;
+let callSeconds = 0;
+let isMuted = false;
+let isOnHold = false;
+let isRecording = false;
+let selectedDisposition = null;
+
+// Load today's call queue
+async function loadQueue() {
+    const res = await fetch('/api/followups/today');
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('call-queue').innerHTML = data.length === 0
+        ? '<div class="text-center text-muted py-3 small">No follow-ups today</div>'
+        : data.map(f => `
+            <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom hover-bg" style="cursor:pointer;"
+                 onclick="selectLead('${f.leadId}','${f.leadName}','${f.leadPhone}')">
+                <i class="bi bi-clock text-warning"></i>
+                <div>
+                    <div class="fw-semibold small">${f.leadName}</div>
+                    <div class="text-muted" style="font-size:.75rem;">${f.leadPhone} · ${new Date(f.scheduledAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+                <i class="bi bi-telephone ms-auto text-success"></i>
+            </div>`).join('');
+}
+
+// Search leads
+let searchTimeout;
+document.getElementById('dialer-search').addEventListener('input', e => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+        const q = e.target.value.trim();
+        if (q.length < 2) { document.getElementById('search-results').innerHTML = ''; return; }
+        const res = await fetch(`/api/leads?q=${encodeURIComponent(q)}&pageSize=8`);
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('search-results').innerHTML = data.leads.map(l => `
+            <div class="d-flex align-items-center gap-2 p-2 border-bottom hover-bg rounded" style="cursor:pointer;"
+                 onclick="selectLead('${l.id}','${l.name}','${l.phone}')">
+                <i class="bi bi-person-circle text-primary"></i>
+                <div>
+                    <div class="fw-semibold small">${l.name}</div>
+                    <div class="text-muted" style="font-size:.75rem;">${l.phone}</div>
+                </div>
+                <span class="badge badge-status-${l.status} ms-auto">${l.status}</span>
+            </div>`).join('') || '<div class="text-muted small p-2">No results</div>';
+    }, 300);
+});
+
+async function selectLead(id, name, phone) {
+    currentLeadId = id;
+    currentLeadPhone = phone;
+    document.getElementById('dial-number').value = phone;
+    document.getElementById('btn-call').disabled = false;
+    document.getElementById('dialer-lead-info').innerHTML = `
+        <div class="fw-bold">${name}</div>
+        <div class="text-muted small">${phone}</div>
+        <a href="/Leads/Timeline/${id}" target="_blank" class="btn btn-link btn-sm p-0">View Timeline</a>`;
+
+    // Load lead detail for script + insight
+    const res = await fetch(`/api/leads/${id}`);
+    if (!res.ok) return;
+    const lead = await res.json();
+    document.getElementById('ai-insight').innerHTML = lead.aiInsight
+        ? `<div class="alert alert-warning py-1 px-2 mb-0 small"><i class="bi bi-lightbulb-fill text-warning"></i> ${lead.aiInsight}</div>`
+        : '<span class="text-muted">No AI insight available.</span>';
+
+    // Load recent calls
+    const callRes = await fetch(`/api/calls?leadId=${id}&pageSize=5`);
+    if (callRes.ok) {
+        const cd = await callRes.json();
+        document.getElementById('recent-calls').innerHTML = cd.calls.length === 0
+            ? '<div class="text-muted p-2">No previous calls</div>'
+            : cd.calls.map(c => `<div class="px-2 py-1 border-bottom">
+                <span class="badge bg-secondary me-1">${c.outcome}</span>
+                <small class="text-muted">${new Date(c.startedAt).toLocaleDateString()} · ${Math.floor(c.durationSeconds/60)}m</small>
+                </div>`).join('');
+    }
+}
+
+async function startCall() {
+    if (!currentLeadId) return;
+    const myUserId = '@Html.Raw(Model.CurrentUserId)';
+    const res = await fetch('/api/calls/start', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ leadId: currentLeadId, agentId: myUserId })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    currentCallId = data.id;
+
+    // Update UI
+    document.getElementById('btn-call').classList.add('d-none');
+    document.getElementById('btn-hangup').classList.remove('d-none');
+    document.getElementById('in-call-controls').classList.remove('d-none');
+    document.getElementById('call-status-badge').className = 'badge bg-success';
+    document.getElementById('call-status-badge').textContent = 'In Call';
+
+    // Start timer
+    callSeconds = 0;
+    timerInterval = setInterval(() => {
+        callSeconds++;
+        const m = String(Math.floor(callSeconds/60)).padStart(2,'0');
+        const s = String(callSeconds%60).padStart(2,'0');
+        document.getElementById('call-timer').textContent = `${m}:${s}`;
+    }, 1000);
+}
+
+function hangUp() {
+    clearInterval(timerInterval);
+    document.getElementById('btn-hangup').classList.add('d-none');
+    document.getElementById('btn-call').classList.remove('d-none');
+    document.getElementById('in-call-controls').classList.add('d-none');
+    document.getElementById('call-status-badge').className = 'badge bg-warning';
+    document.getElementById('call-status-badge').textContent = 'Disposition';
+    document.getElementById('disposition-panel').classList.remove('d-none');
+}
+
+function toggleMute() {
+    isMuted = !isMuted;
+    const btn = document.getElementById('btn-mute');
+    btn.className = isMuted ? 'btn btn-danger btn-sm' : 'btn btn-outline-secondary btn-sm';
+    btn.innerHTML = isMuted ? '<i class="bi bi-mic-mute-fill"></i> Unmute' : '<i class="bi bi-mic-mute-fill"></i> Mute';
+}
+
+function toggleHold() {
+    isOnHold = !isOnHold;
+    const btn = document.getElementById('btn-hold');
+    btn.className = isOnHold ? 'btn btn-warning btn-sm' : 'btn btn-outline-secondary btn-sm';
+    btn.textContent = isOnHold ? '? Resume' : '? Hold';
+}
+
+function toggleRecord() {
+    isRecording = !isRecording;
+    const btn = document.getElementById('btn-record');
+    btn.innerHTML = isRecording
+        ? '<i class="bi bi-record-circle-fill text-danger"></i> Stop Rec'
+        : '<i class="bi bi-record-circle text-danger"></i> Rec';
+}
+
+function openTransfer() {
+    new bootstrap.Modal(document.getElementById('transferModal')).show();
+}
+
+function setDisposition(d) {
+    selectedDisposition = d;
+    document.querySelectorAll('#disposition-panel button[onclick^="setDisposition"]').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+async function saveDisposition() {
+    if (!currentCallId || !selectedDisposition) { alert('Please select a disposition.'); return; }
+    const notes = document.getElementById('call-notes').value;
+    await fetch(`/api/calls/${currentCallId}/end`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ outcome: selectedDisposition, notes, transcriptText: null })
+    });
+    // Reset UI
+    document.getElementById('disposition-panel').classList.add('d-none');
+    document.getElementById('call-timer').textContent = '00:00';
+    document.getElementById('call-status-badge').className = 'badge bg-secondary';
+    document.getElementById('call-status-badge').textContent = 'Idle';
+    document.getElementById('call-notes').value = '';
+    selectedDisposition = null; currentCallId = null;
+    loadQueue();
+}
+
+loadQueue();
+</script>
+<style>
+.hover-bg:hover { background: #f8fafc; }
+</style>
+}

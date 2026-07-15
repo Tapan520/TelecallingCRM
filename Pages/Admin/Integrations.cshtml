@@ -1,0 +1,117 @@
+@page
+@model TelecallingCRM.Pages.Admin.IntegrationsModel
+@{
+    ViewData["Title"] = "Integrations";
+}
+
+<div class="mb-4">
+    <h5 class="mb-1 fw-bold">Integrations</h5>
+    <small class="text-muted">Connect your CRM to external services. Changes are saved per tenant.</small>
+</div>
+
+<div class="row g-3" id="integrations-grid">
+    <div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div></div>
+</div>
+
+<!-- Config Modal -->
+<div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title">Configure Integration</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modal-fields"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const providerLabels = {
+    twilio: { name:'Twilio', icon:'bi-telephone-fill', color:'red', desc:'SMS, WhatsApp & Voice calls via Twilio' },
+    exotel: { name:'Exotel', icon:'bi-telephone-outbound', color:'blue', desc:'Cloud telephony for India' },
+    knowlarity: { name:'Knowlarity', icon:'bi-headset', color:'orange', desc:'Call centre & IVR solution' },
+    airteliq: { name:'Airtel IQ', icon:'bi-broadcast', color:'red', desc:'Enterprise calling via Airtel' },
+    razorpay: { name:'Razorpay', icon:'bi-credit-card', color:'blue', desc:'Payment gateway integration' },
+    whatsapp_waba: { name:'WhatsApp Business API', icon:'bi-whatsapp', color:'green', desc:'Official WhatsApp Business messaging' },
+    smtp: { name:'SMTP Email', icon:'bi-envelope', color:'gray', desc:'Send emails via your SMTP server' },
+    sendgrid: { name:'SendGrid', icon:'bi-envelope-fill', color:'blue', desc:'Transactional email via SendGrid' },
+    google_calendar: { name:'Google Calendar', icon:'bi-calendar-event', color:'blue', desc:'Sync follow-ups with Google Calendar' },
+    facebook_leads: { name:'Facebook Lead Ads', icon:'bi-facebook', color:'blue', desc:'Auto-import leads from Facebook ads' }
+};
+
+let currentProvider = null;
+let currentFields = {};
+
+async function loadIntegrations() {
+    const res = await fetch('/api/integrations');
+    if (!res.ok) return;
+    const data = await res.json();
+    const grid = document.getElementById('integrations-grid');
+    grid.innerHTML = data.map(i => {
+        const info = providerLabels[i.provider] ?? { name: i.provider, icon:'bi-plug', color:'gray', desc:'' };
+        return `
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center flex-shrink-0" style="width:44px;height:44px;">
+                            <i class="bi ${info.icon} fs-5 text-${info.color === 'green' ? 'success' : info.color === 'red' ? 'danger' : info.color === 'orange' ? 'warning' : 'primary'}"></i>
+                        </div>
+                        <div>
+                            <div class="fw-semibold">${info.name}</div>
+                            <div class="text-muted small">${info.desc}</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mt-3">
+                        <span class="badge bg-${i.isEnabled ? 'success' : 'secondary'}">${i.isEnabled ? 'Enabled' : i.isConfigured ? 'Disabled' : 'Not configured'}</span>
+                        <div class="d-flex gap-1">
+                            ${i.isConfigured ? `<button class="btn btn-sm btn-outline-secondary" onclick="toggleIntegration('${i.provider}')">${i.isEnabled ? 'Disable' : 'Enable'}</button>` : ''}
+                            <button class="btn btn-sm btn-outline-primary" onclick="openConfig('${i.provider}')">Configure</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function openConfig(provider) {
+    currentProvider = provider;
+    const res = await fetch(`/api/integrations/${provider}/fields`);
+    if (!res.ok) return;
+    const fields = await res.json();
+    const info = providerLabels[provider] ?? { name: provider };
+    document.getElementById('modal-title').textContent = `Configure ${info.name}`;
+    document.getElementById('modal-fields').innerHTML = fields.map(f => `
+        <div class="mb-3">
+            <label class="form-label fw-semibold">${f}</label>
+            <input type="${f.toLowerCase().includes('secret') || f.toLowerCase().includes('token') || f.toLowerCase().includes('password') ? 'password' : 'text'}"
+                   class="form-control" id="cfg-${f}" placeholder="${f}">
+        </div>`).join('');
+    currentFields = fields;
+    new bootstrap.Modal(document.getElementById('configModal')).show();
+}
+
+async function saveConfig() {
+    const values = {};
+    currentFields.forEach(f => { values[f] = document.getElementById(`cfg-${f}`).value; });
+    const res = await fetch(`/api/integrations/${currentProvider}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(values)
+    });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('configModal')).hide(); loadIntegrations(); }
+}
+
+async function toggleIntegration(provider) {
+    await fetch(`/api/integrations/${provider}/toggle`, { method: 'POST' });
+    loadIntegrations();
+}
+
+loadIntegrations();
+</script>
+}

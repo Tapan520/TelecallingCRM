@@ -1,0 +1,77 @@
+@page
+@model TelecallingCRM.Pages.Admin.SettingsModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header py-3"><span class="fw-semibold"><i class="bi bi-building"></i> Organization</span></div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="Organization">
+                    <div class="mb-3">
+                        <label class="form-label">Company Name</label>
+                        <input asp-for="OrgName" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Plan</label>
+                        <input class="form-control" value="@Model.Plan" readonly>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header py-3"><span class="fw-semibold"><i class="bi bi-robot"></i> AI Configuration</span></div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="Ai">
+                    <div class="mb-3">
+                        <label class="form-label">OpenRouter API Key</label>
+                        <input asp-for="OpenRouterKey" class="form-control" type="password" placeholder="sk-or-...">
+                        <div class="form-text">Get your key at <a href="https://openrouter.ai" target="_blank">openrouter.ai</a></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Default AI Model</label>
+                        <select asp-for="PreferredModel" class="form-select">
+                            <option value="openai/gpt-4o-mini">GPT-4o Mini (fast & cheap)</option>
+                            <option value="openai/gpt-4o">GPT-4o (powerful)</option>
+                            <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+                            <option value="anthropic/claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                            <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
+                            <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B (free)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save AI Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header py-3"><span class="fw-semibold"><i class="bi bi-shield-lock"></i> Tenant Info</span></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Tenant Slug</dt>
+                    <dd class="col-sm-8"><code>@Model.TenantSlug</code></dd>
+                    <dt class="col-sm-4">Tenant ID</dt>
+                    <dd class="col-sm-8"><code style="font-size:0.75rem;">@Model.TenantId</code></dd>
+                    <dt class="col-sm-4">Max Users</dt>
+                    <dd class="col-sm-8">@Model.MaxUsers</dd>
+                    <dt class="col-sm-4">Max Leads</dt>
+                    <dd class="col-sm-8">@Model.MaxLeads</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>

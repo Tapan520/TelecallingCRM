@@ -1,0 +1,555 @@
+@page
+@model TelecallingCRM.Pages.Leads.IndexModel
+@{
+    ViewData["Title"] = "Leads";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 flex-wrap">
+        <input type="text" id="search-input" class="form-control form-control-sm" placeholder="Search name, phone, email..." style="width:220px;">
+        <select id="status-filter" class="form-select form-select-sm" style="width:160px;">
+            <option value="">All Statuses</option>
+            <option value="New">New</option>
+            <option value="Contacted">Contacted</option>
+            <option value="Interested">Interested</option>
+            <option value="NotInterested">Not Interested</option>
+            <option value="FollowUp">Follow Up</option>
+            <option value="Converted">Converted</option>
+            <option value="Dead">Dead</option>
+        </select>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+            <i class="bi bi-upload"></i> Import CSV
+        </button>
+        <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reassignAgentModal" onclick="openReassignAgentModal()">
+            <i class="bi bi-arrow-left-right"></i> Reassign Agent
+        </button>
+        <button class="btn btn-outline-secondary btn-sm d-none" id="btn-bulk-assign" data-bs-toggle="modal" data-bs-target="#bulkAssignModal" onclick="openBulkAssignModal()">
+            <i class="bi bi-person-check"></i> Assign Selected (<span id="selected-count">0</span>)
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openNewLead()">
+            <i class="bi bi-plus-lg"></i> Add Lead
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:36px;"><input type="checkbox" id="chk-all" title="Select all on this page"></th>
+                    <th>Name</th><th>Phone</th><th>Company</th><th>Status</th>
+                    <th>Assigned To</th><th>Next Follow-up</th><th>Calls</th><th></th>
+                </tr>
+            </thead>
+            <tbody id="leads-tbody">
+                <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="leads-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="btn-prev" onclick="changePage(-1)">&#8592; Prev</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-next" onclick="changePage(1)">Next &#8594;</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CSV Import Modal ===== -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Bulk Import Leads (CSV)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Upload a <strong>.csv</strong> file. The first row is treated as a header and skipped.<br>
+                    <strong>Column order:</strong> Name, Phone, Email, Company, City, State, Source, Notes
+                </p>
+                <a href="#" class="small" onclick="downloadSampleCsv(); return false;"><i class="bi bi-download me-1"></i>Download sample CSV</a>
+                <div class="mb-3 mt-3">
+                    <label class="form-label fw-semibold">Choose CSV file *</label>
+                    <input type="file" id="import-file" class="form-control" accept=".csv,text/csv">
+                </div>
+                <div id="import-result" class="d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="importCsv()">
+                    <i class="bi bi-upload me-1"></i>Upload &amp; Import
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Reassign Agent Modal ===== -->
+<div class="modal fade" id="reassignAgentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-arrow-left-right me-2"></i>Reassign All Leads: Agent A &rarr; Agent B</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">All leads currently assigned to the <strong>From</strong> agent will be moved to the <strong>To</strong> agent in one step.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">From Agent (current assignee) *</label>
+                    <select id="reassign-from" class="form-select">
+                        <option value="">-- select agent --</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">To Agent (new assignee) *</label>
+                    <select id="reassign-to" class="form-select">
+                        <option value="">-- select agent --</option>
+                    </select>
+                </div>
+                <div id="reassign-result" class="d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="reassignAgent()">
+                    <i class="bi bi-arrow-left-right me-1"></i>Reassign All Leads
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Bulk Assign Selected Modal ===== -->
+<div class="modal fade" id="bulkAssignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-check me-2"></i>Assign Selected Leads</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">Assign <strong id="bulk-assign-count">0</strong> selected lead(s) to an agent.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Assign To *</label>
+                    <select id="bulk-assign-agent" class="form-select">
+                        <option value="">-- select agent --</option>
+                    </select>
+                </div>
+                <div id="bulk-assign-result" class="d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="bulkAssignSelected()">
+                    <i class="bi bi-person-check me-1"></i>Assign
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Lead Modal ===== -->
+<div class="modal fade" id="leadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="leadModalTitle">New Lead</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="lead-id">
+                <!-- hidden fields preserved on edit so they are not wiped -->
+                <input type="hidden" id="lead-assigned-to-id">
+                <input type="hidden" id="lead-campaign-id">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" id="lead-name" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Phone *</label>
+                        <input type="text" id="lead-phone" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Alternate Phone</label>
+                        <input type="text" id="lead-alternate-phone" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="lead-email" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Company</label>
+                        <input type="text" id="lead-company" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Industry</label>
+                        <input type="text" id="lead-industry" class="form-control" placeholder="Real Estate, Insurance...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">City</label>
+                        <input type="text" id="lead-city" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">State</label>
+                        <input type="text" id="lead-state" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Source</label>
+                        <input type="text" id="lead-source" class="form-control" placeholder="Web, Referral...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <select id="lead-status" class="form-select">
+                            <option value="0">New</option>
+                            <option value="1">Contacted</option>
+                            <option value="2">Interested</option>
+                            <option value="3">Not Interested</option>
+                            <option value="4">Follow Up</option>
+                            <option value="5">Converted</option>
+                            <option value="6">Dead</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Priority</label>
+                        <select id="lead-priority" class="form-select">
+                            <option value="0">Normal</option>
+                            <option value="1">High</option>
+                            <option value="2">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Assigned To</label>
+                        <select id="lead-assignee" class="form-select">
+                            <option value="">-- Unassigned --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Next Follow-up</label>
+                        <input type="datetime-local" id="lead-followup" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tags <small class="text-muted">(comma-separated)</small></label>
+                        <input type="text" id="lead-tags" class="form-control" placeholder="hot, VIP, callback">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <textarea id="lead-notes" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveLead()">
+                    <i class="bi bi-check-lg me-1"></i>Save Lead
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentPage = 1;
+const pageSize = 25;
+let selectedLeadIds = new Set();
+let allAgents = [];
+
+async function loadAgents() {
+    try {
+        const res = await fetch('/api/admin/users');
+        if (!res.ok) return;
+        allAgents = await res.json();
+    } catch { allAgents = []; }
+}
+
+function populateAgentSelect(selectId, selectedId = '') {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">-- select agent --</option>';
+    allAgents.forEach(a => {
+        const o = document.createElement('option');
+        o.value = a.id;
+        o.textContent = a.fullName + ' (' + a.role + ')';
+        if (a.id === selectedId) o.selected = true;
+        sel.appendChild(o);
+    });
+}
+
+async function loadLeads() {
+    const q = document.getElementById('search-input').value;
+    const status = document.getElementById('status-filter').value;
+    const url = '/api/leads?page=' + currentPage + '&pageSize=' + pageSize + '&q=' + encodeURIComponent(q) + '&status=' + status;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const statusBadge = s => '<span class="badge badge-status-' + s + '" style="font-size:0.75rem;">' + s + '</span>';
+    const priorityIcon = p => p === 2 ? '<span class="badge bg-danger" style="font-size:0.65rem;">URGENT</span>' : p === 1 ? '<span class="badge bg-warning text-dark" style="font-size:0.65rem;">HIGH</span>' : '';
+
+    document.getElementById('leads-tbody').innerHTML = data.leads.map(l =>
+        '<tr>' +
+        '<td><input type="checkbox" class="lead-chk" value="' + l.id + '" ' + (selectedLeadIds.has(l.id) ? 'checked' : '') + ' onchange="toggleLeadSelect(this)"></td>' +
+        '<td><a href="/Leads/' + l.id + '" class="fw-semibold text-decoration-none">' + priorityIcon(l.priority) + ' ' + l.name + '</a></td>' +
+        '<td>' + l.phone + '</td>' +
+        '<td>' + (l.company || '-') + '</td>' +
+        '<td>' + statusBadge(l.status) + '</td>' +
+        '<td>' + (l.assignedTo || '<span class="text-muted fst-italic">Unassigned</span>') + '</td>' +
+        '<td>' + (l.nextFollowUpAt ? new Date(l.nextFollowUpAt).toLocaleDateString() : '-') + '</td>' +
+        '<td><span class="badge bg-secondary">' + l.callCount + '</span></td>' +
+        '<td>' +
+        '<button class="btn btn-sm btn-outline-primary" onclick="editLead(\'' + l.id + '\')">Edit</button> ' +
+        '<button class="btn btn-sm btn-outline-danger" onclick="deleteLead(\'' + l.id + '\')">Delete</button>' +
+        '</td>' +
+        '</tr>'
+    ).join('');
+
+    document.getElementById('leads-count').textContent = data.total + ' leads';
+    document.getElementById('btn-prev').disabled = currentPage <= 1;
+    document.getElementById('btn-next').disabled = currentPage * pageSize >= data.total;
+    updateBulkBar();
+}
+
+function changePage(dir) { currentPage += dir; loadLeads(); }
+
+function toggleLeadSelect(chk) {
+    if (chk.checked) selectedLeadIds.add(chk.value);
+    else selectedLeadIds.delete(chk.value);
+    updateBulkBar();
+}
+
+document.getElementById('chk-all').addEventListener('change', function () {
+    document.querySelectorAll('.lead-chk').forEach(chk => {
+        chk.checked = this.checked;
+        if (this.checked) selectedLeadIds.add(chk.value);
+        else selectedLeadIds.delete(chk.value);
+    });
+    updateBulkBar();
+});
+
+function updateBulkBar() {
+    const count = selectedLeadIds.size;
+    document.getElementById('selected-count').textContent = count;
+    document.getElementById('btn-bulk-assign').classList.toggle('d-none', count === 0);
+}
+
+function downloadSampleCsv() {
+    const csv = 'Name,Phone,Email,Company,City,State,Source,Notes\nJohn Doe,9876543210,john@example.com,Acme Corp,Mumbai,MH,Web,Interested in product\nJane Smith,9123456789,,,Delhi,DL,Referral,';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'leads_sample.csv';
+    a.click();
+}
+
+async function importCsv() {
+    const fileInput = document.getElementById('import-file');
+    const resultDiv = document.getElementById('import-result');
+    if (!fileInput.files.length) { alert('Please select a CSV file.'); return; }
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    resultDiv.className = 'alert alert-info';
+    resultDiv.textContent = 'Uploading and importing...';
+    try {
+        const res = await fetch('/api/leads/import', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok) {
+            resultDiv.className = 'alert alert-success';
+            let msg = 'Imported: ' + data.imported + ' lead(s). Skipped (duplicates/invalid): ' + data.skipped + '.';
+            if (data.errors && data.errors.length) msg += '<br>' + data.errors.map(e => 'Warning: ' + e).join('<br>');
+            resultDiv.innerHTML = msg;
+            fileInput.value = '';
+            loadLeads();
+        } else {
+            resultDiv.className = 'alert alert-danger';
+            resultDiv.textContent = 'Import failed.';
+        }
+    } catch (e) {
+        resultDiv.className = 'alert alert-danger';
+        resultDiv.textContent = 'Network error during import.';
+    }
+}
+
+function openReassignAgentModal() {
+    populateAgentSelect('reassign-from', '');
+    populateAgentSelect('reassign-to', '');
+    document.getElementById('reassign-result').className = 'd-none';
+}
+
+async function reassignAgent() {
+    const fromId = document.getElementById('reassign-from').value;
+    const toId = document.getElementById('reassign-to').value;
+    const resultDiv = document.getElementById('reassign-result');
+    if (!fromId || !toId) { alert('Please select both agents.'); return; }
+    if (fromId === toId) { alert('From and To agents must be different.'); return; }
+    const fromName = document.getElementById('reassign-from').selectedOptions[0].text;
+    const toName = document.getElementById('reassign-to').selectedOptions[0].text;
+    if (!confirm('Reassign ALL leads from "' + fromName + '" to "' + toName + '"? This cannot be undone.')) return;
+    try {
+        const res = await fetch('/api/leads/bulk-reassign-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fromAgentId: fromId, toAgentId: toId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            resultDiv.className = 'alert alert-success';
+            resultDiv.textContent = data.updated + ' lead(s) reassigned from ' + fromName + ' to ' + toName + '.';
+            loadLeads();
+        } else {
+            resultDiv.className = 'alert alert-danger';
+            resultDiv.textContent = 'Reassign failed.';
+        }
+    } catch {
+        resultDiv.className = 'alert alert-danger';
+        resultDiv.textContent = 'Network error.';
+    }
+}
+
+function openBulkAssignModal() {
+    populateAgentSelect('bulk-assign-agent', '');
+    document.getElementById('bulk-assign-count').textContent = selectedLeadIds.size;
+    document.getElementById('bulk-assign-result').className = 'd-none';
+}
+
+async function bulkAssignSelected() {
+    const agentId = document.getElementById('bulk-assign-agent').value;
+    const resultDiv = document.getElementById('bulk-assign-result');
+    if (!agentId) { alert('Please select an agent.'); return; }
+    try {
+        const res = await fetch('/api/leads/bulk-assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadIds: Array.from(selectedLeadIds), assignedToId: agentId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            resultDiv.className = 'alert alert-success';
+            resultDiv.textContent = data.updated + ' lead(s) assigned.';
+            selectedLeadIds.clear();
+            updateBulkBar();
+            loadLeads();
+        } else {
+            resultDiv.className = 'alert alert-danger';
+            resultDiv.textContent = 'Assign failed.';
+        }
+    } catch {
+        resultDiv.className = 'alert alert-danger';
+        resultDiv.textContent = 'Network error.';
+    }
+}
+
+function openNewLead() {
+    document.getElementById('leadModalTitle').textContent = 'New Lead';
+    document.getElementById('lead-id').value = '';
+    document.getElementById('lead-assigned-to-id').value = '';
+    document.getElementById('lead-campaign-id').value = '';
+    ['name','phone','alternate-phone','email','company','industry',
+     'city','state','notes','source','tags'].forEach(f =>
+        document.getElementById('lead-' + f).value = '');
+    document.getElementById('lead-status').value = '0';
+    document.getElementById('lead-priority').value = '0';
+    document.getElementById('lead-followup').value = '';
+    populateAgentSelect('lead-assignee', '');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).show();
+}
+
+async function editLead(id) {
+    try {
+        const res = await fetch('/api/leads/' + id);
+        if (!res.ok) { alert('Failed to load lead. Please try again.'); return; }
+        const l = await res.json();
+
+        document.getElementById('leadModalTitle').textContent = 'Edit Lead';
+        document.getElementById('lead-id').value = l.id;
+        document.getElementById('lead-assigned-to-id').value = l.assignedToId ?? '';
+        document.getElementById('lead-campaign-id').value = l.campaignId ?? '';
+        document.getElementById('lead-name').value = l.name ?? '';
+        document.getElementById('lead-phone').value = l.phone ?? '';
+        document.getElementById('lead-alternate-phone').value = l.alternatePhone ?? '';
+        document.getElementById('lead-email').value = l.email ?? '';
+        document.getElementById('lead-company').value = l.company ?? '';
+        document.getElementById('lead-industry').value = l.industry ?? '';
+        document.getElementById('lead-city').value = l.city ?? '';
+        document.getElementById('lead-state').value = l.state ?? '';
+        document.getElementById('lead-notes').value = l.notes ?? '';
+        document.getElementById('lead-source').value = l.source ?? '';
+        document.getElementById('lead-tags').value = l.tags ?? '';
+        document.getElementById('lead-status').value = l.status;
+        document.getElementById('lead-priority').value = l.priority;
+        document.getElementById('lead-followup').value = l.nextFollowUpAt
+            ? new Date(l.nextFollowUpAt).toISOString().slice(0, 16) : '';
+
+        // Populate and pre-select the assigned agent
+        populateAgentSelect('lead-assignee', l.assignedToId ?? '');
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).show();
+    } catch (e) {
+        alert('Error loading lead: ' + e.message);
+    }
+}
+
+async function saveLead() {
+    const id = document.getElementById('lead-id').value;
+    const name = document.getElementById('lead-name').value.trim();
+    const phone = document.getElementById('lead-phone').value.trim();
+    if (!name) { alert('Name is required.'); return; }
+    if (!phone) { alert('Phone is required.'); return; }
+
+    const assigneeVal = document.getElementById('lead-assignee').value;
+
+    const body = {
+        name,
+        phone,
+        alternatePhone: document.getElementById('lead-alternate-phone').value || null,
+        email:          document.getElementById('lead-email').value || null,
+        company:        document.getElementById('lead-company').value || null,
+        industry:       document.getElementById('lead-industry').value || null,
+        city:           document.getElementById('lead-city').value || null,
+        state:          document.getElementById('lead-state').value || null,
+        notes:          document.getElementById('lead-notes').value || null,
+        source:         document.getElementById('lead-source').value || null,
+        tags:           document.getElementById('lead-tags').value || null,
+        status:         parseInt(document.getElementById('lead-status').value),
+        priority:       parseInt(document.getElementById('lead-priority').value),
+        nextFollowUpAt: document.getElementById('lead-followup').value || null,
+        assignedToId:   assigneeVal || null,
+        campaignId:     document.getElementById('lead-campaign-id').value || null
+    };
+
+    const url    = id ? '/api/leads/' + id : '/api/leads';
+    const method = id ? 'PUT' : 'POST';
+
+    try {
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).hide();
+            loadLeads();
+        } else {
+            const msg = await res.text();
+            alert('Error saving lead:\n' + msg);
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+}
+
+async function deleteLead(id) {
+    if (!confirm('Delete this lead?')) return;
+    await fetch('/api/leads/' + id, { method: 'DELETE' });
+    selectedLeadIds.delete(id);
+    updateBulkBar();
+    loadLeads();
+}
+
+document.getElementById('search-input').addEventListener('input', () => { currentPage = 1; loadLeads(); });
+document.getElementById('status-filter').addEventListener('change', () => { currentPage = 1; loadLeads(); });
+
+loadAgents().then(loadLeads);
+</script>
+}

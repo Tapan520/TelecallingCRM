@@ -1,0 +1,234 @@
+@page
+@model TelecallingCRM.Pages.Reports.IndexModel
+@{
+    ViewData["Title"] = "Reports & Analytics";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold">Reports & Analytics</h5>
+        <small class="text-muted">Performance insights, lead data and team analytics</small>
+    </div>
+    <select id="days-filter" class="form-select form-select-sm" style="width:160px;" onchange="loadAll()">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+    </select>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4" id="summary-cards">
+    <div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Daily Calls</div>
+            <div class="card-body"><canvas id="dailyCallsChart" height="200"></canvas></div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Conversion Funnel</div>
+            <div class="card-body"><canvas id="funnelChart" height="200"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- Lead Sources & Campaign Performance -->
+<div class="row g-3 mb-4">
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Lead Sources</div>
+            <div class="card-body"><canvas id="sourceChart" height="200"></canvas></div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Campaign Performance</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 table-sm">
+                    <thead class="table-light"><tr><th>Campaign</th><th>Type</th><th>Leads</th><th>Calls</th><th>Converted</th></tr></thead>
+                    <tbody id="campaign-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Section -->
+<div class="card mb-4">
+    <div class="card-header fw-semibold"><i class="bi bi-download me-1"></i> Export Data</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="fw-semibold small mb-2">Leads</div>
+                <div class="d-flex gap-2">
+                    <a href="/api/export/leads/csv" class="btn btn-outline-success btn-sm" target="_blank">
+                        <i class="bi bi-filetype-csv"></i> CSV
+                    </a>
+                    <a href="/api/export/leads/xlsx" class="btn btn-outline-success btn-sm" target="_blank">
+                        <i class="bi bi-file-earmark-excel"></i> Excel
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="fw-semibold small mb-2">Calls <span class="text-muted">(last 30 days)</span></div>
+                <div class="d-flex gap-2">
+                    <a href="/api/export/calls/csv?days=30" class="btn btn-outline-primary btn-sm" target="_blank">
+                        <i class="bi bi-filetype-csv"></i> CSV
+                    </a>
+                    <a href="/api/export/calls/xlsx?days=30" class="btn btn-outline-primary btn-sm" target="_blank">
+                        <i class="bi bi-file-earmark-excel"></i> Excel
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="fw-semibold small mb-2">Agent Performance <span class="text-muted">(last 30 days)</span></div>
+                <div class="d-flex gap-2">
+                    <a href="/api/export/agents/csv?days=30" class="btn btn-outline-warning btn-sm" target="_blank">
+                        <i class="bi bi-filetype-csv"></i> CSV
+                    </a>
+                    <a href="/api/export/agents/xlsx?days=30" class="btn btn-outline-warning btn-sm" target="_blank">
+                        <i class="bi bi-file-earmark-excel"></i> Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agent Performance Table -->
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Agent Performance</div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr><th>Agent</th><th>Total Calls</th><th>Connected</th><th>Talk Time</th><th>Converted</th><th>Conv. Rate</th><th>Avg Duration</th></tr>
+            </thead>
+            <tbody id="agent-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let dailyChart, funnelChartInst, sourceChartInst;
+
+function formatSeconds(s) {
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m ${sec}s`;
+}
+
+async function loadAll() {
+    const days = document.getElementById('days-filter').value;
+    await Promise.all([loadSummary(days), loadDailyCalls(days), loadFunnel(), loadSources(), loadAgents(days), loadCampaigns()]);
+}
+
+async function loadSummary(days) {
+    const res = await fetch(`/api/reports/summary?days=${days}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('summary-cards').innerHTML = [
+        { label:'Total Leads', value: d.totalLeads, icon:'bi-person-lines-fill', color:'primary' },
+        { label:'New Leads', value: d.newLeads, icon:'bi-person-plus', color:'info' },
+        { label:'Converted', value: d.converted, icon:'bi-trophy', color:'success' },
+        { label:'Total Calls', value: d.totalCalls, icon:'bi-telephone', color:'warning' },
+        { label:'Talk Time', value: formatSeconds(d.totalTalkSeconds), icon:'bi-clock', color:'secondary' },
+        { label:'Pending Follow-ups', value: d.pendingFollowUps, icon:'bi-calendar-check', color:'danger' },
+        { label:'Overdue Tasks', value: d.overdueTasks, icon:'bi-exclamation-triangle', color:'danger' },
+        { label:'Active Campaigns', value: d.activeCampaigns, icon:'bi-megaphone', color:'primary' }
+    ].map(c => `
+        <div class="col-6 col-md-3">
+            <div class="card">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-${c.color} bg-opacity-10 rounded p-2">
+                            <i class="bi ${c.icon} text-${c.color} fs-5"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold fs-5">${c.value}</div>
+                            <div class="text-muted small">${c.label}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+async function loadDailyCalls(days) {
+    const res = await fetch(`/api/reports/daily-calls?days=${days}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    if (dailyChart) dailyChart.destroy();
+    dailyChart = new Chart(document.getElementById('dailyCallsChart'), {
+        type: 'bar',
+        data: { labels: d.map(x => new Date(x.date).toLocaleDateString()), datasets: [{
+            label: 'Calls', data: d.map(x => x.count), backgroundColor: 'rgba(79,70,229,0.7)'
+        }]},
+        options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+}
+
+async function loadFunnel() {
+    const res = await fetch('/api/reports/conversion-funnel');
+    if (!res.ok) return;
+    const d = await res.json();
+    if (funnelChartInst) funnelChartInst.destroy();
+    const colors = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#059669','#6b7280'];
+    funnelChartInst = new Chart(document.getElementById('funnelChart'), {
+        type: 'doughnut',
+        data: { labels: d.map(x => x.status), datasets: [{ data: d.map(x => x.count), backgroundColor: colors }]},
+        options: { responsive: true }
+    });
+}
+
+async function loadSources() {
+    const res = await fetch('/api/reports/lead-sources');
+    if (!res.ok) return;
+    const d = await res.json();
+    if (sourceChartInst) sourceChartInst.destroy();
+    sourceChartInst = new Chart(document.getElementById('sourceChart'), {
+        type: 'bar',
+        data: { labels: d.map(x => x.source), datasets: [{ data: d.map(x => x.count), backgroundColor: 'rgba(99,102,241,0.7)' }]},
+        options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+    });
+}
+
+async function loadAgents(days) {
+    const res = await fetch(`/api/reports/agent-performance?days=${days}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('agent-tbody').innerHTML = data.map(a => `
+        <tr>
+            <td class="fw-semibold">${a.fullName}</td>
+            <td>${a.totalCalls}</td>
+            <td>${a.connected}</td>
+            <td>${formatSeconds(a.totalTalkSeconds)}</td>
+            <td><span class="badge bg-success">${a.converted}</span></td>
+            <td>${a.conversionRate}%</td>
+            <td>${a.avgDuration}s</td>
+        </tr>`).join('') || '<tr><td colspan="7" class="text-center text-muted py-3">No data</td></tr>';
+}
+
+async function loadCampaigns() {
+    const res = await fetch('/api/reports/campaign-performance');
+    if (!res.ok) return;
+    const data = await res.json();
+    const typeLabels = ['Cold Calling','Election','Hotel Booking','Insurance','Education','Real Estate','Follow-up','Upsell','Win-Back','Survey','Other'];
+    document.getElementById('campaign-tbody').innerHTML = data.map(c => `
+        <tr>
+            <td class="fw-semibold">${c.name}</td>
+            <td><span class="badge bg-secondary">${typeLabels[c.type] ?? 'Other'}</span></td>
+            <td>${c.totalLeads}</td>
+            <td>${c.totalCalls}</td>
+            <td><span class="badge bg-success">${c.converted}</span></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">No campaigns</td></tr>';
+}
+
+loadAll();
+</script>
+}

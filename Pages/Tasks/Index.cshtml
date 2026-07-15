@@ -1,0 +1,130 @@
+@page
+@model TelecallingCRM.Pages.Tasks.IndexModel
+@{
+    ViewData["Title"] = "Tasks";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold">Task Manager</h5>
+        <small class="text-muted">Today's tasks, pending, overdue and completed</small>
+    </div>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#taskModal">
+        <i class="bi bi-plus-circle"></i> New Task
+    </button>
+</div>
+
+<!-- Filter Tabs -->
+<ul class="nav nav-tabs mb-3" id="taskTabs">
+<li class="nav-item"><a class="nav-link active" href="javascript:void(0)" onclick="setTab(this);loadTasks(null)">All</a></li>
+<li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setTab(this);loadTasks('Pending')">Pending</a></li>
+<li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setTab(this);loadTasks('Overdue')">Overdue</a></li>
+<li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setTab(this);loadTasks('Completed')">Completed</a></li>
+    <li class="nav-item ms-auto"><div class="form-check form-switch pt-2">
+        <input class="form-check-input" type="checkbox" id="myTasksToggle" onchange="loadTasks(currentStatus)">
+        <label class="form-check-label" for="myTasksToggle">My Tasks Only</label>
+    </div></li>
+</ul>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr><th>Title</th><th>Lead</th><th>Assigned To</th><th>Priority</th><th>Due</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="tasks-tbody">
+                <tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Task Modal -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">New Task</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Title *</label><input type="text" id="t-title" class="form-control"></div>
+                <div class="mb-3"><label class="form-label">Description</label><textarea id="t-desc" class="form-control" rows="2"></textarea></div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label">Priority</label>
+                        <select id="t-priority" class="form-select">
+                            <option value="0">Low</option><option value="1" selected>Normal</option>
+                            <option value="2">High</option><option value="3">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="col-6"><label class="form-label">Due Date *</label><input type="datetime-local" id="t-due" class="form-control"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="createTask()">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentStatus = null;
+function setTab(el) {
+    document.querySelectorAll('#taskTabs .nav-link').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+}
+const priorityLabels = ['Low','Normal','High','Urgent'];
+const priorityColors = ['secondary','primary','warning','danger'];
+const statusColors = { Pending:'warning', InProgress:'info', Completed:'success', Overdue:'danger', Cancelled:'secondary' };
+
+async function loadTasks(status) {
+    currentStatus = status;
+    const myOnly = document.getElementById('myTasksToggle').checked;
+    let url = `/api/tasks?myTasks=${myOnly}${status ? '&status='+status : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('tasks-tbody').innerHTML = data.length === 0
+        ? '<tr><td colspan="7" class="text-center text-muted py-4">No tasks found.</td></tr>'
+        : data.map(t => `
+        <tr>
+            <td class="fw-semibold">${t.title}</td>
+            <td>${t.leadName ? `<small class="text-muted">${t.leadName}</small>` : '—'}</td>
+            <td>${t.assignedTo}</td>
+            <td><span class="badge bg-${priorityColors[t.priority]}">${priorityLabels[t.priority]}</span></td>
+            <td><small>${new Date(t.dueAt).toLocaleString()}</small></td>
+            <td><span class="badge bg-${statusColors[t.status] ?? 'secondary'}">${t.status}</span></td>
+            <td>
+                ${t.status !== 'Completed' ? `<button class="btn btn-sm btn-outline-success" onclick="completeTask('${t.id}')"><i class="bi bi-check-lg"></i></button>` : ''}
+                <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteTask('${t.id}')"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`).join('');
+}
+
+async function createTask() {
+    const body = {
+        title: document.getElementById('t-title').value,
+        description: document.getElementById('t-desc').value,
+        priority: parseInt(document.getElementById('t-priority').value),
+        dueAt: document.getElementById('t-due').value,
+        leadId: null, assignedToId: null
+    };
+    const res = await fetch('/api/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide(); loadTasks(currentStatus); }
+    else alert('Error creating task');
+}
+
+async function completeTask(id) {
+    await fetch(`/api/tasks/${id}/complete`, { method: 'POST' });
+    loadTasks(currentStatus);
+}
+
+async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    await fetch(`/api/tasks/${id}`, { method:'DELETE' });
+    loadTasks(currentStatus);
+}
+
+loadTasks(null);
+</script>
+}

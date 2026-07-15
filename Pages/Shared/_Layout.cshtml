@@ -1,0 +1,326 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TelecallingCRM</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/TelecallingCRM.styles.css" asp-append-version="true" />
+    <style>
+        :root {
+            --sidebar-width: 250px;
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+        }
+        body { background: #f8fafc; }
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 1rem;
+            overflow: hidden;
+        }
+        .sidebar-brand {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .sidebar-brand:hover { color: #a5b4fc; }
+        .sidebar-nav { padding: 1rem 0.75rem; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(165,180,252,0.4) transparent; }
+        .sidebar-nav::-webkit-scrollbar { width: 4px; }
+        .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(165,180,252,0.4); border-radius: 4px; }
+        .nav-section-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #818cf8;
+            padding: 0.75rem 0.75rem 0.25rem;
+        }
+        .sidebar-nav .nav-link {
+            color: #c7d2fe;
+            border-radius: 0.5rem;
+            padding: 0.6rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            font-size: 0.875rem;
+            transition: all 0.15s;
+            margin-bottom: 2px;
+        }
+        .sidebar-nav .nav-link:hover,
+        .sidebar-nav .nav-link.active {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+        }
+        .sidebar-nav .nav-link i { font-size: 1rem; width: 1.2rem; text-align: center; }
+        .sidebar-footer {
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.78rem;
+            color: #818cf8;
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .page-content { padding: 1.5rem; }
+        .card { border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-radius: 0.75rem; }
+        .card-header { background: transparent; border-bottom: 1px solid #f1f5f9; }
+        .badge-status-New { background:#dbeafe; color:#1e40af; }
+        .badge-status-Contacted { background:#fef3c7; color:#92400e; }
+        .badge-status-Interested { background:#d1fae5; color:#065f46; }
+        .badge-status-NotInterested { background:#fee2e2; color:#991b1b; }
+        .badge-status-FollowUp { background:#ede9fe; color:#5b21b6; }
+        .badge-status-Converted { background:#bbf7d0; color:#14532d; }
+        .badge-status-Dead { background:#f1f5f9; color:#475569; }
+        @@media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; }
+            .sidebar.sidebar-open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+            .sidebar-overlay.show { display: block; }
+        }
+    </style>
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <nav class="sidebar">
+            <a class="sidebar-brand" asp-page="/Dashboard/Index">
+                <i class="bi bi-telephone-fill text-indigo-300"></i> TelecallingCRM
+            </a>
+            <div class="sidebar-nav">
+                @if (User.IsInRole("superadmin"))
+                {
+                    <div class="nav-section-label">Platform</div>
+                    <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/SuperAdmin/Tenants") == true ? "active" : "")" asp-page="/SuperAdmin/Tenants">
+                        <i class="bi bi-building"></i> Tenants
+                    </a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/SuperAdmin/AllUsers") == true ? "active" : "")" asp-page="/SuperAdmin/AllUsers">
+                        <i class="bi bi-people"></i> All Users
+                    </a>
+                }
+                else
+                {
+                    var p = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+                    Func<string, string> NavClass = pg => p == pg || p.StartsWith(pg + "/") ? "nav-link active" : "nav-link";
+                    <div class="nav-section-label">Overview</div>
+                    <a class="@NavClass("/Dashboard/Index")" asp-page="/Dashboard/Index">
+                        <i class="bi bi-grid-1x2"></i> Dashboard
+                    </a>
+                    <div class="nav-section-label">Sales</div>
+                    <a class="@NavClass("/Leads/Index")" asp-page="/Leads/Index">
+                        <i class="bi bi-person-lines-fill"></i> Leads
+                    </a>
+                    <a class="@NavClass("/Campaigns/Index")" asp-page="/Campaigns/Index">
+                        <i class="bi bi-megaphone"></i> Campaigns
+                    </a>
+                    <a class="@NavClass("/Calls/Dialer")" asp-page="/Calls/Dialer">
+                        <i class="bi bi-telephone-fill"></i> Dialer
+                    </a>
+                    <a class="@NavClass("/Calls/Index")" asp-page="/Calls/Index">
+                        <i class="bi bi-telephone-inbound"></i> Call Log
+                    </a>
+                    <div class="nav-section-label">Messaging</div>
+                    <a class="@NavClass("/Messaging/WhatsApp")" asp-page="/Messaging/WhatsApp">
+                        <i class="bi bi-whatsapp"></i> WhatsApp
+                    </a>
+                    <a class="@NavClass("/Messaging/Sms")" asp-page="/Messaging/Sms">
+                        <i class="bi bi-chat-dots"></i> SMS
+                    </a>
+                    <a class="@NavClass("/Messaging/Email")" asp-page="/Messaging/Email">
+                        <i class="bi bi-envelope"></i> Email
+                    </a>
+                    <div class="nav-section-label">Productivity</div>
+                    <a class="@NavClass("/FollowUps/Index")" asp-page="/FollowUps/Index">
+                        <i class="bi bi-calendar-check"></i> Follow-ups
+                    </a>
+                    <a class="@NavClass("/Tasks/Index")" asp-page="/Tasks/Index">
+                        <i class="bi bi-check2-square"></i> Tasks
+                    </a>
+                    <a class="@NavClass("/Documents/Index")" asp-page="/Documents/Index">
+                        <i class="bi bi-folder2-open"></i> Documents
+                    </a>
+                    <div class="nav-section-label">Analytics</div>
+                    <a class="@NavClass("/Reports/Index")" asp-page="/Reports/Index">
+                        <i class="bi bi-bar-chart-line"></i> Reports
+                    </a>
+                    <div class="nav-section-label">AI Tools</div>
+                    <a class="@NavClass("/Ai/Insights")" asp-page="/Ai/Insights">
+                        <i class="bi bi-lightbulb"></i> AI Insights
+                    </a>
+                    <a class="@NavClass("/Ai/Assistant")" asp-page="/Ai/Assistant">
+                        <i class="bi bi-robot"></i> AI Assistant
+                    </a>
+                    <a class="@NavClass("/Ai/Knowledge")" asp-page="/Ai/Knowledge">
+                        <i class="bi bi-book"></i> Knowledge Base
+                    </a>
+                    @if (User.IsInRole("admin") || User.IsInRole("manager"))
+                    {
+                        <div class="nav-section-label">Admin</div>
+                        <a class="@NavClass("/Admin/Users")" asp-page="/Admin/Users">
+                            <i class="bi bi-people"></i> Users
+                        </a>
+                        @if (User.IsInRole("admin"))
+                        {
+                            <a class="@NavClass("/Admin/Integrations")" asp-page="/Admin/Integrations">
+                                <i class="bi bi-plug"></i> Integrations
+                            </a>
+                            <a class="@NavClass("/Admin/Settings")" asp-page="/Admin/Settings">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        }
+                    }
+                }
+            </div>
+        <div class="sidebar-footer">
+                <div class="fw-semibold">@User.Identity?.Name</div>
+                @{
+                    var role = User.IsInRole("superadmin") ? "superadmin"
+                             : User.IsInRole("admin") ? "admin"
+                             : User.IsInRole("manager") ? "manager" : "agent";
+                    var roleColor = role == "superadmin" ? "dark" : role == "admin" ? "danger" : role == "manager" ? "warning" : "primary";
+                }
+                <span class="badge bg-@roleColor mt-1">@role</span>
+                <form method="post" asp-page="/Logout" class="d-inline ms-2">
+                    <button type="submit" class="btn btn-link btn-sm text-decoration-none p-0 text-info">
+                        <i class="bi bi-box-arrow-left"></i> Sign out
+                    </button>
+                </form>
+            </div>
+        </nav>
+    }
+
+    <div class="@(User.Identity?.IsAuthenticated == true ? "main-content" : "")">
+        <!-- Mobile overlay backdrop -->
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+        }
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <div class="topbar">
+                <!-- Mobile hamburger -->
+                <button class="btn btn-sm btn-light d-md-none me-2" id="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
+                <span class="fw-semibold text-secondary" style="font-size:0.9rem;">@ViewData["Title"]</span>
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Notification Bell -->
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-light position-relative" data-bs-toggle="dropdown" onclick="loadNotifications()">
+                            <i class="bi bi-bell"></i>
+                            <span id="notif-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="font-size:.6rem;"></span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-0" style="width:340px;max-height:420px;overflow-y:auto;">
+                            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                                <span class="fw-semibold">Notifications</span>
+                                <button class="btn btn-link btn-sm p-0 text-muted" onclick="markAllRead()">Mark all read</button>
+                            </div>
+                            <div id="notif-list"><div class="text-center text-muted py-3 small">Loading...</div></div>
+                        </div>
+                    </div>
+                    <span class="badge bg-primary rounded-pill" id="online-badge">
+                        <i class="bi bi-circle-fill text-success" style="font-size:0.5rem;"></i> Live
+                    </span>
+                    <span class="text-muted" style="font-size:0.85rem;">@User.Identity.Name</span>
+                </div>
+            </div>
+        }
+        <div class="@(User.Identity?.IsAuthenticated == true ? "page-content" : "")">
+            @RenderBody()
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+    const notifTypeIcons = { FollowUpDue:'bi-calendar-check text-warning', TaskDue:'bi-check2-square text-info',
+        TaskOverdue:'bi-exclamation-triangle text-danger', NewLeadAssigned:'bi-person-plus text-primary',
+        CallMissed:'bi-telephone-x text-danger', LeadConverted:'bi-trophy text-success', SystemAlert:'bi-bell text-secondary' };
+
+    async function loadNotifications() {
+        const res = await fetch('/api/notifications?unreadOnly=false');
+        if (!res.ok) return;
+        const d = await res.json();
+        const badge = document.getElementById('notif-badge');
+        if (d.unreadCount > 0) { badge.textContent = d.unreadCount; badge.classList.remove('d-none'); }
+        else badge.classList.add('d-none');
+        document.getElementById('notif-list').innerHTML = d.notifications.length === 0
+            ? '<div class="text-center text-muted py-3 small">No notifications</div>'
+            : d.notifications.map(n => `
+                <div class="d-flex gap-2 px-3 py-2 border-bottom ${n.isRead ? '' : 'bg-light'}" onclick="markRead('${n.id}')">
+                    <i class="bi ${notifTypeIcons[n.type] ?? 'bi-bell'} mt-1 flex-shrink-0"></i>
+                    <div>
+                        <div class="fw-semibold small">${n.title}</div>
+                        <div class="text-muted" style="font-size:.75rem;">${n.body ?? ''}</div>
+                        <div class="text-muted" style="font-size:.7rem;">${new Date(n.createdAt).toLocaleString()}</div>
+                    </div>
+                </div>`).join('');
+    }
+
+    async function markRead(id) {
+        await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+        loadNotifications();
+    }
+
+    async function markAllRead() {
+        await fetch('/api/notifications/read-all', { method: 'POST' });
+        loadNotifications();
+    }
+
+    // Poll unread count every 60 seconds
+    async function pollUnread() {
+        try {
+            const res = await fetch('/api/notifications?unreadOnly=true');
+            if (!res.ok) return;
+            const d = await res.json();
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                if (d.unreadCount > 0) { badge.textContent = d.unreadCount; badge.classList.remove('d-none'); }
+                else badge.classList.add('d-none');
+            }
+        } catch {}
+    }
+    pollUnread();
+    setInterval(pollUnread, 60000);
+    </script>
+    <script>
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.toggle('sidebar-open');
+        if (overlay) overlay.classList.toggle('show');
+    }
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

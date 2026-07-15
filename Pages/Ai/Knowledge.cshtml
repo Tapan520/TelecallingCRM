@@ -1,0 +1,97 @@
+@page
+@model TelecallingCRM.Pages.Ai.KnowledgeModel
+@{
+    ViewData["Title"] = "Knowledge Base";
+}
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header py-3"><span class="fw-semibold"><i class="bi bi-plus-circle text-primary"></i> Add Knowledge</span></div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Title *</label>
+                    <input type="text" id="kb-title" class="form-control" placeholder="e.g. Pricing FAQ">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <input type="text" id="kb-category" class="form-control" placeholder="FAQ, Script, Product...">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Content *</label>
+                    <textarea id="kb-content" class="form-control" rows="8" placeholder="Paste product info, FAQs, scripts, objection handling docs..."></textarea>
+                </div>
+                <button class="btn btn-primary w-100" onclick="addChunk()">
+                    <i class="bi bi-cloud-upload"></i> Save & Embed
+                </button>
+                <div id="kb-status" class="mt-2 small text-muted"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Knowledge Chunks</span>
+                <button class="btn btn-outline-secondary btn-sm" onclick="loadChunks()"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+            <div class="card-body p-0">
+                <div id="chunks-list">
+                    <div class="p-4 text-center text-muted">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+async function loadChunks() {
+    const res = await fetch('/api/ai/knowledge');
+    const data = await res.json();
+    const list = document.getElementById('chunks-list');
+    if (!data.length) { list.innerHTML = '<div class="p-4 text-center text-muted">No knowledge chunks yet. Add your first entry!</div>'; return; }
+    list.innerHTML = `<table class="table table-hover mb-0"><thead class="table-light"><tr><th>Title</th><th>Category</th><th>Added</th><th></th></tr></thead><tbody>
+        ${data.map(k => `<tr>
+            <td><span class="fw-semibold">${k.title}</span><br><small class="text-muted">${k.content.slice(0,60)}...</small></td>
+            <td><span class="badge bg-light text-dark">${k.category ?? '-'}</span></td>
+            <td><small>${new Date(k.createdAt).toLocaleDateString()}</small></td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteChunk('${k.id}')"><i class="bi bi-trash"></i></button></td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+async function addChunk() {
+    const title = document.getElementById('kb-title').value.trim();
+    const content = document.getElementById('kb-content').value.trim();
+    const category = document.getElementById('kb-category').value.trim();
+    if (!title || !content) { alert('Title and content are required.'); return; }
+
+    const status = document.getElementById('kb-status');
+    status.textContent = 'Embedding and saving...';
+
+    const res = await fetch('/api/ai/knowledge', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ title, content, category: category || null })
+    });
+
+    if (res.ok) {
+        status.textContent = '? Saved and embedded!';
+        document.getElementById('kb-title').value = '';
+        document.getElementById('kb-content').value = '';
+        document.getElementById('kb-category').value = '';
+        loadChunks();
+    } else {
+        status.textContent = '? Error saving.';
+    }
+}
+
+async function deleteChunk(id) {
+    if (!confirm('Delete this knowledge chunk?')) return;
+    await fetch(`/api/ai/knowledge/${id}`, { method: 'DELETE' });
+    loadChunks();
+}
+
+loadChunks();
+</script>
+}

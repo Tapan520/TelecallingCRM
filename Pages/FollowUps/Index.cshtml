@@ -1,0 +1,117 @@
+@page
+@model TelecallingCRM.Pages.FollowUps.IndexModel
+@{
+    ViewData["Title"] = "Follow-ups";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold">Follow-up Calendar</h5>
+        <small class="text-muted">Scheduled callbacks, reminders and recurring follow-ups</small>
+    </div>
+    <div class="d-flex gap-2">
+        <input type="date" id="date-filter" class="form-control form-control-sm" style="width:180px;"
+               value="@DateTime.Today.ToString("yyyy-MM-dd")" onchange="loadFollowUps()">
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#fuModal">
+            <i class="bi bi-calendar-plus"></i> Schedule
+        </button>
+    </div>
+</div>
+
+<div class="row g-3 mb-4" id="fu-stats"></div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr><th>Lead</th><th>Phone</th><th>Scheduled</th><th>Channel</th><th>Assigned</th><th>Status</th><th>Notes</th><th></th></tr>
+            </thead>
+            <tbody id="fu-tbody">
+                <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Schedule Modal -->
+<div class="modal fade" id="fuModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Schedule Follow-up</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Lead ID (paste lead ID)</label><input type="text" id="fu-lead" class="form-control" placeholder="Lead GUID"></div>
+                <div class="row g-2">
+                    <div class="col-6"><label class="form-label">Date & Time *</label><input type="datetime-local" id="fu-date" class="form-control"></div>
+                    <div class="col-6">
+                        <label class="form-label">Channel</label>
+                        <select id="fu-channel" class="form-select">
+                            <option value="0">Call</option><option value="1">WhatsApp</option>
+                            <option value="2">SMS</option><option value="3">Email</option>
+                            <option value="4">Meeting</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3 mt-2"><label class="form-label">Notes</label><textarea id="fu-notes" class="form-control" rows="2"></textarea></div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="fu-recurring">
+                    <label class="form-check-label" for="fu-recurring">Recurring</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="scheduleFollowUp()">Schedule</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const channelIcons = ['bi-telephone','bi-whatsapp','bi-chat-dots','bi-envelope','bi-people'];
+const channelNames = ['Call','WhatsApp','SMS','Email','Meeting'];
+const statusColors = { Pending:'warning', Done:'success', Missed:'danger', Cancelled:'secondary' };
+
+async function loadFollowUps() {
+    const date = document.getElementById('date-filter').value;
+    const res = await fetch(`/api/followups?date=${date}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('fu-tbody').innerHTML = data.length === 0
+        ? '<tr><td colspan="8" class="text-center text-muted py-4">No follow-ups for this date.</td></tr>'
+        : data.map(f => `
+        <tr>
+            <td class="fw-semibold">${f.leadName}</td>
+            <td>${f.leadPhone}</td>
+            <td>${new Date(f.scheduledAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td>
+            <td><i class="bi ${channelIcons[f.channel]}"></i> ${channelNames[f.channel]}</td>
+            <td>${f.assignedTo}</td>
+            <td><span class="badge bg-${statusColors[f.status] ?? 'secondary'}">${f.status}</span></td>
+            <td><small>${f.notes ?? ''}</small></td>
+            <td>
+                ${f.status === 'Pending' ? `<button class="btn btn-sm btn-outline-success" onclick="complete('${f.id}')"><i class="bi bi-check-lg"></i></button>` : ''}
+            </td>
+        </tr>`).join('');
+}
+
+async function scheduleFollowUp() {
+    const body = {
+        leadId: document.getElementById('fu-lead').value,
+        scheduledAt: document.getElementById('fu-date').value,
+        channel: parseInt(document.getElementById('fu-channel').value),
+        notes: document.getElementById('fu-notes').value,
+        isRecurring: document.getElementById('fu-recurring').checked,
+        recurrenceRule: null, assignedToId: null
+    };
+    const res = await fetch('/api/followups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('fuModal')).hide(); loadFollowUps(); }
+    else alert('Error scheduling follow-up');
+}
+
+async function complete(id) {
+    await fetch(`/api/followups/${id}/complete`, { method: 'POST' });
+    loadFollowUps();
+}
+
+loadFollowUps();
+</script>
+}

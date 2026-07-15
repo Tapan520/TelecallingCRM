@@ -1,0 +1,158 @@
+@page
+@model TelecallingCRM.Pages.Ai.InsightsModel
+@{
+    ViewData["Title"] = "AI Insights";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold">AI Insights</h5>
+        <small class="text-muted">Smart recommendations powered by AI</small>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="recalculate()">
+        <i class="bi bi-arrow-clockwise"></i> Recalculate Scores
+    </button>
+</div>
+
+<div class="row g-3">
+    <!-- Hot Leads -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-fire text-danger"></i>
+                <span class="fw-semibold">High Probability Leads</span>
+                <span class="badge bg-danger ms-auto" id="hot-count">-</span>
+            </div>
+            <div class="card-body p-0" id="hot-leads-list">
+                <div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Today -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-telephone-fill text-success"></i>
+                <span class="fw-semibold">Call These Today</span>
+                <span class="badge bg-success ms-auto" id="today-count">-</span>
+            </div>
+            <div class="card-body p-0" id="call-today-list">
+                <div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unhappy Customers -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-emoji-frown text-warning"></i>
+                <span class="fw-semibold">Unhappy Customers</span>
+                <span class="badge bg-warning text-dark ms-auto" id="unhappy-count">-</span>
+            </div>
+            <div class="card-body p-0" id="unhappy-list">
+                <div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Competitor Mentions -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle text-info"></i>
+                <span class="fw-semibold">Competitor Mentions</span>
+                <span class="badge bg-info ms-auto" id="comp-count">-</span>
+            </div>
+            <div class="card-body p-0" id="competitor-list">
+                <div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function scoreColor(s) { return s >= 70 ? 'success' : s >= 40 ? 'warning' : 'danger'; }
+
+async function loadHotLeads() {
+    const res = await fetch('/api/ai/insights/hot-leads');
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('hot-count').textContent = d.count;
+    document.getElementById('hot-leads-list').innerHTML = d.leads.length === 0
+        ? '<div class="text-center text-muted py-3 small">No hot leads right now</div>'
+        : d.leads.map(l => `
+            <div class="d-flex align-items-center gap-3 px-3 py-2 border-bottom">
+                <div class="fw-bold text-${scoreColor(l.aiScore)}">${l.aiScore}</div>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold small"><a href="/Leads/Timeline/${l.id}" class="text-decoration-none">${l.name}</a></div>
+                    <div class="text-muted" style="font-size:.72rem;">${l.phone} · ${l.status}</div>
+                    ${l.aiInsight ? `<div class="text-info fst-italic" style="font-size:.72rem;"><i class="bi bi-lightbulb-fill"></i> ${l.aiInsight}</div>` : ''}
+                </div>
+                <span class="badge bg-secondary">${l.assignedTo ?? '—'}</span>
+            </div>`).join('');
+}
+
+async function loadCallToday() {
+    const res = await fetch('/api/ai/insights/call-today');
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('today-count').textContent = d.count;
+    document.getElementById('call-today-list').innerHTML = d.leads.length === 0
+        ? '<div class="text-center text-muted py-3 small">No follow-ups due today</div>'
+        : d.leads.map(l => `
+            <div class="d-flex align-items-center gap-3 px-3 py-2 border-bottom">
+                <i class="bi bi-clock text-warning"></i>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold small">${l.name}</div>
+                    <div class="text-muted" style="font-size:.72rem;">${l.phone} · Due: ${new Date(l.nextFollowUpAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+                <span class="badge bg-${scoreColor(l.aiScore)}">${l.aiScore}</span>
+            </div>`).join('');
+}
+
+async function loadUnhappy() {
+    const res = await fetch('/api/ai/insights/unhappy-customers');
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('unhappy-count').textContent = d.count;
+    document.getElementById('unhappy-list').innerHTML = d.leads.length === 0
+        ? '<div class="text-center text-muted py-3 small">No unhappy customers detected</div>'
+        : d.leads.map(l => `
+            <div class="d-flex align-items-center gap-3 px-3 py-2 border-bottom">
+                <i class="bi bi-emoji-frown text-warning"></i>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold small">${l.leadName}</div>
+                    <div class="text-muted" style="font-size:.72rem;">${l.phone} · ${l.negativeCallCount} negative call(s)</div>
+                </div>
+            </div>`).join('');
+}
+
+async function loadCompetitorMentions() {
+    const res = await fetch('/api/ai/insights/competitor-mentions');
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('comp-count').textContent = d.count;
+    document.getElementById('competitor-list').innerHTML = d.calls.length === 0
+        ? '<div class="text-center text-muted py-3 small">No competitor mentions detected</div>'
+        : d.calls.map(c => `
+            <div class="px-3 py-2 border-bottom">
+                <div class="fw-semibold small">${c.leadName} <small class="text-muted">· ${c.agent}</small></div>
+                <div class="text-info small fst-italic">${c.aiInsight}</div>
+                <div class="text-muted" style="font-size:.7rem;">${new Date(c.startedAt).toLocaleDateString()}</div>
+            </div>`).join('');
+}
+
+async function recalculate() {
+    const btn = event.target;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Calculating...';
+    const res = await fetch('/api/ai/insights/recalculate-scores', { method: 'POST' });
+    if (res.ok) { const d = await res.json(); alert(`Updated ${d.updated} lead scores.`); loadHotLeads(); }
+    btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Recalculate Scores';
+}
+
+loadHotLeads(); loadCallToday(); loadUnhappy(); loadCompetitorMentions();
+</script>
+}

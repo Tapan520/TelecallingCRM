@@ -1,0 +1,137 @@
+@page
+@model TelecallingCRM.Pages.Messaging.SmsModel
+@{
+    ViewData["Title"] = "SMS";
+}
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header fw-semibold">Send SMS</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">To Phone</label>
+                    <input type="text" id="sms-phone" class="form-control" placeholder="+91 98765 43210">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Type</label>
+                    <select id="sms-type" class="form-select">
+                        <option value="0">Transactional</option>
+                        <option value="1">Promotional</option>
+                        <option value="2">OTP</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Message <span id="sms-chars" class="text-muted small">(0/160)</span></label>
+                    <textarea id="sms-body" class="form-control" rows="4" maxlength="480" placeholder="Type your SMS..."></textarea>
+                </div>
+                <button class="btn btn-primary w-100" onclick="sendSms()">
+                    <i class="bi bi-send"></i> Send SMS
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">Bulk SMS Campaign</div>
+            <div class="card-body">
+                <p class="text-muted small">Select leads from a campaign and send a bulk SMS.</p>
+                <div class="mb-2">
+                    <label class="form-label">Campaign</label>
+                    <select id="bulk-campaign" class="form-select form-select-sm" onchange="loadCampaignLeads()">
+                        <option value="">Select campaign...</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Message</label>
+                    <textarea id="bulk-body" class="form-control form-control-sm" rows="3"></textarea>
+                </div>
+                <div class="mb-2 small text-muted" id="bulk-count">0 leads selected</div>
+                <button class="btn btn-warning w-100 btn-sm" onclick="sendBulkSms()">
+                    <i class="bi bi-broadcast"></i> Send Bulk SMS
+                </button>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header fw-semibold">Recent SMS Log</div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light"><tr><th>To</th><th>Type</th><th>Status</th><th>Sent</th></tr></thead>
+                    <tbody id="sms-log"><tr><td colspan="4" class="text-center text-muted py-2">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let bulkLeadIds = [];
+
+document.getElementById('sms-body').addEventListener('input', function() {
+    document.getElementById('sms-chars').textContent = `(${this.value.length}/160)`;
+});
+
+async function sendSms() {
+    const body = {
+        toPhone: document.getElementById('sms-phone').value,
+        body: document.getElementById('sms-body').value,
+        type: parseInt(document.getElementById('sms-type').value),
+        leadId: null
+    };
+    const res = await fetch('/api/sms/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) { alert('SMS sent!'); document.getElementById('sms-body').value = ''; loadLog(); }
+    else alert('Error sending SMS');
+}
+
+async function loadCampaigns() {
+    const res = await fetch('/api/campaigns');
+    if (!res.ok) return;
+    const data = await res.json();
+    const sel = document.getElementById('bulk-campaign');
+    data.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
+}
+
+async function loadCampaignLeads() {
+    const campId = document.getElementById('bulk-campaign').value;
+    if (!campId) { bulkLeadIds = []; document.getElementById('bulk-count').textContent = '0 leads selected'; return; }
+    const res = await fetch(`/api/leads?campaignId=${campId}&pageSize=500`);
+    if (!res.ok) return;
+    const data = await res.json();
+    bulkLeadIds = data.leads.map(l => l.id);
+    document.getElementById('bulk-count').textContent = `${bulkLeadIds.length} leads selected`;
+}
+
+async function sendBulkSms() {
+    if (!bulkLeadIds.length) { alert('Select a campaign first.'); return; }
+    const body = { body: document.getElementById('bulk-body').value, leadIds: bulkLeadIds };
+    const res = await fetch('/api/sms/bulk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) { const d = await res.json(); alert(`${d.queued} SMS messages queued!`); }
+}
+
+async function loadLog() {
+    const res = await fetch('/api/sms/log?pageSize=20');
+    if (!res.ok) {
+        document.getElementById('sms-log').innerHTML = '<tr><td colspan="4" class="text-center text-muted py-2">View SMS history in each lead\'s Timeline.</td></tr>';
+        return;
+    }
+    const data = await res.json();
+    if (!data.length) {
+        document.getElementById('sms-log').innerHTML = '<tr><td colspan="4" class="text-center text-muted py-2">No SMS sent yet.</td></tr>';
+        return;
+    }
+    const statusColor = s => s === 'Delivered' ? 'success' : s === 'Failed' ? 'danger' : 'secondary';
+    document.getElementById('sms-log').innerHTML = data.map(s =>
+        '<tr>' +
+        '<td>' + s.toPhone + '</td>' +
+        '<td><span class="badge bg-secondary">' + (s.type ?? '') + '</span></td>' +
+        '<td><span class="badge bg-' + statusColor(s.status) + '">' + s.status + '</span></td>' +
+        '<td><small>' + new Date(s.sentAt).toLocaleString() + '</small></td>' +
+        '</tr>'
+    ).join('');
+}
+
+loadCampaigns();
+loadLog();
+</script>
+}

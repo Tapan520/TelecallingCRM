@@ -1,0 +1,204 @@
+@page
+@model TelecallingCRM.Pages.Documents.IndexModel
+@{
+    ViewData["Title"] = "Documents";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold">Documents</h5>
+        <small class="text-muted">Upload and manage PAN, Aadhaar, Contracts, Quotations, Invoices and Voice Files</small>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Lead search + upload -->
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold"><i class="bi bi-search me-1"></i> Find Lead</div>
+            <div class="card-body">
+                <input type="text" id="doc-lead-search" class="form-control form-control-sm mb-2" placeholder="Search by name or phone...">
+                <div id="doc-lead-results" style="max-height:220px;overflow-y:auto;"></div>
+                <div id="doc-lead-selected" class="alert alert-success py-1 px-2 small mt-2 d-none">
+                    No lead selected
+                </div>
+            </div>
+        </div>
+        <div class="card" id="upload-panel" style="display:none;">
+            <div class="card-header fw-semibold"><i class="bi bi-upload me-1"></i> Upload Document</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Document Type</label>
+                    <select id="doc-type" class="form-select form-select-sm">
+                        <option value="PAN">PAN Card</option>
+                        <option value="Aadhaar">Aadhaar Card</option>
+                        <option value="Contract">Contract</option>
+                        <option value="Quotation">Quotation</option>
+                        <option value="Invoice">Invoice</option>
+                        <option value="VoiceFile">Voice File</option>
+                        <option value="Photo">Photo</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Choose File *</label>
+                    <input type="file" id="doc-file" class="form-control form-control-sm">
+                </div>
+                <button class="btn btn-primary w-100 btn-sm" onclick="uploadDocument()">
+                    <i class="bi bi-upload me-1"></i> Upload
+                </button>
+                <div id="upload-status" class="mt-2 small d-none"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents list -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header fw-semibold" id="docs-header">
+                <i class="bi bi-folder2-open me-1"></i> Documents
+                <span class="text-muted fw-normal small" id="docs-lead-name">— select a lead</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>File Name</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Uploaded By</th>
+                            <th>Uploaded At</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="docs-tbody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Select a lead to view documents</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let selectedLeadId = null;
+let searchTimeout;
+
+const typeIcons = {
+    PAN: 'bi-card-text text-warning',
+    Aadhaar: 'bi-person-vcard text-primary',
+    Contract: 'bi-file-earmark-text text-info',
+    Quotation: 'bi-file-earmark-ruled text-success',
+    Invoice: 'bi-receipt text-danger',
+    VoiceFile: 'bi-mic text-secondary',
+    Photo: 'bi-image text-warning',
+    Other: 'bi-file-earmark text-muted'
+};
+
+function formatSize(bytes) {
+    if (!bytes) return '-';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+document.getElementById('doc-lead-search').addEventListener('input', e => {
+    clearTimeout(searchTimeout);
+    const q = e.target.value.trim();
+    if (q.length < 2) { document.getElementById('doc-lead-results').innerHTML = ''; return; }
+    searchTimeout = setTimeout(async () => {
+        const res = await fetch(`/api/leads?q=${encodeURIComponent(q)}&pageSize=8`);
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('doc-lead-results').innerHTML = data.leads.map(l => `
+            <div class="d-flex align-items-center gap-2 p-2 border-bottom hover-bg rounded"
+                 style="cursor:pointer;" onclick="selectLead('${l.id}','${l.name}','${l.phone}')">
+                <i class="bi bi-person-circle text-primary"></i>
+                <div>
+                    <div class="fw-semibold small">${l.name}</div>
+                    <div class="text-muted" style="font-size:.72rem;">${l.phone}</div>
+                </div>
+            </div>`).join('') || '<div class="text-muted small p-2">No results</div>';
+    }, 300);
+});
+
+function selectLead(id, name, phone) {
+    selectedLeadId = id;
+    document.getElementById('doc-lead-results').innerHTML = '';
+    document.getElementById('doc-lead-search').value = '';
+    const sel = document.getElementById('doc-lead-selected');
+    sel.textContent = `Selected: ${name} (${phone})`;
+    sel.classList.remove('d-none');
+    document.getElementById('upload-panel').style.display = '';
+    document.getElementById('docs-lead-name').textContent = `— ${name}`;
+    loadDocuments();
+}
+
+async function loadDocuments() {
+    if (!selectedLeadId) return;
+    const res = await fetch(`/api/documents/lead/${selectedLeadId}`);
+    if (!res.ok) {
+        document.getElementById('docs-tbody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Failed to load documents.</td></tr>';
+        return;
+    }
+    const data = await res.json();
+    document.getElementById('docs-tbody').innerHTML = data.length === 0
+        ? '<tr><td colspan="6" class="text-center text-muted py-4">No documents uploaded yet.</td></tr>'
+        : data.map(d => `
+            <tr>
+                <td>
+                    <a href="${d.fileUrl}" target="_blank" class="text-decoration-none">
+                        <i class="bi ${typeIcons[d.type] ?? 'bi-file-earmark'} me-1"></i>${d.fileName}
+                    </a>
+                </td>
+                <td><span class="badge bg-secondary">${d.type}</span></td>
+                <td>${formatSize(d.fileSizeBytes)}</td>
+                <td>${d.uploadedBy}</td>
+                <td><small>${new Date(d.uploadedAt).toLocaleString()}</small></td>
+                <td>
+                    <a href="${d.fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary me-1" title="Download">
+                        <i class="bi bi-download"></i>
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDocument('${d.id}')" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+}
+
+async function uploadDocument() {
+    if (!selectedLeadId) { alert('Please select a lead first.'); return; }
+    const fileInput = document.getElementById('doc-file');
+    if (!fileInput.files.length) { alert('Please select a file.'); return; }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('type', document.getElementById('doc-type').value);
+
+    const statusDiv = document.getElementById('upload-status');
+    statusDiv.className = 'mt-2 small alert alert-info';
+    statusDiv.textContent = 'Uploading...';
+
+    const res = await fetch(`/api/documents/upload/${selectedLeadId}`, { method: 'POST', body: formData });
+    if (res.ok) {
+        statusDiv.className = 'mt-2 small alert alert-success';
+        statusDiv.textContent = 'Document uploaded successfully!';
+        fileInput.value = '';
+        loadDocuments();
+        setTimeout(() => statusDiv.classList.add('d-none'), 3000);
+    } else {
+        statusDiv.className = 'mt-2 small alert alert-danger';
+        statusDiv.textContent = 'Upload failed. Please try again.';
+    }
+}
+
+async function deleteDocument(id) {
+    if (!confirm('Delete this document?')) return;
+    const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+    if (res.ok || res.status === 204) loadDocuments();
+    else alert('Delete failed.');
+}
+</script>
+<style>.hover-bg:hover { background: #f8fafc; }</style>
+}

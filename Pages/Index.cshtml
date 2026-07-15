@@ -1,0 +1,97 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home";
+}
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <meta http-equiv="refresh" content="0;url=/Dashboard" />
+}
+else
+{
+    <!-- Landing page for unauthenticated visitors -->
+    <div class="min-vh-100 d-flex flex-column" style="background:linear-gradient(135deg,#1e1b4b 0%,#4f46e5 100%);">
+        <!-- Navbar -->
+        <nav class="navbar px-4 py-3">
+            <span class="text-white fw-bold fs-5"><i class="bi bi-telephone-fill me-2"></i>TelecallingCRM</span>
+            <div class="ms-auto d-flex gap-2">
+                <a class="btn btn-outline-light btn-sm" asp-page="/Login">Sign In</a>
+                <a class="btn btn-warning btn-sm fw-bold" asp-page="/Register">Get Started</a>
+            </div>
+        </nav>
+
+        <!-- Hero -->
+        <div class="container text-center text-white py-5 flex-grow-1">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="badge bg-warning text-dark mb-3 px-3 py-2">
+                        <i class="bi bi-rocket-takeoff-fill me-1"></i> Enterprise Telecalling CRM
+                    </div>
+                    <h1 class="display-4 fw-bold mb-3">The Complete Telecalling<br>CRM for Every Industry</h1>
+                    <p class="lead mb-4 opacity-75">
+                        Manage calls, leads, follow-ups, WhatsApp, SMS, email and AI insights —
+                        all in one powerful platform built for modern sales teams.
+                    </p>
+                    <div class="d-flex gap-3 justify-content-center mb-5 flex-wrap">
+                        <a class="btn btn-warning btn-lg fw-bold px-4" asp-page="/Register">Start Free Trial</a>
+                        <a class="btn btn-outline-light btn-lg px-4" asp-page="/Login">Sign In</a>
+                    </div>
+
+                    <!-- Industry Verticals -->
+                    <h5 class="mb-3 opacity-75 text-uppercase fw-semibold" style="letter-spacing:.08em;font-size:.8rem;">Built For These Industries</h5>
+                    <div class="d-flex flex-wrap gap-2 justify-content-center mb-5">
+                        @foreach (var industry in new[] {
+                            ("bi-megaphone-fill",    "Political Parties & Election"),
+                            ("bi-building",          "Hotels"),
+                            ("bi-cup-hot-fill",      "Restaurants"),
+                            ("bi-house-fill",        "Real Estate"),
+                            ("bi-shield-fill",       "Insurance Agents"),
+                            ("bi-book-fill",         "EdTech"),
+                            ("bi-airplane-fill",     "Travel Agencies"),
+                            ("bi-hospital-fill",     "Hospitals"),
+                            ("bi-headset",           "BPOs"),
+                            ("bi-heart-fill",        "NGOs")
+                        })
+                        {
+                            <span class="badge rounded-pill px-3 py-2" style="background:rgba(255,255,255,0.15);font-size:.85rem;">
+                                <i class="bi @industry.Item1 me-1"></i>@industry.Item2
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Grid -->
+            <div class="row g-3 text-start mt-2">
+                @foreach (var feature in new[] {
+                    ("bi-telephone-fill", "Power Dialer", "Click-to-call, Auto Dial, Predictive & Preview dialers with real-time timer, mute, hold, transfer and recording"),
+                    ("bi-calendar-check", "Follow-up Management", "Calendar, recurring reminders, SMS/WhatsApp/Email alerts and escalation workflows"),
+                    ("bi-megaphone", "Campaign Management", "Cold calling, election, insurance, hotel, education and real estate campaign types with lead list assignment"),
+                    ("bi-whatsapp", "WhatsApp Integration", "One-click messages, templates, media, PDF campaigns, auto-replies and conversation history"),
+                    ("bi-robot", "AI Insights", "High-probability lead scoring, competitor mention detection, sentiment analysis and smart call recommendations"),
+                    ("bi-bar-chart-line", "Reports & Analytics", "Daily, monthly, agent and campaign reports with CSV, Excel export and real-time dashboard"),
+                    ("bi-people", "Team Management", "Users, roles (Super Admin, Admin, Manager, Agent), permissions and hierarchy"),
+                    ("bi-clock-history", "Customer Timeline", "Every call, WhatsApp, SMS, email, meeting, note and document in one chronological view"),
+                    ("bi-plug", "Integrations", "Twilio, Exotel, Knowlarity, Razorpay, WhatsApp Business API, Google Calendar, Facebook Leads and more")
+                })
+                {
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 h-100 text-start" style="background:rgba(255,255,255,0.08);">
+                            <i class="bi @feature.Item1 text-warning fs-4 mb-2 d-block"></i>
+                            <div class="fw-semibold mb-1">@feature.Item2</div>
+                            <div class="opacity-75 small">@feature.Item3</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <footer class="text-center text-white opacity-50 py-3 small">
+            &copy; @DateTime.Now.Year TelecallingCRM — All rights reserved.
+        </footer>
+    </div>
+}
+
+
+

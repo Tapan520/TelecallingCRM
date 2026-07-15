@@ -1,0 +1,196 @@
+@page
+@model TelecallingCRM.Pages.Messaging.EmailPageModel
+@{
+    ViewData["Title"] = "Email";
+}
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#compose">Compose</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#templates" onclick="loadTemplates()">Templates</a></li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="compose">
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">To</label>
+                            <input type="email" id="email-to" class="form-control" placeholder="recipient@company.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Subject</label>
+                            <input type="text" id="email-subject" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Use Template</label>
+                            <select id="email-tmpl" class="form-select form-select-sm" onchange="applyEmailTemplate()">
+                                <option value="">— Select Template —</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Body (HTML)</label>
+                            <textarea id="email-body" class="form-control" rows="12" placeholder="<p>Hello {{Name}},</p>"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="sendEmail()">
+                            <i class="bi bi-send"></i> Send Email
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header fw-semibold">Link to Lead</div>
+                    <div class="card-body">
+                        <input type="text" id="email-lead-search" class="form-control form-control-sm mb-2" placeholder="Search lead...">
+                        <div id="email-lead-results" style="max-height:200px;overflow-y:auto;"></div>
+                        <div id="email-lead-selected" class="alert alert-success py-1 px-2 small mt-2 d-none"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="templates">
+        <div class="d-flex justify-content-between mb-3">
+            <h6 class="mb-0 fw-bold">Email Templates</h6>
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tmplModal">
+                <i class="bi bi-plus-lg"></i> New Template
+            </button>
+        </div>
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light"><tr><th>Name</th><th>Subject</th><th>Category</th><th>Created</th><th></th></tr></thead>
+                    <tbody id="tmpl-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template Modal -->
+<div class="modal fade" id="tmplModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">New Email Template</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label">Template Name</label><input type="text" id="nt-name" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Category</label><input type="text" id="nt-category" class="form-control" placeholder="Welcome, FollowUp, Promo..."></div>
+                    <div class="col-12"><label class="form-label">Subject</label><input type="text" id="nt-subject" class="form-control"></div>
+                    <div class="col-12"><label class="form-label">Body (HTML)</label><textarea id="nt-body" class="form-control" rows="8"></textarea></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveTemplate()">Save Template</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let selectedEmailLeadId = null;
+let emailTemplatesCache = [];
+
+async function loadTemplates() {
+    const res = await fetch('/api/email/templates');
+    if (!res.ok) return;
+    emailTemplatesCache = await res.json();
+
+    // Fill compose dropdown
+    const sel = document.getElementById('email-tmpl');
+    sel.innerHTML = '<option value="">— Select Template —</option>';
+    emailTemplatesCache.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.id; o.textContent = t.name; sel.appendChild(o);
+    });
+
+    // Fill templates tab
+    document.getElementById('tmpl-tbody').innerHTML = emailTemplatesCache.length === 0
+        ? '<tr><td colspan="5" class="text-center text-muted py-3">No templates yet</td></tr>'
+        : emailTemplatesCache.map(t => `
+            <tr>
+                <td class="fw-semibold">${t.name}</td>
+                <td>${t.subject}</td>
+                <td><span class="badge bg-secondary">${t.category ?? '—'}</span></td>
+                <td><small>${new Date(t.createdAt).toLocaleDateString()}</small></td>
+                <td><button class="btn btn-sm btn-outline-danger" onclick="deleteTemplate('${t.id}')"><i class="bi bi-trash"></i></button></td>
+            </tr>`).join('');
+}
+
+async function applyEmailTemplate() {
+    const id = document.getElementById('email-tmpl').value;
+    if (!id) return;
+    const tmpl = emailTemplatesCache.find(t => t.id === id);
+    if (!tmpl) {
+        // Fetch full template
+        const res = await fetch(`/api/email/templates`);
+        return;
+    }
+    document.getElementById('email-subject').value = tmpl.subject;
+    document.getElementById('email-body').value = tmpl.body ?? '';
+}
+
+async function sendEmail() {
+    const body = {
+        toEmail: document.getElementById('email-to').value,
+        subject: document.getElementById('email-subject').value,
+        body: document.getElementById('email-body').value,
+        isHtml: true,
+        leadId: selectedEmailLeadId,
+        templateId: document.getElementById('email-tmpl').value || null
+    };
+    const res = await fetch('/api/email/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) alert('Email sent successfully!');
+    else alert('Error sending email');
+}
+
+async function saveTemplate() {
+    const body = {
+        name: document.getElementById('nt-name').value,
+        subject: document.getElementById('nt-subject').value,
+        body: document.getElementById('nt-body').value,
+        category: document.getElementById('nt-category').value || null
+    };
+    const res = await fetch('/api/email/templates', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('tmplModal')).hide(); loadTemplates(); }
+}
+
+async function deleteTemplate(id) {
+    if (!confirm('Delete this template?')) return;
+    await fetch(`/api/email/templates/${id}`, { method:'DELETE' });
+    loadTemplates();
+}
+
+let ls;
+document.getElementById('email-lead-search').addEventListener('input', e => {
+    clearTimeout(ls);
+    ls = setTimeout(async () => {
+        const q = e.target.value.trim();
+        if (q.length < 2) { document.getElementById('email-lead-results').innerHTML = ''; return; }
+        const res = await fetch(`/api/leads?q=${encodeURIComponent(q)}&pageSize=6`);
+        const data = await res.json();
+        document.getElementById('email-lead-results').innerHTML = data.leads.map(l => `
+            <div class="p-2 border-bottom hover-bg" style="cursor:pointer;" onclick="selectEmailLead('${l.id}','${l.name}','${l.email}')">
+                <div class="fw-semibold small">${l.name}</div>
+                <div class="text-muted" style="font-size:.72rem;">${l.email ?? 'No email'}</div>
+            </div>`).join('');
+    }, 300);
+});
+
+function selectEmailLead(id, name, email) {
+    selectedEmailLeadId = id;
+    if (email) document.getElementById('email-to').value = email;
+    document.getElementById('email-lead-selected').textContent = `Linked to: ${name}`;
+    document.getElementById('email-lead-selected').classList.remove('d-none');
+    document.getElementById('email-lead-results').innerHTML = '';
+}
+
+loadTemplates();
+</script>
+<style>.hover-bg:hover{background:#f8fafc;}</style>
+}

@@ -1,0 +1,226 @@
+@page
+@model TelecallingCRM.Pages.Campaigns.IndexModel
+@{
+    ViewData["Title"] = "Campaigns";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="d-flex flex-wrap gap-1 filter-bar">
+        <button class="btn btn-sm btn-primary" id="filter-all" onclick="filterType(null, this)">
+            <i class="bi bi-grid-fill"></i> All
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="filterType(0, this)">
+            <i class="bi bi-telephone-fill"></i> Cold Calling
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="filterType(1, this)">
+            <i class="bi bi-megaphone-fill"></i> Election
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="filterType(2, this)">
+            <i class="bi bi-building"></i> Hotel Booking
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="filterType(3, this)">
+            <i class="bi bi-shield-fill"></i> Insurance
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="filterType(4, this)">
+            <i class="bi bi-book-fill"></i> Education
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="filterType(5, this)">
+            <i class="bi bi-house-fill"></i> Real Estate
+        </button>
+    </div>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#campaignModal" onclick="openNew()">
+        <i class="bi bi-plus-lg"></i> New Campaign
+    </button>
+</div>
+
+<div class="row g-3" id="campaigns-grid">
+    <div class="col-12 text-center text-muted py-4">Loading...</div>
+</div>
+
+<!-- Campaign Modal -->
+<div class="modal fade" id="campaignModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="campaignModalTitle">New Campaign</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="camp-id">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Campaign Name *</label>
+                        <input type="text" id="camp-name" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Type</label>
+                        <select id="camp-type" class="form-select">
+                            <option value="0">Cold Calling</option>
+                            <option value="1">Election Campaign</option>
+                            <option value="2">Hotel Booking</option>
+                            <option value="3">Insurance</option>
+                            <option value="4">Education (EdTech)</option>
+                            <option value="5">Real Estate</option>
+                            <option value="6">Follow-up</option>
+                            <option value="7">Upsell</option>
+                            <option value="8">Win-Back</option>
+                            <option value="9">Survey</option>
+                            <option value="10">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <select id="camp-status" class="form-select">
+                            <option value="0">Draft</option><option value="1">Active</option>
+                            <option value="2">Paused</option><option value="3">Completed</option>
+                            <option value="4">Archived</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <input type="text" id="camp-desc" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" id="camp-start" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">End Date</label>
+                        <input type="date" id="camp-end" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Target Calls/Day</label>
+                        <input type="number" id="camp-target" class="form-control" min="0" value="0">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Call Script / AI Prompt Context</label>
+                        <textarea id="camp-script" class="form-control" rows="5" placeholder="Enter the call script or context for AI assistance..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveCampaign()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const statusLabels = ['Draft','Active','Paused','Completed','Archived'];
+const statusColors = ['secondary','success','warning','primary','dark'];
+const typeLabels  = ['Cold Calling','Election','Hotel Booking','Insurance','Education','Real Estate','Follow-up','Upsell','Win-Back','Survey','Other'];
+const typeIcons   = [
+    'bi-telephone-fill',   // 0 Cold Calling
+    'bi-megaphone-fill',   // 1 Election
+    'bi-building',         // 2 Hotel Booking
+    'bi-shield-fill',      // 3 Insurance
+    'bi-book-fill',        // 4 Education
+    'bi-house-fill',       // 5 Real Estate
+    'bi-calendar-check',   // 6 Follow-up
+    'bi-arrow-up-circle',  // 7 Upsell
+    'bi-arrow-repeat',     // 8 Win-Back
+    'bi-clipboard2-check', // 9 Survey
+    'bi-three-dots'        // 10 Other
+];
+let allCampaigns = [];
+let activeTypeFilter = null;
+
+function filterType(type, btn) {
+    activeTypeFilter = type;
+    document.querySelectorAll('.filter-bar button').forEach(b => {
+        b.className = b.className.replace('btn-primary', 'btn-outline-secondary');
+    });
+    if (btn) { btn.className = btn.className.replace('btn-outline-secondary', 'btn-primary'); }
+    renderCampaigns(activeTypeFilter === null ? allCampaigns : allCampaigns.filter(c => c.type === activeTypeFilter));
+}
+
+async function loadCampaigns() {
+    const res = await fetch('/api/campaigns');
+    allCampaigns = await res.json();
+    renderCampaigns(allCampaigns);
+}
+function renderCampaigns(data) {
+    const grid = document.getElementById('campaigns-grid');
+    if (!data.length) { grid.innerHTML = '<div class="col-12 text-center text-muted py-5">No campaigns yet. Create your first!</div>'; return; }
+    grid.innerHTML = data.map(c => `
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="fw-semibold mb-0">${c.name}</h6>
+                        <span class="badge bg-${statusColors[c.status]}">${statusLabels[c.status]}</span>
+                    </div>
+                    <p class="text-muted small mb-3">${c.description ?? 'No description'}</p>
+                    <div class="d-flex gap-3 text-muted small">
+                        <span><i class="bi ${typeIcons[c.type] ?? 'bi-tag'}"></i> ${typeLabels[c.type] ?? 'Other'}</span>
+                        <span><i class="bi bi-people"></i> ${c.leadCount} leads</span>
+                        ${c.startDate ? `<span><i class="bi bi-calendar3"></i> ${new Date(c.startDate).toLocaleDateString()}</span>` : ''}
+                    </div>
+                </div>
+                <div class="card-footer d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editCampaign('${c.id}')">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCampaign('${c.id}')">Delete</button>
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+function openNew() {
+    document.getElementById('campaignModalTitle').textContent = 'New Campaign';
+    document.getElementById('camp-id').value = '';
+    ['name','desc','script'].forEach(f => document.getElementById(`camp-${f}`).value = '');
+    document.getElementById('camp-start').value = '';
+    document.getElementById('camp-end').value = '';
+    document.getElementById('camp-status').value = '0';
+    document.getElementById('camp-type').value = '0';
+    document.getElementById('camp-target').value = '0';
+}
+
+async function editCampaign(id) {
+const c = allCampaigns.find(x => x.id === id);
+if (!c) return;
+    document.getElementById('campaignModalTitle').textContent = 'Edit Campaign';
+    document.getElementById('camp-id').value = c.id;
+    document.getElementById('camp-name').value = c.name;
+    document.getElementById('camp-desc').value = c.description ?? '';
+    document.getElementById('camp-status').value = c.status;
+    document.getElementById('camp-type').value = c.type ?? 0;
+    document.getElementById('camp-target').value = c.targetCallsPerDay;
+    document.getElementById('camp-start').value = c.startDate ? c.startDate.slice(0,10) : '';
+    document.getElementById('camp-end').value = c.endDate ? c.endDate.slice(0,10) : '';
+    document.getElementById('camp-script').value = c.script ?? '';
+    new bootstrap.Modal(document.getElementById('campaignModal')).show();
+}
+
+async function saveCampaign() {
+    const id = document.getElementById('camp-id').value;
+    const body = {
+        name: document.getElementById('camp-name').value,
+        description: document.getElementById('camp-desc').value || null,
+        script: document.getElementById('camp-script').value || null,
+        startDate: document.getElementById('camp-start').value || null,
+        endDate: document.getElementById('camp-end').value || null,
+        status: parseInt(document.getElementById('camp-status').value),
+        type: parseInt(document.getElementById('camp-type').value),
+        targetCallsPerDay: parseInt(document.getElementById('camp-target').value) || 0
+    };
+    const url = id ? `/api/campaigns/${id}` : '/api/campaigns';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('campaignModal')).hide();
+        loadCampaigns();
+    } else { alert('Error saving campaign.'); }
+}
+
+async function deleteCampaign(id) {
+    if (!confirm('Delete this campaign?')) return;
+    await fetch(`/api/campaigns/${id}`, { method: 'DELETE' });
+    loadCampaigns();
+}
+
+loadCampaigns();
+</script>
+}

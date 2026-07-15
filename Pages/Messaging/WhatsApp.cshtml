@@ -1,0 +1,135 @@
+@page
+@model TelecallingCRM.Pages.Messaging.WhatsAppModel
+@{
+    ViewData["Title"] = "WhatsApp";
+}
+
+<div class="row g-3">
+    <!-- Left: Lead List -->
+    <div class="col-md-4 col-lg-3">
+        <div class="card h-100">
+            <div class="card-header fw-semibold py-2">
+                <input type="text" id="wa-search" class="form-control form-control-sm" placeholder="Search lead...">
+            </div>
+            <div id="wa-lead-list" class="overflow-auto" style="max-height:calc(100vh - 200px);">
+                <div class="text-center text-muted py-4 small">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Conversation -->
+    <div class="col-md-8 col-lg-9">
+        <div class="card h-100 d-flex flex-column" style="min-height:500px;">
+            <div class="card-header d-flex align-items-center gap-2" id="wa-chat-header">
+                <i class="bi bi-whatsapp text-success fs-5"></i>
+                <span id="wa-chat-name" class="fw-semibold">Select a lead</span>
+            </div>
+            <div class="flex-grow-1 overflow-auto p-3 bg-light" id="wa-messages" style="max-height:400px;">
+                <div class="text-center text-muted py-4 small">Select a lead to view conversation</div>
+            </div>
+            <div class="card-footer" id="wa-compose" style="display:none!important;">
+                <!-- Template picker -->
+                <div class="mb-2 d-flex gap-2">
+                    <select id="wa-template" class="form-select form-select-sm" style="width:auto;" onchange="applyTemplate()">
+                        <option value="">— Use Template —</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('wa-media').click()">
+                        <i class="bi bi-paperclip"></i>
+                    </button>
+                    <input type="file" id="wa-media" class="d-none">
+                </div>
+                <div class="d-flex gap-2">
+                    <textarea id="wa-body" class="form-control form-control-sm" rows="2" placeholder="Type a message..."></textarea>
+                    <button class="btn btn-success px-3" onclick="sendWhatsApp()">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let selectedLeadId = null;
+let selectedLeadPhone = null;
+
+async function loadLeads() {
+    const q = document.getElementById('wa-search').value;
+    const res = await fetch(`/api/leads?pageSize=30&q=${encodeURIComponent(q)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('wa-lead-list').innerHTML = data.leads.map(l => `
+        <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom hover-bg"
+             style="cursor:pointer;" onclick="openConversation('${l.id}','${l.name}','${l.phone}')">
+            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:36px;height:36px;font-size:.8rem;">${l.name.charAt(0)}</div>
+            <div>
+                <div class="fw-semibold small">${l.name}</div>
+                <div class="text-muted" style="font-size:.72rem;">${l.phone}</div>
+            </div>
+        </div>`).join('') || '<div class="text-center text-muted py-3 small">No leads found</div>';
+}
+
+async function openConversation(id, name, phone) {
+    selectedLeadId = id; selectedLeadPhone = phone;
+    document.getElementById('wa-chat-name').textContent = name + ' · ' + phone;
+    document.getElementById('wa-compose').style.removeProperty('display');
+
+    const res = await fetch(`/api/whatsapp/lead/${id}`);
+    if (!res.ok) return;
+    const msgs = await res.json();
+    const container = document.getElementById('wa-messages');
+    container.innerHTML = msgs.length === 0
+        ? '<div class="text-center text-muted py-4 small">No messages yet</div>'
+        : msgs.map(m => `
+            <div class="d-flex ${m.direction === 0 ? 'justify-content-end' : 'justify-content-start'} mb-2">
+                <div class="px-3 py-2 rounded-3 shadow-sm" style="max-width:70%;background:${m.direction===0?'#dcf8c6':'#fff'};">
+                    <div style="font-size:.9rem;">${m.body}</div>
+                    <div style="font-size:.65rem;" class="text-muted text-end mt-1">
+                        ${new Date(m.sentAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                        ${m.direction===0 ? (m.status==='Read'?'??':'?') : ''}
+                    </div>
+                </div>
+            </div>`).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
+async function loadTemplates() {
+    const res = await fetch('/api/whatsapp/templates');
+    if (!res.ok) return;
+    const data = await res.json();
+    const sel = document.getElementById('wa-template');
+    data.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.body; opt.textContent = t.name;
+        sel.appendChild(opt);
+    });
+}
+
+function applyTemplate() {
+    const tmpl = document.getElementById('wa-template').value;
+    if (tmpl) document.getElementById('wa-body').value = tmpl;
+}
+
+async function sendWhatsApp() {
+    if (!selectedLeadId) return;
+    const body = document.getElementById('wa-body').value.trim();
+    if (!body) return;
+    const res = await fetch('/api/whatsapp/send', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ leadId: selectedLeadId, toPhone: selectedLeadPhone, body, templateId: null, mediaUrl: null })
+    });
+    if (res.ok) {
+        document.getElementById('wa-body').value = '';
+        openConversation(selectedLeadId, document.getElementById('wa-chat-name').textContent.split(' · ')[0], selectedLeadPhone);
+    }
+}
+
+document.getElementById('wa-search').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadLeads, 300); });
+let st;
+loadLeads();
+loadTemplates();
+</script>
+<style>.hover-bg:hover { background: #f0fdf4; }</style>
+}

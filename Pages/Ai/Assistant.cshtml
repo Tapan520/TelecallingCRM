@@ -1,0 +1,155 @@
+@page
+@model TelecallingCRM.Pages.Ai.AssistantModel
+@{
+    ViewData["Title"] = "AI Assistant";
+}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card" style="height:600px; display:flex; flex-direction:column;">
+            <div class="card-header py-3 d-flex align-items-center gap-2">
+                <i class="bi bi-robot text-primary fs-5"></i>
+                <span class="fw-semibold">AI Sales Assistant</span>
+                <span class="badge bg-success ms-auto">RAG-enabled</span>
+            </div>
+            <div class="card-body overflow-auto flex-grow-1 p-3" id="chat-messages" style="background:#f8fafc;">
+                <div class="d-flex gap-2 mb-3">
+                    <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center" style="width:32px;height:32px;min-width:32px;">
+                        <i class="bi bi-robot text-white" style="font-size:0.75rem;"></i>
+                    </div>
+                    <div class="bg-white rounded-3 p-3 shadow-sm" style="max-width:80%; font-size:0.875rem;">
+                        Hi! I'm your AI Sales Assistant powered by OpenRouter. I can help you with call scripts, lead qualification tips, objection handling, and I have access to your knowledge base. What do you need?
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer p-3">
+                <div class="input-group">
+                    <input type="text" id="chat-input" class="form-control" placeholder="Ask anything about your leads, calls, or sales strategies..." />
+                    <button class="btn btn-primary" id="chat-send" onclick="sendMessage()">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </div>
+                <div class="mt-2 d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="quickPrompt('Give me 3 objection handling tips for cold calls')">Objection tips</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="quickPrompt('Write a short cold call opener for a SaaS product')">Call opener</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="quickPrompt('How to qualify a lead in under 2 minutes?')">Lead qualification</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header py-3">
+                <span class="fw-semibold"><i class="bi bi-mic text-danger"></i> Whisper Transcription</span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Upload a call recording to transcribe it with Whisper STT.</p>
+                <input type="file" id="audio-file" class="form-control mb-3" accept="audio/*,video/*">
+                <input type="text" id="call-id-input" class="form-control mb-3" placeholder="Call ID (optional, to save)">
+                <button class="btn btn-danger w-100" onclick="transcribeAudio()">
+                    <i class="bi bi-mic-fill"></i> Transcribe
+                </button>
+                <div id="transcript-result" class="mt-3 p-3 bg-light rounded small" style="display:none; white-space:pre-wrap;"></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header py-3">
+                <span class="fw-semibold"><i class="bi bi-lightning text-warning"></i> AI Model</span>
+            </div>
+            <div class="card-body">
+                <select class="form-select form-select-sm mb-2" id="model-select">
+                    <option value="openai/gpt-4o-mini">GPT-4o Mini (fast)</option>
+                    <option value="openai/gpt-4o">GPT-4o (powerful)</option>
+                    <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+                    <option value="anthropic/claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                    <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
+                    <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+                </select>
+                <p class="text-muted small mb-0">Model selection is per-session. Configure default in Admin ? Settings.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const chatMessages = document.getElementById('chat-messages');
+
+function appendMessage(role, text) {
+    const isUser = role === 'user';
+    const div = document.createElement('div');
+    div.className = `d-flex gap-2 mb-3 ${isUser ? 'flex-row-reverse' : ''}`;
+    div.innerHTML = `
+        <div class="rounded-circle ${isUser ? 'bg-indigo' : 'bg-primary'} d-flex align-items-center justify-content-center"
+             style="width:32px;height:32px;min-width:32px;background:${isUser?'#4f46e5':'#0d6efd'};">
+            <i class="bi bi-${isUser ? 'person' : 'robot'} text-white" style="font-size:0.75rem;"></i>
+        </div>
+        <div class="${isUser ? 'bg-primary text-white' : 'bg-white'} rounded-3 p-3 shadow-sm"
+             style="max-width:80%;font-size:0.875rem;">${text.replace(/\n/g,'<br>')}</div>`;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    appendMessage('user', msg);
+
+    const btn = document.getElementById('chat-send');
+    btn.disabled = true;
+    appendMessage('assistant', '<span class="spinner-border spinner-border-sm"></span> Thinking...');
+
+    try {
+        const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+        chatMessages.lastElementChild.remove(); // remove loading
+        appendMessage('assistant', data.reply);
+    } catch {
+        chatMessages.lastElementChild.remove();
+        appendMessage('assistant', 'Error connecting to AI service. Check your API key in Settings.');
+    } finally {
+        btn.disabled = false;
+        input.focus();
+    }
+}
+
+function quickPrompt(text) {
+    document.getElementById('chat-input').value = text;
+    sendMessage();
+}
+
+document.getElementById('chat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+async function transcribeAudio() {
+    const fileInput = document.getElementById('audio-file');
+    const callId = document.getElementById('call-id-input').value.trim();
+    if (!fileInput.files.length) { alert('Please select an audio file.'); return; }
+
+    const form = new FormData();
+    form.append('audio', fileInput.files[0]);
+
+    const url = callId ? `/api/calls/${callId}/transcribe` : null;
+    if (!url) { alert('Please enter a Call ID to transcribe.'); return; }
+
+    const resultDiv = document.getElementById('transcript-result');
+    resultDiv.style.display = 'block';
+    resultDiv.textContent = 'Transcribing...';
+
+    const res = await fetch(url, { method: 'POST', body: form });
+    if (res.ok) {
+        const data = await res.json();
+        resultDiv.textContent = data.transcript;
+    } else {
+        resultDiv.textContent = 'Transcription failed.';
+    }
+}
+</script>
+}

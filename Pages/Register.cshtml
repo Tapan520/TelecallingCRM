@@ -1,0 +1,69 @@
+@page
+@model TelecallingCRM.Pages.RegisterModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Create Organization";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Organization - TelecallingCRM</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <style>
+        body { background: linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4338ca 100%); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+        .reg-card { background:#fff; border-radius:1rem; padding:2.5rem; width:100%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+        .brand { font-size:1.5rem; font-weight:800; color:#4f46e5; margin-bottom:0.25rem; }
+        .form-control:focus { border-color:#4f46e5; box-shadow:0 0 0 0.2rem rgba(79,70,229,0.2); }
+        .btn-primary { background:#4f46e5; border-color:#4f46e5; }
+        .btn-primary:hover { background:#3730a3; border-color:#3730a3; }
+    </style>
+</head>
+<body>
+    <div class="reg-card">
+        <div class="brand"><i class="bi bi-telephone-fill"></i> TelecallingCRM</div>
+        <p class="text-muted mb-4" style="font-size:0.875rem;">Set up your organization</p>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger">@Model.ErrorMessage</div>
+        }
+
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Company Name</label>
+                <input asp-for="Input.CompanyName" class="form-control" placeholder="Acme Corp" />
+                <span asp-validation-for="Input.CompanyName" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Tenant Slug <small class="text-muted">(subdomain identifier)</small></label>
+                <input asp-for="Input.TenantSlug" class="form-control" placeholder="acme" />
+                <div class="form-text">acme.yourcrm.com - lowercase, no spaces</div>
+                <span asp-validation-for="Input.TenantSlug" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Your Full Name</label>
+                <input asp-for="Input.FullName" class="form-control" placeholder="John Smith" />
+                <span asp-validation-for="Input.FullName" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Work Email</label>
+                <input asp-for="Input.Email" class="form-control" placeholder="john@acme.com" type="email" />
+                <span asp-validation-for="Input.Email" class="text-danger small"></span>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Password</label>
+                <input asp-for="Input.Password" class="form-control" placeholder="Min 8 characters" type="password" />
+                <span asp-validation-for="Input.Password" class="text-danger small"></span>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-2">Create Organization</button>
+        </form>
+        <hr class="my-3" />
+        <div class="text-center">
+            <small class="text-muted">Already have an account? <a href="/Login">Sign in</a></small>
+        </div>
+    </div>
+</body>
+</html>
