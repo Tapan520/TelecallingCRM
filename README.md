@@ -45,6 +45,7 @@ Open <http://127.0.0.1:5000> in your browser.
 |----------------------|------------------------------|---------------------------|
 | `SECRET_KEY`         | `telecalling-crm-secret-key` | Flask session secret      |
 | `DATABASE_URL`       | `sqlite:///telecalling_crm.db` | SQLAlchemy database URI |
+| `FLASK_DEBUG`        | `0`                          | Set to `1` to enable Flask debug mode (development only) |
 
 ## Running Tests
 
