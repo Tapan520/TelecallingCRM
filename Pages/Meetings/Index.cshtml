@@ -1,0 +1,251 @@
+@page
+@model TelecallingCRM.Pages.Meetings.IndexModel
+@{
+    ViewData["Title"] = "Meetings";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-camera-video text-info me-2"></i>Meetings</h5>
+        <small class="text-muted">Schedule, track and manage client meetings</small>
+    </div>
+    <button class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#meetingModal" onclick="openMeetingModal(null)">
+        <i class="bi bi-plus-circle"></i> New Meeting
+    </button>
+</div>
+
+<!-- Filter tabs -->
+<ul class="nav nav-tabs mb-3" id="meetingTabs">
+    <li class="nav-item"><a class="nav-link active" href="javascript:void(0)" onclick="setMeetingTab(this,'')">All</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setMeetingTab(this,'Scheduled')">Scheduled</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setMeetingTab(this,'Completed')">Completed</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setMeetingTab(this,'Cancelled')">Cancelled</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setMeetingTab(this,'NoShow')">No-Show</a></li>
+    <li class="nav-item ms-auto">
+        <div class="form-check form-switch pt-2">
+            <input class="form-check-input" type="checkbox" id="myMeetingsToggle" onchange="loadMeetings()">
+            <label class="form-check-label" for="myMeetingsToggle">Mine Only</label>
+        </div>
+    </li>
+</ul>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Title</th>
+                    <th>Lead</th>
+                    <th>Type</th>
+                    <th>Scheduled</th>
+                    <th>Duration</th>
+                    <th>Organiser</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="meetings-tbody">
+                <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Meeting Modal -->
+<div class="modal fade" id="meetingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="meeting-modal-title">New Meeting</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="meeting-edit-id">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Meeting Title *</label>
+                        <input type="text" id="m-title" class="form-control" placeholder="e.g. Product Demo with Client">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Type *</label>
+                        <select id="m-type" class="form-select">
+                            <option value="0">Phone Call</option>
+                            <option value="1">Video Call</option>
+                            <option value="2">In Person</option>
+                            <option value="3">Online Demo</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Lead *</label>
+                        <input type="text" id="m-lead-search" class="form-control" placeholder="Search lead name..." oninput="searchLeads(this.value)">
+                        <input type="hidden" id="m-lead-id">
+                        <div id="lead-suggestions" class="list-group position-absolute w-auto" style="z-index:1000;max-height:200px;overflow-y:auto;display:none;"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Scheduled At *</label>
+                        <input type="datetime-local" id="m-scheduled-at" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Duration (minutes)</label>
+                        <input type="number" id="m-duration" class="form-control" value="30" min="5">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Meeting Link</label>
+                        <input type="text" id="m-link" class="form-control" placeholder="https://meet.google.com/...">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Agenda</label>
+                        <textarea id="m-agenda" class="form-control" rows="2" placeholder="Meeting agenda or notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-info text-white" onclick="saveMeeting()"><i class="bi bi-floppy"></i> Save Meeting</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentMeetingStatus = '';
+const typeLabels = ['Phone Call','Video Call','In Person','Online Demo'];
+const typeIcons  = ['bi-telephone','bi-camera-video','bi-person-walking','bi-laptop'];
+const statusColors = { Scheduled:'info', Completed:'success', Cancelled:'secondary', NoShow:'danger', Rescheduled:'warning' };
+
+function setMeetingTab(el, status) {
+    document.querySelectorAll('#meetingTabs .nav-link').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentMeetingStatus = status;
+    loadMeetings();
+}
+
+async function loadMeetings() {
+    const myOnly = document.getElementById('myMeetingsToggle').checked;
+    let url = `/api/meetings?${currentMeetingStatus ? 'status='+currentMeetingStatus+'&' : ''}${myOnly ? 'myMeetings=true' : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('meetings-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load. Please login.</td></tr>'; return; }
+    const data = await res.json();
+    const items = data.items ?? data;
+    if (!items.length) {
+        document.getElementById('meetings-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No meetings found.</td></tr>';
+        return;
+    }
+    document.getElementById('meetings-tbody').innerHTML = items.map(m => `
+        <tr>
+            <td>
+                <div class="fw-semibold">${m.title}</div>
+                ${m.meetingLink ? `<a href="${m.meetingLink}" target="_blank" class="small text-info"><i class="bi bi-link-45deg"></i> Join</a>` : ''}
+            </td>
+            <td><small class="text-muted">${m.leadName ?? '—'}</small></td>
+            <td><span class="badge bg-light text-dark border"><i class="bi ${typeIcons[m.type] ?? 'bi-calendar'} me-1"></i>${typeLabels[m.type] ?? m.type}</span></td>
+            <td>
+                <div>${new Date(m.scheduledAt).toLocaleDateString()}</div>
+                <small class="text-muted">${new Date(m.scheduledAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</small>
+            </td>
+            <td><small>${m.durationMinutes} min</small></td>
+            <td><small>${m.organisedBy ?? '—'}</small></td>
+            <td><span class="badge bg-${statusColors[m.status] ?? 'secondary'}">${m.status}</span></td>
+            <td class="text-end">
+                <div class="btn-group btn-group-sm">
+                    ${m.status === 'Scheduled' ? `
+                    <button class="btn btn-outline-success" onclick="completeMeeting('${m.id}')" title="Mark Completed"><i class="bi bi-check-lg"></i></button>
+                    <button class="btn btn-outline-warning" onclick="rescheduleMeeting('${m.id}')" title="Reschedule"><i class="bi bi-arrow-clockwise"></i></button>
+                    <button class="btn btn-outline-secondary" onclick="cancelMeeting('${m.id}')" title="Cancel"><i class="bi bi-x-lg"></i></button>
+                    ` : ''}
+                    <button class="btn btn-outline-primary" onclick="openMeetingModal(${JSON.stringify(m).replace(/"/g,'&quot;')})" data-bs-toggle="modal" data-bs-target="#meetingModal" title="Edit"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-outline-danger" onclick="deleteMeeting('${m.id}')" title="Delete"><i class="bi bi-trash"></i></button>
+                </div>
+            </td>
+        </tr>`).join('');
+}
+
+function openMeetingModal(m) {
+    document.getElementById('meeting-edit-id').value = m?.id ?? '';
+    document.getElementById('meeting-modal-title').textContent = m ? 'Edit Meeting' : 'New Meeting';
+    document.getElementById('m-title').value = m?.title ?? '';
+    document.getElementById('m-type').value = m?.type ?? 1;
+    document.getElementById('m-lead-id').value = m?.leadId ?? '';
+    document.getElementById('m-lead-search').value = m?.leadName ?? '';
+    document.getElementById('m-duration').value = m?.durationMinutes ?? 30;
+    document.getElementById('m-link').value = m?.meetingLink ?? '';
+    document.getElementById('m-agenda').value = m?.agenda ?? '';
+    if (m?.scheduledAt) {
+        const local = new Date(m.scheduledAt);
+        document.getElementById('m-scheduled-at').value = local.toISOString().slice(0,16);
+    } else {
+        document.getElementById('m-scheduled-at').value = '';
+    }
+}
+
+async function saveMeeting() {
+    const id = document.getElementById('meeting-edit-id').value;
+    const body = {
+        title: document.getElementById('m-title').value,
+        type: parseInt(document.getElementById('m-type').value),
+        leadId: document.getElementById('m-lead-id').value || null,
+        scheduledAt: document.getElementById('m-scheduled-at').value,
+        durationMinutes: parseInt(document.getElementById('m-duration').value),
+        meetingLink: document.getElementById('m-link').value || null,
+        agenda: document.getElementById('m-agenda').value || null
+    };
+    if (!body.title || !body.scheduledAt) { alert('Title and scheduled date are required.'); return; }
+    const url = id ? `/api/meetings/${id}` : '/api/meetings';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { alert('Error saving meeting.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('meetingModal')).hide();
+    loadMeetings();
+}
+
+async function completeMeeting(id) {
+    if (!confirm('Mark this meeting as completed?')) return;
+    await fetch(`/api/meetings/${id}/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ outcome: 'Meeting completed successfully.' }) });
+    loadMeetings();
+}
+
+async function cancelMeeting(id) {
+    if (!confirm('Cancel this meeting?')) return;
+    await fetch(`/api/meetings/${id}/cancel`, { method: 'POST' });
+    loadMeetings();
+}
+
+async function rescheduleMeeting(id) {
+    const dt = prompt('Enter new date & time (YYYY-MM-DDTHH:MM):');
+    if (!dt) return;
+    await fetch(`/api/meetings/${id}/reschedule`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newScheduledAt: dt }) });
+    loadMeetings();
+}
+
+async function deleteMeeting(id) {
+    if (!confirm('Delete this meeting?')) return;
+    await fetch(`/api/meetings/${id}`, { method: 'DELETE' });
+    loadMeetings();
+}
+
+let leadSearchTimer;
+async function searchLeads(q) {
+    clearTimeout(leadSearchTimer);
+    if (q.length < 2) { document.getElementById('lead-suggestions').style.display = 'none'; return; }
+    leadSearchTimer = setTimeout(async () => {
+        const res = await fetch(`/api/leads?search=${encodeURIComponent(q)}&pageSize=8`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const items = d.items ?? d;
+        const box = document.getElementById('lead-suggestions');
+        if (!items.length) { box.style.display = 'none'; return; }
+        box.innerHTML = items.map(l => `<a href="javascript:void(0)" class="list-group-item list-group-item-action small" onclick="selectLead('${l.id}','${l.name}')">${l.name} <span class="text-muted">${l.phone}</span></a>`).join('');
+        box.style.display = 'block';
+    }, 300);
+}
+
+function selectLead(id, name) {
+    document.getElementById('m-lead-id').value = id;
+    document.getElementById('m-lead-search').value = name;
+    document.getElementById('lead-suggestions').style.display = 'none';
+}
+
+loadMeetings();
+</script>
+}

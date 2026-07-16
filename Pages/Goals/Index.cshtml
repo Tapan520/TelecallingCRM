@@ -1,0 +1,271 @@
+@page
+@model TelecallingCRM.Pages.Goals.IndexModel
+@{
+    ViewData["Title"] = "Agent Goals";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-bullseye text-warning me-2"></i>Agent Goals &amp; Targets</h5>
+        <small class="text-muted">Set, track and manage performance goals for your team</small>
+    </div>
+    <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#goalModal" onclick="openGoalModal(null)">
+        <i class="bi bi-plus-circle"></i> New Goal
+    </button>
+</div>
+
+<!-- Filter bar -->
+<div class="card mb-3">
+    <div class="card-body py-2 d-flex gap-3 flex-wrap align-items-center">
+        <div>
+            <label class="form-label mb-0 me-2 small fw-semibold">Agent</label>
+            <select id="filter-agent" class="form-select form-select-sm d-inline-block w-auto" onchange="loadGoals()">
+                <option value="">All Agents</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label mb-0 me-2 small fw-semibold">Status</label>
+            <select id="filter-active" class="form-select form-select-sm d-inline-block w-auto" onchange="loadGoals()">
+                <option value="">All</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Goals grid -->
+<div class="row g-3" id="goals-grid">
+    <div class="col-12 text-center text-muted py-4">Loading...</div>
+</div>
+
+<!-- Goal Modal -->
+<div class="modal fade" id="goalModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="goal-modal-title">New Goal</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="goal-edit-id">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Agent *</label>
+                        <select id="goal-agent-id" class="form-select"></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Goal Label *</label>
+                        <input type="text" id="goal-label" class="form-control" placeholder="e.g. July 2026">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Period Start *</label>
+                        <input type="date" id="goal-start" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Period End *</label>
+                        <input type="date" id="goal-end" class="form-control">
+                    </div>
+                    <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">TARGETS</small></div>
+                    <div class="col-md-3">
+                        <label class="form-label">Total Calls</label>
+                        <input type="number" id="goal-calls" class="form-control" value="50" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Conversions</label>
+                        <input type="number" id="goal-conversions" class="form-control" value="5" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Talk Time (min)</label>
+                        <input type="number" id="goal-talk-min" class="form-control" value="300" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Follow-ups Done</label>
+                        <input type="number" id="goal-followups" class="form-control" value="20" min="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-warning" onclick="saveGoal()"><i class="bi bi-floppy"></i> Save Goal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal fade" id="progressModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-graph-up me-2"></i>Goal Progress</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="progress-body">
+                <div class="text-center text-muted py-4">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let agentsList = [];
+
+async function loadAgents() {
+    const res = await fetch('/api/admin/users');
+    if (!res.ok) return;
+    agentsList = await res.json();
+    const sel = document.getElementById('filter-agent');
+    const goalSel = document.getElementById('goal-agent-id');
+    agentsList.forEach(u => {
+        sel.innerHTML += `<option value="${u.id}">${u.fullName}</option>`;
+        goalSel.innerHTML += `<option value="${u.id}">${u.fullName} (${u.role})</option>`;
+    });
+}
+
+async function loadGoals() {
+    const agentId = document.getElementById('filter-agent').value;
+    const active = document.getElementById('filter-active').value;
+    let url = `/api/goals?${agentId ? 'agentId='+agentId+'&' : ''}${active !== '' ? 'active='+active : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('goals-grid').innerHTML = '<div class="col-12 text-center text-danger py-4">Failed to load. Please login.</div>'; return; }
+    const goals = await res.json();
+    const grid = document.getElementById('goals-grid');
+    if (!goals.length) { grid.innerHTML = '<div class="col-12 text-center text-muted py-4">No goals found. Create the first one!</div>'; return; }
+    grid.innerHTML = goals.map(g => {
+        const start = new Date(g.periodStart).toLocaleDateString();
+        const end = new Date(g.periodEnd).toLocaleDateString();
+        return `
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 ${g.isActive ? 'border-warning border-opacity-50' : ''}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <div class="fw-bold">${g.label}</div>
+                            <div class="small text-muted"><i class="bi bi-person me-1"></i>${g.agentName}</div>
+                        </div>
+                        <span class="badge ${g.isActive ? 'bg-warning text-dark' : 'bg-secondary'}">
+                            ${g.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                    </div>
+                    <div class="small text-muted mb-3">
+                        <i class="bi bi-calendar3 me-1"></i>${start} ? ${end}
+                    </div>
+                    <div class="row g-2 text-center mb-2">
+                        <div class="col-3">
+                            <div class="fw-bold text-primary">${g.targetCalls}</div>
+                            <div class="small text-muted">Calls</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="fw-bold text-success">${g.targetConversions}</div>
+                            <div class="small text-muted">Converts</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="fw-bold text-info">${Math.round(g.targetTalkSeconds/60)}</div>
+                            <div class="small text-muted">Talk min</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="fw-bold text-warning">${g.targetFollowUps}</div>
+                            <div class="small text-muted">Follow-ups</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top-0 d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-info flex-fill" onclick="viewProgress('${g.id}')">
+                        <i class="bi bi-graph-up"></i> Progress
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openGoalModal(${JSON.stringify(g).replace(/"/g,'&quot;')})" data-bs-toggle="modal" data-bs-target="#goalModal">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleGoal('${g.id}')">
+                        <i class="bi bi-toggle-${g.isActive?'on text-warning':'off'}"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteGoal('${g.id}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openGoalModal(g) {
+    document.getElementById('goal-edit-id').value = g?.id ?? '';
+    document.getElementById('goal-modal-title').textContent = g ? 'Edit Goal' : 'New Goal';
+    document.getElementById('goal-agent-id').value = g?.agentId ?? '';
+    document.getElementById('goal-label').value = g?.label ?? '';
+    document.getElementById('goal-start').value = g ? g.periodStart.substring(0,10) : '';
+    document.getElementById('goal-end').value = g ? g.periodEnd.substring(0,10) : '';
+    document.getElementById('goal-calls').value = g?.targetCalls ?? 50;
+    document.getElementById('goal-conversions').value = g?.targetConversions ?? 5;
+    document.getElementById('goal-talk-min').value = g ? Math.round(g.targetTalkSeconds/60) : 300;
+    document.getElementById('goal-followups').value = g?.targetFollowUps ?? 20;
+}
+
+async function saveGoal() {
+    const id = document.getElementById('goal-edit-id').value;
+    const body = {
+        agentId: document.getElementById('goal-agent-id').value,
+        label: document.getElementById('goal-label').value,
+        periodStart: document.getElementById('goal-start').value,
+        periodEnd: document.getElementById('goal-end').value,
+        targetCalls: parseInt(document.getElementById('goal-calls').value),
+        targetConversions: parseInt(document.getElementById('goal-conversions').value),
+        targetTalkSeconds: parseInt(document.getElementById('goal-talk-min').value) * 60,
+        targetFollowUps: parseInt(document.getElementById('goal-followups').value)
+    };
+    if (!body.agentId || !body.label || !body.periodStart || !body.periodEnd) { alert('Please fill all required fields.'); return; }
+    const url = id ? `/api/goals/${id}` : '/api/goals';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { alert('Error saving goal.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('goalModal')).hide();
+    loadGoals();
+}
+
+async function toggleGoal(id) {
+    await fetch(`/api/goals/${id}/toggle`, { method: 'POST' });
+    loadGoals();
+}
+
+async function deleteGoal(id) {
+    if (!confirm('Delete this goal?')) return;
+    await fetch(`/api/goals/${id}`, { method: 'DELETE' });
+    loadGoals();
+}
+
+async function viewProgress(id) {
+    const modal = new bootstrap.Modal(document.getElementById('progressModal'));
+    document.getElementById('progress-body').innerHTML = '<div class="text-center text-muted py-4">Loading...</div>';
+    modal.show();
+    const res = await fetch(`/api/goals/${id}/progress`);
+    if (!res.ok) { document.getElementById('progress-body').innerHTML = '<div class="text-center text-danger">Failed to load progress.</div>'; return; }
+    const d = await res.json();
+    const bar = (actual, target, color) => {
+        if (!target) return '<span class="text-muted small">No target set</span>';
+        const pct = Math.min(100, Math.round(actual / target * 100));
+        return `<div class="d-flex align-items-center gap-2">
+            <div class="progress flex-fill" style="height:18px;">
+                <div class="progress-bar bg-${color}" style="width:${pct}%;"></div>
+            </div>
+            <small class="text-muted fw-semibold" style="min-width:70px;">${actual} / ${target} (${pct}%)</small>
+        </div>`;
+    };
+    document.getElementById('progress-body').innerHTML = `
+        <div class="mb-3">
+            <div class="fw-bold fs-5">${d.label}</div>
+            <div class="text-muted small">${new Date(d.periodStart).toLocaleDateString()} ? ${new Date(d.periodEnd).toLocaleDateString()}</div>
+        </div>
+        <div class="row g-3">
+            <div class="col-12"><label class="form-label fw-semibold small text-muted mb-1">CALLS</label>${bar(d.actuals.actualCalls, d.targets.targetCalls, 'primary')}</div>
+            <div class="col-12"><label class="form-label fw-semibold small text-muted mb-1">CONVERSIONS</label>${bar(d.actuals.actualConversions, d.targets.targetConversions, 'success')}</div>
+            <div class="col-12"><label class="form-label fw-semibold small text-muted mb-1">TALK TIME</label>${bar(Math.round(d.actuals.actualTalkSeconds/60), Math.round(d.targets.targetTalkSeconds/60), 'info')} <small class="text-muted">minutes</small></div>
+            <div class="col-12"><label class="form-label fw-semibold small text-muted mb-1">FOLLOW-UPS DONE</label>${bar(d.actuals.actualFollowUps, d.targets.targetFollowUps, 'warning')}</div>
+        </div>`;
+}
+
+loadAgents();
+loadGoals();
+</script>
+}

@@ -1,0 +1,363 @@
+@page
+@model TelecallingCRM.Pages.Messaging.TemplatesModel
+@{
+    ViewData["Title"] = "Message Templates";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-collection text-primary me-2"></i>Message Templates</h5>
+        <small class="text-muted">Reusable SMS and WhatsApp templates with variable substitution</small>
+    </div>
+</div>
+
+<!-- Tabs: SMS / WhatsApp -->
+<ul class="nav nav-tabs mb-3" id="tmplTabs">
+    <li class="nav-item">
+        <a class="nav-link active" href="javascript:void(0)" onclick="switchTab('sms',this)">
+            <i class="bi bi-chat-dots me-1"></i>SMS Templates
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="javascript:void(0)" onclick="switchTab('wa',this)">
+            <i class="bi bi-whatsapp me-1"></i>WhatsApp Templates
+        </a>
+    </li>
+</ul>
+
+<!-- ?? SMS Tab ??????????????????????????????????????? -->
+<div id="tab-sms">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="input-group input-group-sm w-auto">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="sms-search" class="form-control" placeholder="Filter SMS templates..." oninput="filterSms(this.value)" style="min-width:220px;">
+        </div>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#smsModal" onclick="openSmsModal(null)">
+            <i class="bi bi-plus-circle"></i> New SMS Template
+        </button>
+    </div>
+    <div class="row g-3" id="sms-cards">
+        <div class="col-12 text-center text-muted py-4">Loading...</div>
+    </div>
+</div>
+
+<!-- ?? WhatsApp Tab ?????????????????????????????????? -->
+<div id="tab-wa" class="d-none">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="input-group input-group-sm w-auto">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="wa-search" class="form-control" placeholder="Filter WhatsApp templates..." oninput="filterWa(this.value)" style="min-width:220px;">
+        </div>
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#waModal" onclick="openWaModal(null)">
+            <i class="bi bi-plus-circle"></i> New WA Template
+        </button>
+    </div>
+    <div class="row g-3" id="wa-cards">
+        <div class="col-12 text-center text-muted py-4">Loading...</div>
+    </div>
+</div>
+
+<!-- ?? SMS Modal ???????????????????????????????????? -->
+<div class="modal fade" id="smsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sms-modal-title">New SMS Template</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="sms-edit-id">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Template Name *</label>
+                    <input type="text" id="sms-name" class="form-control" placeholder="e.g. Follow-up Reminder">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Category</label>
+                    <input type="text" id="sms-category" class="form-control" placeholder="e.g. followup, promo, alert">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Message Body *</label>
+                    <textarea id="sms-body" class="form-control font-monospace" rows="4" placeholder="Hi {{lead_name}}, just checking in. — {{agent_name}}"></textarea>
+                    <div class="form-text">Variables: <code>{{lead_name}}</code> <code>{{agent_name}}</code> <code>{{phone}}</code> <code>{{company}}</code> <code>{{date}}</code> <code>{{time}}</code></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Preview (with sample data)</label>
+                    <div id="sms-preview" class="bg-light rounded p-3 small text-muted font-monospace" style="min-height:60px;white-space:pre-wrap;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSmsTemplate()"><i class="bi bi-floppy"></i> Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ?? WhatsApp Modal ??????????????????????????????? -->
+<div class="modal fade" id="waModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="wa-modal-title">New WhatsApp Template</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="wa-edit-id">
+                <div class="row g-2 mb-3">
+                    <div class="col-8">
+                        <label class="form-label fw-semibold">Display Name *</label>
+                        <input type="text" id="wa-name" class="form-control" placeholder="e.g. Welcome Message">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label fw-semibold">Language</label>
+                        <select id="wa-language" class="form-select">
+                            <option value="en">English</option>
+                            <option value="hi">Hindi</option>
+                            <option value="mr">Marathi</option>
+                            <option value="ta">Tamil</option>
+                            <option value="te">Telugu</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-8">
+                        <label class="form-label fw-semibold">Template Name (WABA) *</label>
+                        <input type="text" id="wa-template-name" class="form-control font-monospace" placeholder="e.g. welcome_v1">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label fw-semibold">Category</label>
+                        <select id="wa-category" class="form-select">
+                            <option value="UTILITY">UTILITY</option>
+                            <option value="MARKETING">MARKETING</option>
+                            <option value="AUTHENTICATION">AUTHENTICATION</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label fw-semibold">Header Type</label>
+                        <select id="wa-header-type" class="form-select" onchange="toggleWaHeader(this.value)">
+                            <option value="">None</option>
+                            <option value="text">Text</option>
+                            <option value="image">Image URL</option>
+                            <option value="document">Document URL</option>
+                        </select>
+                    </div>
+                    <div class="col-8 d-none" id="wa-header-val-wrap">
+                        <label class="form-label fw-semibold">Header Value</label>
+                        <input type="text" id="wa-header-value" class="form-control" placeholder="Text or media URL">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Body Preview *</label>
+                    <textarea id="wa-body-preview" class="form-control font-monospace" rows="4" placeholder="Hello {{1}}, your order {{2}} is confirmed."></textarea>
+                    <div class="form-text">Use positional variables: <code>{{1}}</code> <code>{{2}}</code> etc.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Footer</label>
+                    <input type="text" id="wa-footer" class="form-control" placeholder="e.g. Reply STOP to unsubscribe">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-success" onclick="saveWaTemplate()"><i class="bi bi-floppy"></i> Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let allSmsTemplates = [], allWaTemplates = [];
+
+// ?? Tab switch ????????????????????????????????????????
+function switchTab(tab, el) {
+    document.querySelectorAll('#tmplTabs .nav-link').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-sms').classList.toggle('d-none', tab !== 'sms');
+    document.getElementById('tab-wa').classList.toggle('d-none', tab !== 'wa');
+}
+
+// ?? SMS ???????????????????????????????????????????????
+async function loadSmsTemplates() {
+    const res = await fetch('/api/sms-templates');
+    if (!res.ok) return;
+    allSmsTemplates = await res.json();
+    renderSmsCards(allSmsTemplates);
+}
+
+function filterSms(q) {
+    const f = allSmsTemplates.filter(t => t.name.toLowerCase().includes(q.toLowerCase()) || (t.body||'').toLowerCase().includes(q.toLowerCase()));
+    renderSmsCards(f);
+}
+
+function renderSmsCards(list) {
+    const el = document.getElementById('sms-cards');
+    if (!list.length) { el.innerHTML = '<div class="col-12 text-center text-muted py-4">No SMS templates yet. Create your first one!</div>'; return; }
+    el.innerHTML = list.map(t => `
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="fw-semibold">${t.name}</span>
+                        <span class="badge ${t.isActive ? 'bg-success' : 'bg-secondary'}">${t.isActive ? 'Active' : 'Inactive'}</span>
+                    </div>
+                    ${t.category ? `<span class="badge bg-light text-muted border mb-2">${t.category}</span>` : ''}
+                    <p class="small text-muted font-monospace mb-2" style="white-space:pre-wrap;">${t.body}</p>
+                    <div class="text-muted" style="font-size:.7rem;">${new Date(t.createdAt).toLocaleDateString()}</div>
+                </div>
+                <div class="card-footer bg-white border-top-0 d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary flex-fill" onclick="openSmsModal(${JSON.stringify(t).replace(/"/g,'&quot;')})" data-bs-toggle="modal" data-bs-target="#smsModal"><i class="bi bi-pencil"></i> Edit</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleSmsActive('${t.id}')"><i class="bi bi-toggle-${t.isActive?'on text-success':'off'}"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteSmsTemplate('${t.id}')"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+function openSmsModal(tmpl) {
+    document.getElementById('sms-edit-id').value = tmpl?.id ?? '';
+    document.getElementById('sms-modal-title').textContent = tmpl ? 'Edit SMS Template' : 'New SMS Template';
+    document.getElementById('sms-name').value = tmpl?.name ?? '';
+    document.getElementById('sms-category').value = tmpl?.category ?? '';
+    document.getElementById('sms-body').value = tmpl?.body ?? '';
+    updateSmsPreview();
+}
+
+function updateSmsPreview() {
+    const body = document.getElementById('sms-body').value;
+    const preview = body
+        .replace(/\{\{lead_name\}\}/gi, 'Rahul Sharma')
+        .replace(/\{\{agent_name\}\}/gi, 'Priya')
+        .replace(/\{\{phone\}\}/gi, '9876543210')
+        .replace(/\{\{company\}\}/gi, 'Acme Corp')
+        .replace(/\{\{date\}\}/gi, new Date().toLocaleDateString())
+        .replace(/\{\{time\}\}/gi, new Date().toLocaleTimeString());
+    document.getElementById('sms-preview').textContent = preview;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sms-body')?.addEventListener('input', updateSmsPreview);
+});
+
+async function saveSmsTemplate() {
+    const id = document.getElementById('sms-edit-id').value;
+    const body = { name: document.getElementById('sms-name').value, body: document.getElementById('sms-body').value, category: document.getElementById('sms-category').value };
+    if (!body.name || !body.body) { alert('Name and body are required.'); return; }
+    const url = id ? `/api/sms-templates/${id}` : '/api/sms-templates';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { alert('Error saving template.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('smsModal')).hide();
+    loadSmsTemplates();
+}
+
+async function toggleSmsActive(id) {
+    await fetch(`/api/sms-templates/${id}/toggle`, { method: 'POST' });
+    loadSmsTemplates();
+}
+
+async function deleteSmsTemplate(id) {
+    if (!confirm('Delete this SMS template?')) return;
+    await fetch(`/api/sms-templates/${id}`, { method: 'DELETE' });
+    loadSmsTemplates();
+}
+
+// ?? WhatsApp ??????????????????????????????????????????
+async function loadWaTemplates() {
+    const res = await fetch('/api/whatsapp-templates');
+    if (!res.ok) return;
+    allWaTemplates = await res.json();
+    renderWaCards(allWaTemplates);
+}
+
+function filterWa(q) {
+    const f = allWaTemplates.filter(t => t.name.toLowerCase().includes(q.toLowerCase()) || (t.templateName||'').toLowerCase().includes(q.toLowerCase()));
+    renderWaCards(f);
+}
+
+function renderWaCards(list) {
+    const el = document.getElementById('wa-cards');
+    if (!list.length) { el.innerHTML = '<div class="col-12 text-center text-muted py-4">No WhatsApp templates yet. Create your first one!</div>'; return; }
+    el.innerHTML = list.map(t => `
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="fw-semibold">${t.name}</span>
+                        <span class="badge ${t.isActive ? 'bg-success' : 'bg-secondary'}">${t.isActive ? 'Active' : 'Inactive'}</span>
+                    </div>
+                    <div class="d-flex gap-1 mb-2 flex-wrap">
+                        <span class="badge bg-success-subtle text-success border">${t.category ?? 'UTILITY'}</span>
+                        <span class="badge bg-light text-muted border">${t.language ?? 'en'}</span>
+                        <code class="small text-muted">${t.templateName}</code>
+                    </div>
+                    ${t.headerType ? `<div class="small text-muted mb-1"><i class="bi bi-image me-1"></i>Header: ${t.headerType}</div>` : ''}
+                    <p class="small text-muted font-monospace mb-2" style="white-space:pre-wrap;">${t.bodyPreview}</p>
+                    ${t.footer ? `<div class="small text-muted"><i class="bi bi-text-left me-1"></i>${t.footer}</div>` : ''}
+                </div>
+                <div class="card-footer bg-white border-top-0 d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-success flex-fill" onclick="openWaModal(${JSON.stringify(t).replace(/"/g,'&quot;')})" data-bs-toggle="modal" data-bs-target="#waModal"><i class="bi bi-pencil"></i> Edit</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleWaActive('${t.id}')"><i class="bi bi-toggle-${t.isActive?'on text-success':'off'}"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteWaTemplate('${t.id}')"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+function toggleWaHeader(val) {
+    document.getElementById('wa-header-val-wrap').classList.toggle('d-none', !val);
+}
+
+function openWaModal(tmpl) {
+    document.getElementById('wa-edit-id').value = tmpl?.id ?? '';
+    document.getElementById('wa-modal-title').textContent = tmpl ? 'Edit WhatsApp Template' : 'New WhatsApp Template';
+    document.getElementById('wa-name').value = tmpl?.name ?? '';
+    document.getElementById('wa-template-name').value = tmpl?.templateName ?? '';
+    document.getElementById('wa-language').value = tmpl?.language ?? 'en';
+    document.getElementById('wa-category').value = tmpl?.category ?? 'UTILITY';
+    document.getElementById('wa-header-type').value = tmpl?.headerType ?? '';
+    document.getElementById('wa-header-value').value = tmpl?.headerValue ?? '';
+    document.getElementById('wa-body-preview').value = tmpl?.bodyPreview ?? '';
+    document.getElementById('wa-footer').value = tmpl?.footer ?? '';
+    toggleWaHeader(tmpl?.headerType ?? '');
+}
+
+async function saveWaTemplate() {
+    const id = document.getElementById('wa-edit-id').value;
+    const body = {
+        name: document.getElementById('wa-name').value,
+        templateName: document.getElementById('wa-template-name').value,
+        language: document.getElementById('wa-language').value,
+        category: document.getElementById('wa-category').value,
+        headerType: document.getElementById('wa-header-type').value || null,
+        headerValue: document.getElementById('wa-header-value').value || null,
+        bodyPreview: document.getElementById('wa-body-preview').value,
+        footer: document.getElementById('wa-footer').value || null,
+        buttonsJson: null
+    };
+    if (!body.name || !body.templateName || !body.bodyPreview) { alert('Name, template name and body are required.'); return; }
+    const url = id ? `/api/whatsapp-templates/${id}` : '/api/whatsapp-templates';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { alert('Error saving template.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('waModal')).hide();
+    loadWaTemplates();
+}
+
+async function toggleWaActive(id) {
+    await fetch(`/api/whatsapp-templates/${id}/toggle`, { method: 'POST' });
+    loadWaTemplates();
+}
+
+async function deleteWaTemplate(id) {
+    if (!confirm('Delete this WhatsApp template?')) return;
+    await fetch(`/api/whatsapp-templates/${id}`, { method: 'DELETE' });
+    loadWaTemplates();
+}
+
+// ?? Init ??????????????????????????????????????????????
+loadSmsTemplates();
+loadWaTemplates();
+</script>
+}

@@ -157,7 +157,13 @@
                     <a class="@NavClass("/Messaging/Email")" asp-page="/Messaging/Email">
                         <i class="bi bi-envelope"></i> Email
                     </a>
+                    <a class="@NavClass("/Messaging/Templates")" asp-page="/Messaging/Templates">
+                        <i class="bi bi-collection"></i> Templates
+                    </a>
                     <div class="nav-section-label">Productivity</div>
+                    <a class="@NavClass("/Meetings/Index")" asp-page="/Meetings/Index">
+                        <i class="bi bi-camera-video"></i> Meetings
+                    </a>
                     <a class="@NavClass("/FollowUps/Index")" asp-page="/FollowUps/Index">
                         <i class="bi bi-calendar-check"></i> Follow-ups
                     </a>
@@ -186,6 +192,12 @@
                         <div class="nav-section-label">Admin</div>
                         <a class="@NavClass("/Admin/Users")" asp-page="/Admin/Users">
                             <i class="bi bi-people"></i> Users
+                        </a>
+                        <a class="@NavClass("/Goals/Index")" asp-page="/Goals/Index">
+                            <i class="bi bi-bullseye"></i> Agent Goals
+                        </a>
+                        <a class="@NavClass("/Compliance/Dnc")" asp-page="/Compliance/Dnc">
+                            <i class="bi bi-slash-circle text-danger"></i> DNC List
                         </a>
                         @if (User.IsInRole("admin"))
                         {

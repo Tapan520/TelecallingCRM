@@ -1,0 +1,244 @@
+@page
+@model TelecallingCRM.Pages.Compliance.DncModel
+@{
+    ViewData["Title"] = "Do Not Call List";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-slash-circle text-danger me-2"></i>Do Not Call List</h5>
+        <small class="text-muted">Compliance list — numbers blocked from outbound calling</small>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+            <i class="bi bi-upload"></i> Bulk Import
+        </button>
+        <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#addDncModal">
+            <i class="bi bi-plus-circle"></i> Add Number
+        </button>
+    </div>
+</div>
+
+<!-- Search bar -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="dnc-search" class="form-control border-start-0" placeholder="Search by phone number..." oninput="searchDnc(this.value)">
+            <!-- DNC Check -->
+            <input type="text" id="dnc-check-phone" class="form-control ms-2" placeholder="Check a number..." style="max-width:200px;">
+            <button class="btn btn-outline-primary btn-sm" onclick="checkDnc()"><i class="bi bi-shield-check"></i> Check</button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats bar -->
+<div class="row g-3 mb-3" id="dnc-stats">
+    <div class="col-auto">
+        <span class="badge bg-danger fs-6 px-3 py-2"><span id="total-dnc">—</span> numbers on DNC list</span>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Phone</th>
+                    <th>Reason</th>
+                    <th>Added By</th>
+                    <th>Added On</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody id="dnc-tbody">
+                <tr><td colspan="5" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+        <small class="text-muted" id="dnc-page-info"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="btn-prev" onclick="changePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="btn-next" onclick="changePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Number Modal -->
+<div class="modal fade" id="addDncModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-slash-circle text-danger me-2"></i>Add to DNC List</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Phone Number *</label>
+                    <input type="text" id="dnc-phone" class="form-control" placeholder="e.g. 9876543210">
+                    <div class="form-text">Non-digit characters (spaces, dashes, +) will be stripped automatically.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Reason</label>
+                    <select id="dnc-reason-select" class="form-select" onchange="toggleCustomReason(this.value)">
+                        <option value="Customer requested opt-out">Customer requested opt-out</option>
+                        <option value="DNC registry">DNC registry</option>
+                        <option value="Complaint raised">Complaint raised</option>
+                        <option value="Legal hold">Legal hold</option>
+                        <option value="custom">Other (type below)...</option>
+                    </select>
+                </div>
+                <div class="mb-3 d-none" id="dnc-custom-reason-wrap">
+                    <label class="form-label">Custom Reason</label>
+                    <input type="text" id="dnc-custom-reason" class="form-control" placeholder="Describe reason...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-danger" onclick="addDnc()"><i class="bi bi-slash-circle"></i> Add to DNC</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Bulk CSV Import</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">Upload a plain-text or CSV file. Supported formats per line:</p>
+                <ul class="small text-muted">
+                    <li><code>9876543210</code></li>
+                    <li><code>John Doe,9876543210,Requested opt-out</code></li>
+                </ul>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Choose File *</label>
+                    <input type="file" id="dnc-import-file" class="form-control" accept=".csv,.txt">
+                </div>
+                <div id="import-result" class="d-none alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="importDnc()"><i class="bi bi-upload"></i> Import</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let dncPage = 1;
+const dncPageSize = 50;
+let dncTotal = 0;
+let dncQuery = '';
+let dncSearchTimer;
+
+function searchDnc(val) {
+    clearTimeout(dncSearchTimer);
+    dncSearchTimer = setTimeout(() => { dncQuery = val; dncPage = 1; loadDnc(); }, 350);
+}
+
+async function loadDnc() {
+    const url = `/api/dnc?page=${dncPage}&pageSize=${dncPageSize}${dncQuery ? '&q='+encodeURIComponent(dncQuery) : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('dnc-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Failed to load. Please login.</td></tr>'; return; }
+    const d = await res.json();
+    dncTotal = d.total;
+    document.getElementById('total-dnc').textContent = d.total.toLocaleString();
+    document.getElementById('dnc-page-info').textContent = `Showing ${((dncPage-1)*dncPageSize)+1}–${Math.min(dncPage*dncPageSize, d.total)} of ${d.total}`;
+    document.getElementById('btn-prev').disabled = dncPage <= 1;
+    document.getElementById('btn-next').disabled = dncPage * dncPageSize >= d.total;
+
+    if (d.items.length === 0) {
+        document.getElementById('dnc-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No numbers on DNC list.</td></tr>';
+        return;
+    }
+    document.getElementById('dnc-tbody').innerHTML = d.items.map(e => `
+        <tr>
+            <td><span class="fw-semibold font-monospace">${e.phone}</span></td>
+            <td><small class="text-muted">${e.reason ?? '—'}</small></td>
+            <td><small>${e.addedBy ?? '—'}</small></td>
+            <td><small>${new Date(e.addedAt).toLocaleDateString()}</small></td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-danger" onclick="removeDnc('${e.id}','${e.phone}')">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>`).join('');
+}
+
+function changePage(dir) { dncPage += dir; loadDnc(); }
+
+function toggleCustomReason(val) {
+    document.getElementById('dnc-custom-reason-wrap').classList.toggle('d-none', val !== 'custom');
+}
+
+async function addDnc() {
+    const phone = document.getElementById('dnc-phone').value.trim();
+    if (!phone) { alert('Phone number is required.'); return; }
+    const sel = document.getElementById('dnc-reason-select').value;
+    const reason = sel === 'custom' ? document.getElementById('dnc-custom-reason').value : sel;
+    const res = await fetch('/api/dnc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, reason })
+    });
+    if (res.status === 409) { alert('This number is already on the DNC list.'); return; }
+    if (!res.ok) { alert('Error adding number.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('addDncModal')).hide();
+    document.getElementById('dnc-phone').value = '';
+    loadDnc();
+}
+
+async function removeDnc(id, phone) {
+    if (!confirm(`Remove ${phone} from DNC list?`)) return;
+    const res = await fetch(`/api/dnc/${id}`, { method: 'DELETE' });
+    if (res.ok) loadDnc();
+    else alert('Error removing number.');
+}
+
+async function checkDnc() {
+    const phone = document.getElementById('dnc-check-phone').value.trim();
+    if (!phone) { alert('Enter a phone number to check.'); return; }
+    const res = await fetch(`/api/dnc/check/${encodeURIComponent(phone)}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    if (d.isDnc) {
+        alert(`? ${phone} IS on the DNC list.\nReason: ${d.entry?.reason ?? 'N/A'}\nAdded: ${new Date(d.entry?.addedAt).toLocaleDateString()}`);
+    } else {
+        alert(`? ${phone} is NOT on the DNC list.`);
+    }
+}
+
+async function importDnc() {
+    const file = document.getElementById('dnc-import-file').files[0];
+    if (!file) { alert('Please choose a file.'); return; }
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/dnc/import', { method: 'POST', body: fd });
+    const result = document.getElementById('import-result');
+    result.classList.remove('d-none', 'alert-success', 'alert-danger');
+    if (res.ok) {
+        const d = await res.json();
+        result.classList.add('alert-success');
+        result.textContent = `? Import complete: ${d.added} added, ${d.skipped} skipped.`;
+        loadDnc();
+    } else {
+        result.classList.add('alert-danger');
+        result.textContent = '? Import failed. Check file format.';
+    }
+}
+
+loadDnc();
+</script>
+}
