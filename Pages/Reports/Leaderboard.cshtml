@@ -74,10 +74,14 @@ async function loadLeaderboard() {
         return;
     }
 
-    // ?? Podium (top 3) ????????????????????????????????????
-    const medals = ['??','??','??'];
+    // Podium (top 3)
+    const medalIcons  = [
+        '<i class="bi bi-trophy-fill" style="color:#f59e0b;font-size:3rem;"></i>',
+        '<i class="bi bi-award-fill"  style="color:#94a3b8;font-size:3rem;"></i>',
+        '<i class="bi bi-award-fill"  style="color:#cd7c54;font-size:3rem;"></i>'
+    ];
     const podiumColors = ['warning','secondary','danger'];
-    const podiumBg = ['#fff9e6','#f8f8f8','#fff1f1'];
+    const podiumBg     = ['#fff9e6','#f8f8f8','#fff1f1'];
     const podium = agents.slice(0, 3);
     document.getElementById('podium-row').innerHTML = podium.map((a, i) => {
         const rate = a.totalCalls > 0 ? Math.round(a.converted / a.totalCalls * 100) : 0;
@@ -85,7 +89,7 @@ async function loadLeaderboard() {
         <div class="col-md-4">
             <div class="card text-center h-100" style="background:${podiumBg[i]};border-top:4px solid var(--bs-${podiumColors[i]});">
                 <div class="card-body py-4">
-                    <div class="display-4 mb-2">${medals[i]}</div>
+                    <div class="mb-2">${medalIcons[i]}</div>
                     <div class="fw-bold fs-5">${a.fullName}</div>
                     <div class="text-muted small mb-3">Rank #${i+1}</div>
                     <div class="row g-2 text-center">
@@ -99,15 +103,17 @@ async function loadLeaderboard() {
         </div>`;
     }).join('');
 
-    // ?? Full table ?????????????????????????????????????????
+    // Full table
     document.getElementById('leaderboard-tbody').innerHTML = agents.map((a, i) => {
         const rate = a.totalCalls > 0 ? Math.round(a.converted / a.totalCalls * 100) : 0;
-        // Simple score: calls*1 + converted*10 + talkMin*0.1
         const score = Math.round(a.totalCalls + a.converted * 10 + (a.totalTalkSeconds / 60) * 0.1);
-        const rankBadge = i === 0 ? '<span class="badge bg-warning text-dark">?? 1</span>'
-                        : i === 1 ? '<span class="badge bg-secondary">?? 2</span>'
-                        : i === 2 ? '<span class="badge bg-danger">?? 3</span>'
-                        : `<span class="text-muted fw-semibold">${i+1}</span>`;
+        const rankBadge = i === 0
+            ? '<span class="badge bg-warning text-dark"><i class="bi bi-trophy-fill me-1"></i>1</span>'
+            : i === 1
+            ? '<span class="badge bg-secondary"><i class="bi bi-award-fill me-1"></i>2</span>'
+            : i === 2
+            ? '<span class="badge" style="background:#cd7c54;color:#fff;"><i class="bi bi-award-fill me-1"></i>3</span>'
+            : `<span class="text-muted fw-semibold">${i+1}</span>`;
         // Score bar (max 100 relative to top scorer)
         const maxScore = Math.round(agents[0].totalCalls + agents[0].converted * 10 + (agents[0].totalTalkSeconds / 60) * 0.1);
         const pct = maxScore > 0 ? Math.round(score / maxScore * 100) : 0;

@@ -310,6 +310,371 @@ public static class DatabaseSeeder
         db.KnowledgeChunks.AddRange(novaKnowledge);
 
         await db.SaveChangesAsync();
+
+        // ?? FOLLOW-UPS ????????????????????????????????????????????????????????
+        var followUps = new List<FollowUp>
+        {
+            new() { TenantId = apex.Id, LeadId = apexLeads[1].Id, AssignedToId = apexAlice.Id,
+                    ScheduledAt = DateTime.UtcNow.AddDays(1), Channel = FollowUpChannel.Call,
+                    Notes = "Callback as requested. Confirm demo time.", Status = FollowUpStatus.Pending },
+            new() { TenantId = apex.Id, LeadId = apexLeads[6].Id, AssignedToId = apexBob.Id,
+                    ScheduledAt = DateTime.UtcNow.AddDays(3), Channel = FollowUpChannel.WhatsApp,
+                    Notes = "Send demo recording and pricing PDF.", Status = FollowUpStatus.Pending },
+            new() { TenantId = apex.Id, LeadId = apexLeads[9].Id, AssignedToId = apexManager.Id,
+                    ScheduledAt = DateTime.UtcNow.AddDays(-1), Channel = FollowUpChannel.Email,
+                    Notes = "Send conference follow-up email with proposal.", Status = FollowUpStatus.Missed },
+            new() { TenantId = nova.Id,  LeadId = novaLeads[3].Id, AssignedToId = novaRaj.Id,
+                    ScheduledAt = DateTime.UtcNow.AddDays(2), Channel = FollowUpChannel.Call,
+                    Notes = "Discuss business broadband plan options.", Status = FollowUpStatus.Pending },
+        };
+        db.FollowUps.AddRange(followUps);
+
+        // ?? TASKS ?????????????????????????????????????????????????????????????
+        var tasks = new List<TaskItem>
+        {
+            new() { TenantId = apex.Id, LeadId = apexLeads[4].Id,
+                    AssignedToId = apexAlice.Id, CreatedById = apexAdmin.Id,
+                    Title = "Send signed contract to Meera Iyer",
+                    Description = "Email the countersigned MSA and onboarding guide.",
+                    Priority = TaskPriority.High,
+                    DueAt = DateTime.UtcNow.AddHours(4),
+                    Status = TelecallingCRM.Data.Models.TaskStatus.Pending },
+            new() { TenantId = apex.Id, LeadId = apexLeads[0].Id,
+                    AssignedToId = apexBob.Id, CreatedById = apexManager.Id,
+                    Title = "Prepare product demo for Rajesh Kumar",
+                    Description = "Custom demo showing enterprise dashboard and AI scoring.",
+                    Priority = TaskPriority.Normal,
+                    DueAt = DateTime.UtcNow.AddDays(2),
+                    Status = TelecallingCRM.Data.Models.TaskStatus.Pending },
+            new() { TenantId = apex.Id,
+                    AssignedToId = apexManager.Id, CreatedById = apexAdmin.Id,
+                    Title = "Review Q3 campaign performance report",
+                    Description = "Analyse conversion rates and prepare summary for the team.",
+                    Priority = TaskPriority.Normal,
+                    DueAt = DateTime.UtcNow.AddDays(5),
+                    Status = TelecallingCRM.Data.Models.TaskStatus.Pending },
+            new() { TenantId = apex.Id, LeadId = apexLeads[12].Id,
+                    AssignedToId = apexAlice.Id, CreatedById = apexAdmin.Id,
+                    Title = "Process onboarding for Priya Krishnan",
+                    Description = "Set up tenant account and send welcome kit.",
+                    Priority = TaskPriority.High,
+                    DueAt = DateTime.UtcNow.AddHours(-2),
+                    Status = TelecallingCRM.Data.Models.TaskStatus.Overdue },
+            new() { TenantId = nova.Id, LeadId = novaLeads[1].Id,
+                    AssignedToId = novaRaj.Id, CreatedById = novaAdmin.Id,
+                    Title = "Confirm installation slot for Deepa Nair",
+                    Description = "Book technician visit within 48 hours as promised.",
+                    Priority = TaskPriority.High,
+                    DueAt = DateTime.UtcNow.AddDays(1),
+                    Status = TelecallingCRM.Data.Models.TaskStatus.Pending },
+        };
+        db.Tasks.AddRange(tasks);
+
+        // ?? MEETINGS ??????????????????????????????????????????????????????????
+        var meeting1 = new Meeting
+        {
+            TenantId = apex.Id, LeadId = apexLeads[0].Id, OrganisedById = apexAlice.Id,
+            Title = "Product Demo — Rajesh Kumar", Type = MeetingType.VideoCall,
+            ScheduledAt = DateTime.UtcNow.AddDays(2).Date.AddHours(11),
+            DurationMinutes = 45, Status = MeetingStatus.Scheduled,
+            MeetingLink = "https://meet.google.com/abc-defg-hij",
+            Agenda = "Walk through enterprise dashboard, AI scoring, and integration options."
+        };
+        var meeting2 = new Meeting
+        {
+            TenantId = apex.Id, LeadId = apexLeads[9].Id, OrganisedById = apexManager.Id,
+            Title = "Strategy Call — Tokyo Ventures", Type = MeetingType.VideoCall,
+            ScheduledAt = DateTime.UtcNow.AddDays(5).Date.AddHours(14),
+            DurationMinutes = 60, Status = MeetingStatus.Scheduled,
+            Agenda = "Discuss APAC expansion and enterprise licensing terms."
+        };
+        var meeting3 = new Meeting
+        {
+            TenantId = apex.Id, LeadId = apexLeads[4].Id, OrganisedById = apexAlice.Id,
+            Title = "Onboarding Session — Meera Iyer", Type = MeetingType.VideoCall,
+            ScheduledAt = DateTime.UtcNow.AddDays(-3).Date.AddHours(10),
+            DurationMinutes = 30, Status = MeetingStatus.Completed,
+            Outcome = "Onboarding completed. Meera is live on the platform.",
+            Agenda = "Walk through the portal and set up first campaign."
+        };
+        var meeting4 = new Meeting
+        {
+            TenantId = nova.Id, LeadId = novaLeads[0].Id, OrganisedById = novaRaj.Id,
+            Title = "Plan Walkthrough — Arun Pillai", Type = MeetingType.PhoneCall,
+            ScheduledAt = DateTime.UtcNow.AddDays(1).Date.AddHours(16),
+            DurationMinutes = 20, Status = MeetingStatus.Scheduled,
+            Agenda = "Explain Home Ultra 1 Gbps plan and installation process."
+        };
+        db.Meetings.AddRange(meeting1, meeting2, meeting3, meeting4);
+        db.MeetingAttendees.AddRange(
+            new MeetingAttendee { Meeting = meeting1, UserId = apexAlice.Id },
+            new MeetingAttendee { Meeting = meeting2, UserId = apexManager.Id },
+            new MeetingAttendee { Meeting = meeting2, UserId = apexAlice.Id },
+            new MeetingAttendee { Meeting = meeting3, UserId = apexAlice.Id },
+            new MeetingAttendee { Meeting = meeting4, UserId = novaRaj.Id }
+        );
+
+        // ?? PAYMENTS ?????????????????????????????????????????????????????????
+        db.Payments.AddRange(
+            new Payment
+            {
+                TenantId = apex.Id, LeadId = apexLeads[4].Id, RecordedById = apexAlice.Id,
+                Amount = 14988m, Currency = "USD", Status = PaymentStatus.Captured,
+                Description = "Annual Pro Plan — Meera Iyer / Startup42",
+                ReceiptNumber = "RCPT-001", CapturedAt = DateTime.UtcNow.AddDays(-2),
+                CreatedAt = DateTime.UtcNow.AddDays(-2)
+            },
+            new Payment
+            {
+                TenantId = apex.Id, LeadId = apexLeads[12].Id, RecordedById = apexAlice.Id,
+                Amount = 17880m, Currency = "USD", Status = PaymentStatus.Captured,
+                Description = "1-Year Enterprise Contract — Priya Krishnan / SG Labs",
+                ReceiptNumber = "RCPT-002",
+                RazorpayOrderId = "order_demo_sglab_001",
+                RazorpayPaymentId = "pay_demo_sglab_001",
+                CapturedAt = DateTime.UtcNow.AddDays(-5), CreatedAt = DateTime.UtcNow.AddDays(-5)
+            },
+            new Payment
+            {
+                TenantId = apex.Id, LeadId = apexLeads[2].Id, RecordedById = apexBob.Id,
+                Amount = 1788m, Currency = "EUR", Status = PaymentStatus.Pending,
+                Description = "Starter Plan — James O'Brien / Atlantic Digital",
+                RazorpayOrderId = "order_demo_atlantic_001",
+                CreatedAt = DateTime.UtcNow.AddDays(-1)
+            },
+            new Payment
+            {
+                TenantId = nova.Id, LeadId = novaLeads[1].Id, RecordedById = novaRaj.Id,
+                Amount = 17988m, Currency = "INR", Status = PaymentStatus.Captured,
+                Description = "Annual Home Ultra Plan — Deepa Nair",
+                ReceiptNumber = "NOVA-RCPT-001",
+                CapturedAt = DateTime.UtcNow.AddDays(-1), CreatedAt = DateTime.UtcNow.AddDays(-1)
+            }
+        );
+
+        // ?? DNC ENTRIES ???????????????????????????????????????????????????????
+        db.DncEntries.AddRange(
+            new DncEntry { TenantId = apex.Id, Phone = "919999900000", Reason = "Customer requested opt-out", AddedById = apexAdmin.Id },
+            new DncEntry { TenantId = apex.Id, Phone = "918888800000", Reason = "DNC registry", AddedById = apexManager.Id },
+            new DncEntry { TenantId = nova.Id, Phone = "917777700000", Reason = "Complaint raised", AddedById = novaAdmin.Id }
+        );
+
+        // ?? SMS TEMPLATES ?????????????????????????????????????????????????????
+        db.SmsTemplates.AddRange(
+            new SmsTemplate
+            {
+                TenantId = apex.Id, Name = "Follow-up Reminder",
+                Body = "Hi {{lead_name}}, this is {{agent_name}} from Apex Sales. Just following up on our conversation. Reply YES to schedule a quick call. Thanks!",
+                Category = "followup", IsActive = true
+            },
+            new SmsTemplate
+            {
+                TenantId = apex.Id, Name = "Meeting Confirmation",
+                Body = "Hi {{lead_name}}, your demo with Apex Sales is confirmed for {{date}} at {{time}}. Join link: https://meet.example.com/demo — {{agent_name}}",
+                Category = "meeting", IsActive = true
+            },
+            new SmsTemplate
+            {
+                TenantId = nova.Id, Name = "Installation Reminder",
+                Body = "Dear {{lead_name}}, your Nova Telecom technician visit is scheduled for tomorrow. Please ensure someone is home between 10am-12pm. Call {{phone}} to reschedule.",
+                Category = "installation", IsActive = true
+            }
+        );
+
+        // ?? WHATSAPP TEMPLATES ????????????????????????????????????????????????
+        db.WhatsAppTemplates.AddRange(
+            new WhatsAppTemplate
+            {
+                TenantId = apex.Id, Name = "Proposal Sent",
+                TemplateName = "proposal_sent_v1", Language = "en",
+                BodyPreview = "Hello {{1}}, I've just sent over the proposal for your review. Please check your email and let me know if you have questions. — {{2}}, Apex Sales",
+                Category = "UTILITY", IsActive = true
+            },
+            new WhatsAppTemplate
+            {
+                TenantId = apex.Id, Name = "Trial Expiry Reminder",
+                TemplateName = "trial_expiry_v1", Language = "en",
+                BodyPreview = "Hi {{1}}, your 14-day free trial ends in 3 days. Upgrade now to keep all your leads and data. Use code EARLYBIRD for 20% off.",
+                Footer = "Reply STOP to unsubscribe", Category = "MARKETING", IsActive = true
+            },
+            new WhatsAppTemplate
+            {
+                TenantId = nova.Id, Name = "Plan Activation",
+                TemplateName = "plan_activation_v1", Language = "en",
+                BodyPreview = "Dear {{1}}, your Nova Telecom {{2}} plan has been activated! Your internet is now live. For support call 1800-NOVA-HELP.",
+                Category = "UTILITY", IsActive = true
+            }
+        );
+
+        // ?? EMAIL TEMPLATES ???????????????????????????????????????????????????
+        db.EmailTemplates.AddRange(
+            new EmailTemplate
+            {
+                TenantId = apex.Id, Name = "Welcome & Onboarding",
+                Subject = "Welcome to Apex Sales — Let's get you started!",
+                Body = "<h2>Welcome, {{lead_name}}!</h2><p>Thank you for choosing Apex Sales. Your account is ready.<br>Your dedicated agent is <strong>{{agent_name}}</strong>.<br>Reply to this email or call us anytime.</p>",
+                Category = "onboarding"
+            },
+            new EmailTemplate
+            {
+                TenantId = apex.Id, Name = "Follow-up After Demo",
+                Subject = "Great speaking with you, {{lead_name}}!",
+                Body = "<p>Hi {{lead_name}},</p><p>It was great showing you our platform today. As discussed, I've attached the proposal and pricing sheet.</p><p>Let me know if you have any questions!</p><p>Best,<br>{{agent_name}}</p>",
+                Category = "followup"
+            },
+            new EmailTemplate
+            {
+                TenantId = nova.Id, Name = "Installation Confirmation",
+                Subject = "Your Nova Telecom Installation is Confirmed",
+                Body = "<p>Dear {{lead_name}},</p><p>Your installation appointment is confirmed. A technician will visit tomorrow between 10am–12pm.</p><p>Thanks for choosing Nova Telecom!</p>",
+                Category = "installation"
+            }
+        );
+
+        // ?? AGENT GOALS ???????????????????????????????????????????????????????
+        var goalStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var goalEnd   = goalStart.AddMonths(1).AddDays(-1);
+        db.AgentGoals.AddRange(
+            new AgentGoal
+            {
+                TenantId = apex.Id, AgentId = apexAlice.Id, CreatedById = apexManager.Id,
+                Label = $"{DateTime.UtcNow:MMMM yyyy} — Alice",
+                TargetCalls = 80, TargetConversions = 8, TargetTalkSeconds = 28800, TargetFollowUps = 30,
+                PeriodStart = goalStart, PeriodEnd = goalEnd, IsActive = true
+            },
+            new AgentGoal
+            {
+                TenantId = apex.Id, AgentId = apexBob.Id, CreatedById = apexManager.Id,
+                Label = $"{DateTime.UtcNow:MMMM yyyy} — Bob",
+                TargetCalls = 70, TargetConversions = 6, TargetTalkSeconds = 25200, TargetFollowUps = 25,
+                PeriodStart = goalStart, PeriodEnd = goalEnd, IsActive = true
+            },
+            new AgentGoal
+            {
+                TenantId = nova.Id, AgentId = novaRaj.Id, CreatedById = novaAdmin.Id,
+                Label = $"{DateTime.UtcNow:MMMM yyyy} — Raj",
+                TargetCalls = 120, TargetConversions = 15, TargetTalkSeconds = 36000, TargetFollowUps = 40,
+                PeriodStart = goalStart, PeriodEnd = goalEnd, IsActive = true
+            }
+        );
+
+        // ?? ESCALATION RULES ?????????????????????????????????????????????????
+        db.EscalationRules.AddRange(
+            new EscalationRule
+            {
+                TenantId = apex.Id, Name = "3 Missed Follow-ups",
+                Trigger = EscalationTrigger.MissedFollowUp, ThresholdValue = 3,
+                EscalateToId = apexManager.Id, IsActive = true
+            },
+            new EscalationRule
+            {
+                TenantId = apex.Id, Name = "No Contact — 7 Days",
+                Trigger = EscalationTrigger.NoContactDays, ThresholdValue = 7,
+                EscalateToId = apexManager.Id, IsActive = true
+            },
+            new EscalationRule
+            {
+                TenantId = nova.Id, Name = "No Contact — 5 Days",
+                Trigger = EscalationTrigger.NoContactDays, ThresholdValue = 5,
+                EscalateToId = novaAdmin.Id, IsActive = true
+            }
+        );
+        await db.SaveChangesAsync();
+
+        // ?? ESCALATION INSTANCES ??????????????????????????????????????????????
+        db.Escalations.AddRange(
+            new Escalation
+            {
+                TenantId = apex.Id, LeadId = apexLeads[7].Id,
+                AssignedAgentId = apexBob.Id, EscalatedToId = apexManager.Id,
+                Status = EscalationStatus.Pending,
+                Reason = "Lead Carlos Reyes not contacted for 7+ days. Requires manager attention."
+            },
+            new Escalation
+            {
+                TenantId = apex.Id, LeadId = apexLeads[2].Id,
+                AssignedAgentId = apexBob.Id, EscalatedToId = apexManager.Id,
+                Status = EscalationStatus.Acknowledged, AcknowledgedAt = DateTime.UtcNow.AddHours(-2),
+                Reason = "James O'Brien follow-up was missed twice. High-priority lead."
+            },
+            new Escalation
+            {
+                TenantId = nova.Id, LeadId = novaLeads[2].Id,
+                AssignedAgentId = novaRaj.Id, EscalatedToId = novaAdmin.Id,
+                Status = EscalationStatus.Resolved, AcknowledgedAt = DateTime.UtcNow.AddDays(-1),
+                ResolvedAt = DateTime.UtcNow.AddHours(-3),
+                Reason = "Vikram Bose was marked Not Interested without manager review.",
+                ResolutionNote = "Manager reviewed — confirmed correct outcome. Closing escalation."
+            }
+        );
+
+        // ?? WEBHOOK CONFIGS ???????????????????????????????????????????????????
+        db.WebhookConfigs.AddRange(
+            new WebhookConfig
+            {
+                TenantId = apex.Id, Name = "Lead Converted — Slack Alert",
+                Url = "https://hooks.slack.com/services/demo/apex/webhook",
+                Secret = "whsec_apex_demo_secret",
+                Events = System.Text.Json.JsonSerializer.Serialize(new[] { "LeadConverted", "PaymentReceived" }),
+                IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-20)
+            },
+            new WebhookConfig
+            {
+                TenantId = apex.Id, Name = "CRM Sync — HubSpot",
+                Url = "https://api.hubspot.com/crm/v3/demo/webhook",
+                Events = System.Text.Json.JsonSerializer.Serialize(new[] { "LeadCreated", "LeadUpdated", "CallCompleted" }),
+                IsActive = false, CreatedAt = DateTime.UtcNow.AddDays(-10)
+            },
+            new WebhookConfig
+            {
+                TenantId = nova.Id, Name = "New Subscriber Alert",
+                Url = "https://novainternal.example.com/api/crm-hook",
+                Events = System.Text.Json.JsonSerializer.Serialize(new[] { "LeadConverted" }),
+                IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-5)
+            }
+        );
+
+        // ?? NOTIFICATIONS ?????????????????????????????????????????????????????
+        db.Notifications.AddRange(
+            new Notification
+            {
+                TenantId = apex.Id, UserId = apexAlice.Id, Type = NotificationType.LeadConverted,
+                Title = "Lead Converted!", Body = "Meera Iyer (Startup42) just converted. Deal closed!",
+                Link = $"/Leads/Timeline/{apexLeads[4].Id}", IsRead = false
+            },
+            new Notification
+            {
+                TenantId = apex.Id, UserId = apexBob.Id, Type = NotificationType.FollowUpDue,
+                Title = "Follow-up Due Soon",
+                Body = "Follow-up with Anita Desai (CloudVision) via WhatsApp in 30 minutes.",
+                Link = $"/Leads/Timeline/{apexLeads[6].Id}", IsRead = false
+            },
+            new Notification
+            {
+                TenantId = apex.Id, UserId = apexManager.Id, Type = NotificationType.SystemAlert,
+                Title = "New Escalation: Missed Follow-ups",
+                Body = "Carlos Reyes has 3+ missed follow-ups. Please review.",
+                Link = $"/Leads/Timeline/{apexLeads[7].Id}", IsRead = false
+            },
+            new Notification
+            {
+                TenantId = nova.Id, UserId = novaRaj.Id, Type = NotificationType.NewLeadAssigned,
+                Title = "New Lead Assigned", Body = "Sanjay Malhotra (TechPark) has been assigned to you.",
+                Link = $"/Leads/Timeline/{novaLeads[4].Id}", IsRead = true
+            }
+        );
+
+        // ?? ACTIVITY LOGS ?????????????????????????????????????????????????????
+        db.ActivityLogs.AddRange(
+            new ActivityLog { TenantId = apex.Id, LeadId = apexLeads[4].Id, UserId = apexAlice.Id, Type = ActivityType.LeadConverted, Summary = "Lead converted — annual plan purchased. Receipt RCPT-001 issued.", OccurredAt = DateTime.UtcNow.AddDays(-2) },
+            new ActivityLog { TenantId = apex.Id, LeadId = apexLeads[4].Id, UserId = apexAlice.Id, Type = ActivityType.PaymentReceived, Summary = "Payment of USD 14,988 captured. Receipt RCPT-001.", OccurredAt = DateTime.UtcNow.AddDays(-2) },
+            new ActivityLog { TenantId = apex.Id, LeadId = apexLeads[0].Id, UserId = apexAlice.Id, Type = ActivityType.MeetingScheduled, Summary = "Video call demo scheduled for 2 days from now.", OccurredAt = DateTime.UtcNow.AddDays(-1) },
+            new ActivityLog { TenantId = apex.Id, LeadId = apexLeads[7].Id, UserId = apexBob.Id,   Type = ActivityType.EscalationRaised, Summary = "Escalation raised: no contact for 7+ days.", OccurredAt = DateTime.UtcNow.AddHours(-5) },
+            new ActivityLog { TenantId = apex.Id, LeadId = apexLeads[12].Id, UserId = apexAlice.Id, Type = ActivityType.PaymentReceived, Summary = "Payment of USD 17,880 captured. Receipt RCPT-002.", OccurredAt = DateTime.UtcNow.AddDays(-5) },
+            new ActivityLog { TenantId = nova.Id, LeadId = novaLeads[1].Id, UserId = novaRaj.Id,   Type = ActivityType.LeadConverted, Summary = "Deepa Nair signed annual Home Ultra plan.", OccurredAt = DateTime.UtcNow.AddDays(-1) }
+        );
+
+        await db.SaveChangesAsync();
     }
 
     // ?? Helpers ???????????????????????????????????????????????????????????????
