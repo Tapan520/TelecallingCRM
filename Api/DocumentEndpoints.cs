@@ -18,6 +18,16 @@ public static class DocumentEndpoints
             IWebHostEnvironment env) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
+
+            // Validate file type and size
+            var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg", ".txt", ".csv" };
+            var fileExt = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExt))
+                return Results.BadRequest($"File type '{fileExt}' is not allowed. Allowed: {string.Join(", ", allowedExtensions)}");
+            const long maxBytes = 10 * 1024 * 1024; // 10 MB
+            if (file.Length > maxBytes)
+                return Results.BadRequest("File size must not exceed 10 MB.");
+
             var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
             // Validate lead belongs to tenant

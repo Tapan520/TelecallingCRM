@@ -1,0 +1,127 @@
+@page
+@model TelecallingCRM.Pages.Messaging.InboxModel
+@{
+    ViewData["Title"] = "Unified Inbox";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-inbox text-primary me-2"></i>Unified Inbox</h5>
+        <small class="text-muted">All WhatsApp, SMS and Email messages in one place</small>
+    </div>
+    <div class="d-flex gap-2">
+        <select id="channel-filter" class="form-select form-select-sm" style="width:140px;" onchange="currentPage=1;loadInbox()">
+            <option value="">All Channels</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="sms">SMS</option>
+            <option value="email">Email</option>
+        </select>
+    </div>
+</div>
+
+<div class="row g-0" style="height:calc(100vh - 220px);min-height:500px;">
+    <!-- Left panel: message list -->
+    <div class="col-lg-4 border-end" style="overflow-y:auto;">
+        <div id="inbox-list">
+            <div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm"></div></div>
+        </div>
+        <div class="p-2 border-top d-flex gap-2 justify-content-center">
+            <button class="btn btn-sm btn-outline-secondary" id="inbox-prev" onclick="changePage(-1)" disabled>‹ Prev</button>
+            <button class="btn btn-sm btn-outline-secondary" id="inbox-next" onclick="changePage(1)">Next ›</button>
+        </div>
+    </div>
+    <!-- Right panel: conversation thread -->
+    <div class="col-lg-8 d-flex flex-column" id="thread-panel">
+        <div class="flex-grow-1 d-flex align-items-center justify-content-center text-muted">
+            <div class="text-center">
+                <i class="bi bi-chat-dots fs-1 opacity-25"></i>
+                <p class="mt-2">Select a conversation to view the thread</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentPage = 1;
+const pageSize = 30;
+const chIcons = { whatsapp:'bi-whatsapp text-success', sms:'bi-chat-dots text-primary', email:'bi-envelope text-warning' };
+const chColors = { whatsapp:'success', sms:'primary', email:'warning' };
+let selectedLeadId = null;
+
+async function loadInbox() {
+    const channel = document.getElementById('channel-filter').value;
+    let url = `/api/inbox?page=${currentPage}&pageSize=${pageSize}`;
+    if (channel) url += `&channel=${channel}`;
+
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('inbox-list').innerHTML = '<div class="p-3 text-danger small">Failed to load.</div>'; return; }
+    const d = await res.json();
+    const items = d.items ?? [];
+
+    document.getElementById('inbox-prev').disabled = currentPage <= 1;
+    document.getElementById('inbox-next').disabled = items.length < pageSize;
+
+    if (!items.length) {
+        document.getElementById('inbox-list').innerHTML = '<div class="p-4 text-center text-muted small">No messages yet.</div>';
+        return;
+    }
+
+    document.getElementById('inbox-list').innerHTML = items.map(m => `
+        <div class="d-flex align-items-start gap-2 p-3 border-bottom cursor-pointer hover-bg ${selectedLeadId === m.leadId ? 'bg-primary-subtle' : ''}"
+             onclick="openThread('${m.leadId}','${m.leadName}')" style="cursor:pointer;">
+            <div class="rounded-circle bg-light border d-flex align-items-center justify-content-center flex-shrink-0" style="width:38px;height:38px;">
+                <i class="bi ${chIcons[m.channel]??'bi-chat'}" style="font-size:.9rem;"></i>
+            </div>
+            <div class="flex-grow-1 overflow-hidden">
+                <div class="d-flex justify-content-between">
+                    <span class="fw-semibold small">${m.leadName ?? 'Unknown'}</span>
+                    <small class="text-muted">${new Date(m.sentAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small>
+                </div>
+                <div class="text-truncate text-muted small">${m.body ?? ''}</div>
+                <span class="badge bg-${chColors[m.channel]??'secondary'} bg-opacity-25 text-${chColors[m.channel]??'secondary'}" style="font-size:.65rem;">${m.channel}</span>
+            </div>
+        </div>`).join('');
+}
+
+async function openThread(leadId, leadName) {
+    selectedLeadId = leadId;
+    loadInbox(); // refresh list to highlight selected
+
+    const panel = document.getElementById('thread-panel');
+    panel.innerHTML = `
+        <div class="border-bottom p-3 d-flex align-items-center gap-2 bg-white">
+            <div class="fw-semibold">${leadName}</div>
+            <a href="/Leads/${leadId}/detail" class="btn btn-outline-primary btn-sm ms-auto"><i class="bi bi-person-lines-fill"></i> View Lead</a>
+        </div>
+        <div id="thread-messages" class="flex-grow-1 p-3 overflow-auto bg-light" style="max-height:calc(100vh - 340px);">
+            <div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm"></div></div>
+        </div>`;
+
+    const res = await fetch(`/api/inbox/thread/${leadId}`);
+    const msgs = res.ok ? await res.json() : [];
+    const container = document.getElementById('thread-messages');
+
+    if (!msgs.length) { container.innerHTML = '<div class="text-center text-muted small py-3">No messages in this thread.</div>'; return; }
+
+    container.innerHTML = msgs.map(m => `
+        <div class="d-flex gap-2 mb-3 ${m.dir==='outbound'?'flex-row-reverse':''}">
+            <div class="rounded-circle bg-white border d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;font-size:.75rem;">
+                <i class="bi ${chIcons[m.ch]??'bi-chat'}"></i>
+            </div>
+            <div class="rounded-3 p-2 px-3 small shadow-sm ${m.dir==='outbound'?'bg-primary text-white':'bg-white'}" style="max-width:75%;">
+                ${m.body}
+                <div class="mt-1 opacity-75" style="font-size:.65rem;">${new Date(m.ts).toLocaleString()}</div>
+            </div>
+        </div>`).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
+function changePage(dir) { currentPage += dir; loadInbox(); }
+
+loadInbox();
+</script>
+<style>
+.hover-bg:hover { background: #f8fafc; }
+</style>
+}

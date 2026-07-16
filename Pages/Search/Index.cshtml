@@ -1,0 +1,79 @@
+@page
+@model TelecallingCRM.Pages.Search.IndexModel
+@{
+    ViewData["Title"] = "Global Search";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control border-start-0 ps-0" id="searchInput"
+                           placeholder="Search leads, deals, campaigns, tasks, quotes..." autocomplete="off" />
+                    <button class="btn btn-primary px-4" onclick="doSearch()">Search</button>
+                </div>
+            </div>
+        </div>
+        <div id="search-results"></div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const searchInput = document.getElementById('searchInput');
+let debounceTimer;
+
+searchInput.addEventListener('keyup', e => {
+    if (e.key === 'Enter') { doSearch(); return; }
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 400);
+});
+
+async function doSearch() {
+    const q = searchInput.value.trim();
+    const container = document.getElementById('search-results');
+    if (q.length < 2) { container.innerHTML = ''; return; }
+    container.innerHTML = '<div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div> Searching...</div>';
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    if (!res.ok) { container.innerHTML = '<div class="alert alert-danger">Search failed.</div>'; return; }
+    const d = await res.json();
+
+    if (d.results.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-4">No results for <strong>' + q + '</strong></div>';
+        return;
+    }
+
+    const icons = { lead: 'bi-person-fill text-primary', deal: 'bi-diagram-3 text-success',
+        campaign: 'bi-megaphone text-warning', task: 'bi-check2-square text-info',
+        quote: 'bi-file-earmark-text text-secondary', call: 'bi-telephone text-danger' };
+
+    const grouped = {};
+    d.results.forEach(r => { if (!grouped[r.type]) grouped[r.type] = []; grouped[r.type].push(r); });
+
+    container.innerHTML = Object.entries(grouped).map(([type, items]) => `
+        <div class="card mb-3">
+            <div class="card-header py-2 d-flex align-items-center gap-2">
+                <i class="bi ${icons[type] || 'bi-search'}"></i>
+                <span class="fw-semibold text-capitalize">${type}s</span>
+                <span class="badge bg-light text-dark ms-auto">${items.length}</span>
+            </div>
+            <div class="list-group list-group-flush">
+                ${items.map(r => `
+                    <a href="${r.url}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-semibold small">${r.title}</div>
+                            ${r.subtitle ? `<div class="text-muted" style="font-size:.75rem;">${r.subtitle}</div>` : ''}
+                        </div>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                    </a>`).join('')}
+            </div>
+        </div>`).join('');
+}
+
+// Auto-search if query in URL
+const params = new URLSearchParams(window.location.search);
+if (params.get('q')) { searchInput.value = params.get('q'); doSearch(); }
+</script>
+}

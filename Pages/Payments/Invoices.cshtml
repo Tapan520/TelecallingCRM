@@ -1,0 +1,159 @@
+@page
+@model TelecallingCRM.Pages.Payments.InvoicesModel
+@{
+    ViewData["Title"] = "Invoices";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i>Invoices</h4>
+    <button class="btn btn-primary btn-sm" onclick="openCreateModal()">
+        <i class="bi bi-plus-lg me-1"></i>New Invoice
+    </button>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr><th>Invoice #</th><th>Lead</th><th>Status</th><th>Total</th><th>Issued</th><th>Due</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="invoiceTableBody"></tbody>
+    </table>
+</div>
+<div id="paginationWrapper" class="mt-3 d-flex justify-content-end gap-2"></div>
+
+<!-- Create Invoice Modal -->
+<div class="modal fade" id="createInvoiceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">New Invoice</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Lead</label>
+                    <select id="invLeadId" class="form-select"></select>
+                </div>
+                <div id="lineItemsContainer">
+                    <div class="row g-2 mb-2 line-item">
+                        <div class="col-6"><input type="text" class="form-control li-desc" placeholder="Description"></div>
+                        <div class="col-2"><input type="number" class="form-control li-qty" placeholder="Qty" value="1" min="1"></div>
+                        <div class="col-3"><input type="number" class="form-control li-price" placeholder="Unit Price" step="0.01"></div>
+                        <div class="col-1"><button class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)"><i class="bi bi-dash"></i></button></div>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary mb-3" onclick="addLineItem()">
+                    <i class="bi bi-plus me-1"></i>Add Line
+                </button>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Tax %</label>
+                        <input type="number" id="invTax" class="form-control" value="18" step="0.01">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" id="invDue" class="form-control">
+                    </div>
+                </div>
+                <div class="mb-3 mt-3"><label class="form-label">Notes</label>
+                    <textarea id="invNotes" class="form-control" rows="2"></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="createInvoice()">Create Invoice</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentPage = 1;
+const statusColors = {Draft:'secondary',Sent:'primary',Paid:'success',Void:'dark',Overdue:'danger'};
+
+async function loadInvoices(page=1) {
+    currentPage = page;
+    const r = await fetch(`/api/invoices?page=${page}&pageSize=25`);
+    const data = await r.json();
+    document.getElementById('invoiceTableBody').innerHTML = (data.items||[]).map(i =>
+        `<tr>
+            <td><strong>${i.invoiceNumber}</strong></td>
+            <td>${i.leadName}</td>
+            <td><span class="badge bg-${statusColors[i.status]||'secondary'}">${i.status}</span></td>
+            <td>?${parseFloat(i.total).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+            <td>${new Date(i.issuedAt).toLocaleDateString()}</td>
+            <td>${i.dueAt ? new Date(i.dueAt).toLocaleDateString() : '—'}</td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    ${i.status==='Draft'?`<button class="btn btn-outline-primary" onclick="sendInvoice('${i.id}')">Send</button>`:''}
+                    ${i.status==='Sent'?`<button class="btn btn-outline-success" onclick="markPaid('${i.id}')">Mark Paid</button>`:''}
+                    ${i.status!=='Void'&&i.status!=='Paid'?`<button class="btn btn-outline-secondary" onclick="voidInvoice('${i.id}')">Void</button>`:''}
+                </div>
+            </td>
+        </tr>`
+    ).join('');
+}
+
+async function loadLeads() {
+    const r = await fetch('/api/leads?pageSize=200');
+    const data = await r.json();
+    const sel = document.getElementById('invLeadId');
+    sel.innerHTML = (data.leads||[]).map(l => `<option value="${l.id}">${l.name} — ${l.phone}</option>`).join('');
+}
+
+function addLineItem() {
+    const container = document.getElementById('lineItemsContainer');
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 line-item';
+    div.innerHTML = `<div class="col-6"><input type="text" class="form-control li-desc" placeholder="Description"></div>
+        <div class="col-2"><input type="number" class="form-control li-qty" value="1" min="1"></div>
+        <div class="col-3"><input type="number" class="form-control li-price" step="0.01"></div>
+        <div class="col-1"><button class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)"><i class="bi bi-dash"></i></button></div>`;
+    container.appendChild(div);
+}
+
+function removeLineItem(btn) {
+    const items = document.querySelectorAll('.line-item');
+    if (items.length > 1) btn.closest('.line-item').remove();
+}
+
+function openCreateModal() { loadLeads(); new bootstrap.Modal(document.getElementById('createInvoiceModal')).show(); }
+
+async function createInvoice() {
+    const lineItems = [...document.querySelectorAll('.line-item')].map(row => ({
+        description: row.querySelector('.li-desc').value,
+        qty: parseInt(row.querySelector('.li-qty').value) || 1,
+        unitPrice: parseFloat(row.querySelector('.li-price').value) || 0
+    })).filter(li => li.description);
+
+    const dueVal = document.getElementById('invDue').value;
+    const payload = {
+        leadId: document.getElementById('invLeadId').value,
+        paymentId: null,
+        lineItems,
+        taxPercent: parseFloat(document.getElementById('invTax').value) || 18,
+        description: null,
+        notes: document.getElementById('invNotes').value,
+        dueAt: dueVal ? new Date(dueVal).toISOString() : null
+    };
+    const r = await fetch('/api/invoices', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('createInvoiceModal')).hide(); loadInvoices(); }
+    else alert('Failed to create invoice.');
+}
+
+async function sendInvoice(id) {
+    await fetch(`/api/invoices/${id}/send`, { method:'POST' });
+    loadInvoices(currentPage);
+}
+async function markPaid(id) {
+    await fetch(`/api/invoices/${id}/paid`, { method:'POST' });
+    loadInvoices(currentPage);
+}
+async function voidInvoice(id) {
+    if (!confirm('Void this invoice?')) return;
+    await fetch(`/api/invoices/${id}/void`, { method:'POST' });
+    loadInvoices(currentPage);
+}
+
+loadInvoices();
+</script>
+}

@@ -245,6 +245,127 @@ namespace TelecallingCRM.Data.Migrations
                     b.ToTable("AgentGoals");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.AgentPresence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsOnline")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("AgentId", "ChangedAt");
+
+                    b.ToTable("AgentPresences");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.AgentShift", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<TimeSpan>("ShiftEndUtc")
+                        .HasColumnType("time(6)");
+
+                    b.Property<TimeSpan>("ShiftStartUtc")
+                        .HasColumnType("time(6)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Timezone")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("WorkDays")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("TenantId", "AgentId");
+
+                    b.ToTable("AgentShifts");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.ApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("KeyPrefix")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("ApiKeys");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.AppUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -336,6 +457,53 @@ namespace TelecallingCRM.Data.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CalendarSyncConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AccessToken")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CalendarId")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("SyncFollowUps")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("SyncMeetings")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("TokenExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("CalendarSyncConfigs");
                 });
 
             modelBuilder.Entity("TelecallingCRM.Data.Models.Call", b =>
@@ -436,6 +604,87 @@ namespace TelecallingCRM.Data.Migrations
                     b.ToTable("CallControlEvents");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CallDisposition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("ClosesLead")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("NextStatus")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ScriptId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScriptId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("CallDispositions");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CallScript", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("LONGTEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("CallScripts");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.Campaign", b =>
                 {
                     b.Property<Guid>("Id")
@@ -480,6 +729,402 @@ namespace TelecallingCRM.Data.Migrations
                     b.ToTable("Campaigns");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CommissionEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("EarnedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("LeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("RuleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("RuleId");
+
+                    b.HasIndex("TenantId", "AgentId");
+
+                    b.ToTable("CommissionEntries");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CommissionRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("CommissionRules");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CrmSyncConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AccessToken")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("InstanceUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("LastSyncStatus")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("LastSyncedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PortalId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("TokenExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("CrmSyncConfigs");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CrmSyncLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("CrmSyncConfigId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("LocalLeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ObjectType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("SyncedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CrmSyncConfigId", "SyncedAt");
+
+                    b.ToTable("CrmSyncLogs");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CustomLeadField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FieldType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Options")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("CustomLeadFields");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.Deal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("AssignedToId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ExpectedCloseDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("LeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Probability")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Stage")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedToId");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Deals");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DispositionField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("FieldType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Options")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormId");
+
+                    b.ToTable("DispositionFields");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DispositionForm", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("DispositionForms");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DispositionResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AnswersJson")
+                        .IsRequired()
+                        .HasColumnType("LONGTEXT");
+
+                    b.Property<Guid>("CallId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("LeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("CallId");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("DispositionResponses");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.DncEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -510,6 +1155,111 @@ namespace TelecallingCRM.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("DncEntries");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DripEnrollment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("CurrentStep")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EnrolledAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("LeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("NextRunAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("SequenceId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("NextRunAt");
+
+                    b.HasIndex("SequenceId", "LeadId")
+                        .IsUnique();
+
+                    b.ToTable("DripEnrollments");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DripSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("DripSequences");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DripStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DelayDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("LONGTEXT");
+
+                    b.Property<Guid>("SequenceId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StepType")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SequenceId");
+
+                    b.ToTable("DripSteps");
                 });
 
             modelBuilder.Entity("TelecallingCRM.Data.Models.EmailMessage", b =>
@@ -783,6 +1533,88 @@ namespace TelecallingCRM.Data.Migrations
                     b.ToTable("IntegrationConfigs");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.Invoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("LeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("LineItemsJson")
+                        .IsRequired()
+                        .HasColumnType("LONGTEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "InvoiceNumber")
+                        .IsUnique();
+
+                    b.ToTable("Invoices");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.KnowledgeChunk", b =>
                 {
                     b.Property<Guid>("Id")
@@ -949,6 +1781,34 @@ namespace TelecallingCRM.Data.Migrations
                     b.ToTable("LeadDocuments");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.LeadTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("LeadTags");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.Meeting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1070,6 +1930,122 @@ namespace TelecallingCRM.Data.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Email")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("InApp")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("NotificationType")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("QuietHoursEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("QuietHoursEnd")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuietHoursStart")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "NotificationType")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreferences");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.NpsSurvey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IntroText")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("NpsSurveys");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.NpsSurveyResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("AgentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("CallId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Feedback")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("LeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("RespondedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SurveyId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("CallId");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("SurveyId");
+
+                    b.ToTable("NpsSurveyResponses");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.Payment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1127,6 +2103,121 @@ namespace TelecallingCRM.Data.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.Quote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("DealId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("LeadId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("LineItemsJson")
+                        .IsRequired()
+                        .HasColumnType("LONGTEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("QuoteNumber")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("DealId");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "QuoteNumber")
+                        .IsUnique();
+
+                    b.ToTable("Quotes");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.RoundRobinState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AgentQueueJson")
+                        .IsRequired()
+                        .HasColumnType("LONGTEXT");
+
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("NextIndex")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "CampaignId")
+                        .IsUnique();
+
+                    b.ToTable("RoundRobinStates");
                 });
 
             modelBuilder.Entity("TelecallingCRM.Data.Models.SmsMessage", b =>
@@ -1639,6 +2730,63 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.AgentPresence", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "Agent")
+                        .WithMany("AgentPresences")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("AgentPresences")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.AgentShift", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "Agent")
+                        .WithMany("AgentShifts")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("AgentShifts")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.ApiKey", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.AppUser", b =>
                 {
                     b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
@@ -1647,6 +2795,17 @@ namespace TelecallingCRM.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CalendarSyncConfig", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("TelecallingCRM.Data.Models.Call", b =>
@@ -1687,6 +2846,42 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("Call");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CallDisposition", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.CallScript", "Script")
+                        .WithMany("Dispositions")
+                        .HasForeignKey("ScriptId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("CallDispositions")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Script");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CallScript", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("CallScripts")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.Campaign", b =>
                 {
                     b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
@@ -1694,6 +2889,194 @@ namespace TelecallingCRM.Data.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CommissionEntry", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Payment", "Payment")
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.CommissionRule", "Rule")
+                        .WithMany("Entries")
+                        .HasForeignKey("RuleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("CommissionEntries")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("Payment");
+
+                    b.Navigation("Rule");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CommissionRule", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("CommissionRules")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CrmSyncConfig", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("CrmSyncConfigs")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CrmSyncLog", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.CrmSyncConfig", "Config")
+                        .WithMany()
+                        .HasForeignKey("CrmSyncConfigId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Config");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CustomLeadField", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.Deal", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "AssignedTo")
+                        .WithMany()
+                        .HasForeignKey("AssignedToId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("Deals")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedTo");
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DispositionField", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.DispositionForm", "Form")
+                        .WithMany("Fields")
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Form");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DispositionForm", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("DispositionForms")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DispositionResponse", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Call", "Call")
+                        .WithMany()
+                        .HasForeignKey("CallId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.DispositionForm", "Form")
+                        .WithMany("Responses")
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Call");
+
+                    b.Navigation("Form");
+
+                    b.Navigation("Lead");
 
                     b.Navigation("Tenant");
                 });
@@ -1715,6 +3098,54 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("AddedBy");
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DripEnrollment", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.DripSequence", "Sequence")
+                        .WithMany("Enrollments")
+                        .HasForeignKey("SequenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("Sequence");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DripSequence", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("DripSequences")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DripStep", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.DripSequence", "Sequence")
+                        .WithMany("Steps")
+                        .HasForeignKey("SequenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Sequence");
                 });
 
             modelBuilder.Entity("TelecallingCRM.Data.Models.EmailMessage", b =>
@@ -1853,6 +3284,40 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.Invoice", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "CreatedBy")
+                        .WithMany("CreatedInvoices")
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Payment", "Payment")
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("Invoices")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("Payment");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.KnowledgeChunk", b =>
                 {
                     b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
@@ -1914,6 +3379,17 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("Tenant");
 
                     b.Navigation("UploadedBy");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.LeadTag", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("TelecallingCRM.Data.Models.Meeting", b =>
@@ -1981,6 +3457,68 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.NotificationPreference", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.NpsSurvey", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("NpsSurveys")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.NpsSurveyResponse", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Call", "Call")
+                        .WithMany()
+                        .HasForeignKey("CallId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.NpsSurvey", "Survey")
+                        .WithMany("Responses")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Call");
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("Survey");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.Payment", b =>
                 {
                     b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
@@ -2004,6 +3542,51 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("Lead");
 
                     b.Navigation("RecordedBy");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.Quote", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.AppUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Deal", "Deal")
+                        .WithMany()
+                        .HasForeignKey("DealId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TelecallingCRM.Data.Models.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("Quotes")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Deal");
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.RoundRobinState", b =>
+                {
+                    b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
+                        .WithMany("RoundRobinStates")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Tenant");
                 });
@@ -2164,6 +3747,10 @@ namespace TelecallingCRM.Data.Migrations
 
                     b.Navigation("AgentGoals");
 
+                    b.Navigation("AgentPresences");
+
+                    b.Navigation("AgentShifts");
+
                     b.Navigation("AssignedLeads");
 
                     b.Navigation("AssignedTasks");
@@ -2173,6 +3760,8 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("Calls");
 
                     b.Navigation("CreatedGoals");
+
+                    b.Navigation("CreatedInvoices");
 
                     b.Navigation("CreatedTasks");
 
@@ -2208,9 +3797,33 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("ControlEvents");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CallScript", b =>
+                {
+                    b.Navigation("Dispositions");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.Campaign", b =>
                 {
                     b.Navigation("Leads");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.CommissionRule", b =>
+                {
+                    b.Navigation("Entries");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DispositionForm", b =>
+                {
+                    b.Navigation("Fields");
+
+                    b.Navigation("Responses");
+                });
+
+            modelBuilder.Entity("TelecallingCRM.Data.Models.DripSequence", b =>
+                {
+                    b.Navigation("Enrollments");
+
+                    b.Navigation("Steps");
                 });
 
             modelBuilder.Entity("TelecallingCRM.Data.Models.EscalationRule", b =>
@@ -2248,6 +3861,11 @@ namespace TelecallingCRM.Data.Migrations
                     b.Navigation("Attendees");
                 });
 
+            modelBuilder.Entity("TelecallingCRM.Data.Models.NpsSurvey", b =>
+                {
+                    b.Navigation("Responses");
+                });
+
             modelBuilder.Entity("TelecallingCRM.Data.Models.TaskItem", b =>
                 {
                     b.Navigation("Comments");
@@ -2259,11 +3877,31 @@ namespace TelecallingCRM.Data.Migrations
 
                     b.Navigation("AgentGoals");
 
+                    b.Navigation("AgentPresences");
+
+                    b.Navigation("AgentShifts");
+
+                    b.Navigation("CallDispositions");
+
+                    b.Navigation("CallScripts");
+
                     b.Navigation("Campaigns");
+
+                    b.Navigation("CommissionEntries");
+
+                    b.Navigation("CommissionRules");
+
+                    b.Navigation("CrmSyncConfigs");
+
+                    b.Navigation("Deals");
+
+                    b.Navigation("DispositionForms");
 
                     b.Navigation("DncEntries");
 
                     b.Navigation("Documents");
+
+                    b.Navigation("DripSequences");
 
                     b.Navigation("EmailMessages");
 
@@ -2277,6 +3915,8 @@ namespace TelecallingCRM.Data.Migrations
 
                     b.Navigation("Integrations");
 
+                    b.Navigation("Invoices");
+
                     b.Navigation("KnowledgeChunks");
 
                     b.Navigation("Leads");
@@ -2285,7 +3925,13 @@ namespace TelecallingCRM.Data.Migrations
 
                     b.Navigation("Notifications");
 
+                    b.Navigation("NpsSurveys");
+
                     b.Navigation("Payments");
+
+                    b.Navigation("Quotes");
+
+                    b.Navigation("RoundRobinStates");
 
                     b.Navigation("SmsMessages");
 

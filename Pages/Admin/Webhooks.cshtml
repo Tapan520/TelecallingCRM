@@ -144,6 +144,7 @@ async function loadWebhooks() {
                 </div>
                 <div class="card-footer bg-white border-top-0 d-flex gap-1">
                     <button class="btn btn-sm btn-outline-info flex-fill" onclick="viewLogs('${h.id}')"><i class="bi bi-journal-text"></i> Logs</button>
+                    <button class="btn btn-sm btn-outline-success" onclick="testWebhook('${h.id}')" title="Send test ping"><i class="bi bi-send"></i></button>
                     <button class="btn btn-sm btn-outline-primary" onclick="openWebhookModal(${JSON.stringify(h).replace(/"/g,'&quot;')})" data-bs-toggle="modal" data-bs-target="#webhookModal"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="toggleWebhook('${h.id}')"><i class="bi bi-toggle-${h.isActive?'on text-success':'off'}"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteWebhook('${h.id}')"><i class="bi bi-trash"></i></button>
@@ -217,6 +218,16 @@ async function retryWebhook() {
     const res = await fetch(`/api/webhooks/${currentLogsWebhookId}/retry`, { method: 'POST' });
     if (res.ok) alert('Retry queued successfully.');
     else alert('No failed deliveries to retry, or retry failed.');
+}
+
+async function testWebhook(id) {
+    const res = await fetch(`/api/webhooks/${id}/test`, { method: 'POST' });
+    if (res.ok) {
+        const d = await res.json();
+        alert(d.message ?? 'Test ping queued. Check Delivery Logs in a few seconds.');
+    } else {
+        alert('Failed to queue test ping.');
+    }
 }
 
 loadWebhooks();

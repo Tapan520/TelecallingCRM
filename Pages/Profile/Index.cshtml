@@ -1,0 +1,176 @@
+@page
+@model TelecallingCRM.Pages.Profile.IndexModel
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<div class="row g-4">
+    <!-- Profile Card -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto mb-3"
+                     style="width:80px;height:80px;font-size:2rem;" id="avatar-circle">—</div>
+                <h5 class="fw-bold mb-1" id="profile-name">Loading...</h5>
+                <div class="text-muted small" id="profile-email">—</div>
+                <div class="mt-2" id="profile-role-badge"></div>
+            </div>
+        </div>
+
+        <!-- Personal Stats -->
+        <div class="card mt-3">
+            <div class="card-header fw-semibold"><i class="bi bi-bar-chart me-1"></i>My Stats This Month</div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="stats-list">
+                    <div class="list-group-item text-center text-muted py-3"><div class="spinner-border spinner-border-sm"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header fw-semibold"><i class="bi bi-person-gear me-1"></i>Edit Profile</div>
+            <div class="card-body">
+                <div id="profile-alert" class="d-none"></div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Full Name *</label>
+                        <input type="text" id="p-name" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Phone</label>
+                        <input type="text" id="p-phone" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" id="p-email" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Role</label>
+                        <input type="text" id="p-role" class="form-control" readonly>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="saveProfile()"><i class="bi bi-floppy me-1"></i>Save Profile</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-shield-lock me-1"></i>Change Password</div>
+            <div class="card-body">
+                <div id="pwd-alert" class="d-none"></div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Current Password *</label>
+                        <input type="password" id="p-current-pwd" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">New Password *</label>
+                        <input type="password" id="p-new-pwd" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Confirm Password *</label>
+                        <input type="password" id="p-confirm-pwd" class="form-control">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-outline-warning" onclick="changePassword()"><i class="bi bi-key me-1"></i>Change Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const roleColors = { admin:'danger', manager:'warning', agent:'primary', superadmin:'dark' };
+
+async function loadProfile() {
+    const [profileRes, statsRes] = await Promise.all([
+        fetch('/api/profile'),
+        fetch('/api/profile/stats')
+    ]);
+    if (!profileRes.ok) return;
+
+    const p = await profileRes.json();
+
+    document.getElementById('avatar-circle').textContent = p.fullName.charAt(0).toUpperCase();
+    document.getElementById('profile-name').textContent = p.fullName;
+    document.getElementById('profile-email').textContent = p.email;
+    document.getElementById('profile-role-badge').innerHTML = `<span class="badge bg-${roleColors[p.role]??'secondary'}">${p.role}</span>`;
+
+    document.getElementById('p-name').value = p.fullName;
+    document.getElementById('p-phone').value = p.phoneNumber ?? '';
+    document.getElementById('p-email').value = p.email;
+    document.getElementById('p-role').value = p.role;
+
+    if (statsRes.ok) {
+        const s = await statsRes.json();
+        const fmtTime = secs => { const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60); return h>0?`${h}h ${m}m`:`${m}m`; };
+        document.getElementById('stats-list').innerHTML = `
+            <div class="list-group-item d-flex justify-content-between"><span>Calls This Month</span><strong class="text-primary">${s.callsThisMonth}</strong></div>
+            <div class="list-group-item d-flex justify-content-between"><span>Conversions</span><strong class="text-success">${s.conversionsThisMonth}</strong></div>
+            <div class="list-group-item d-flex justify-content-between"><span>Talk Time</span><strong>${fmtTime(s.talkSecondsThisMonth)}</strong></div>
+            <div class="list-group-item d-flex justify-content-between"><span>Assigned Leads</span><strong>${s.assignedLeads}</strong></div>
+            <div class="list-group-item d-flex justify-content-between"><span>Pending Follow-ups</span><strong class="text-warning">${s.pendingFollowUps}</strong></div>
+            <div class="list-group-item d-flex justify-content-between"><span>Pending Tasks</span><strong class="text-info">${s.pendingTasks}</strong></div>`;
+    }
+}
+
+async function saveProfile() {
+    const alertEl = document.getElementById('profile-alert');
+    const body = {
+        fullName: document.getElementById('p-name').value,
+        phoneNumber: document.getElementById('p-phone').value || null,
+        currentPassword: null, newPassword: null
+    };
+    const res = await fetch('/api/profile', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    alertEl.classList.remove('d-none', 'alert-success', 'alert-danger');
+    if (res.ok) {
+        alertEl.className = 'alert alert-success';
+        alertEl.textContent = 'Profile updated successfully.';
+        loadProfile();
+    } else {
+        alertEl.className = 'alert alert-danger';
+        alertEl.textContent = 'Error saving profile.';
+    }
+}
+
+async function changePassword() {
+    const alertEl = document.getElementById('pwd-alert');
+    const newPwd = document.getElementById('p-new-pwd').value;
+    const confirmPwd = document.getElementById('p-confirm-pwd').value;
+    if (newPwd !== confirmPwd) {
+        alertEl.className = 'alert alert-danger';
+        alertEl.textContent = 'Passwords do not match.';
+        alertEl.classList.remove('d-none');
+        return;
+    }
+    const body = {
+        fullName: document.getElementById('p-name').value,
+        phoneNumber: document.getElementById('p-phone').value || null,
+        currentPassword: document.getElementById('p-current-pwd').value,
+        newPassword: newPwd
+    };
+    const res = await fetch('/api/profile', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    alertEl.classList.remove('d-none', 'alert-success', 'alert-danger');
+    if (res.ok) {
+        alertEl.className = 'alert alert-success';
+        alertEl.textContent = 'Password changed successfully.';
+        document.getElementById('p-current-pwd').value = '';
+        document.getElementById('p-new-pwd').value = '';
+        document.getElementById('p-confirm-pwd').value = '';
+    } else {
+        const err = await res.text();
+        alertEl.className = 'alert alert-danger';
+        alertEl.textContent = 'Error: ' + err;
+    }
+}
+
+loadProfile();
+</script>
+}

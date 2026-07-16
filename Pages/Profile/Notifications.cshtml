@@ -1,0 +1,151 @@
+@page
+@model TelecallingCRM.Pages.Profile.NotificationsModel
+@{
+    ViewData["Title"] = "Notification Preferences";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-bell-fill text-warning me-2"></i>Notification Preferences</h5>
+        <small class="text-muted">Choose what notifications you receive and how</small>
+    </div>
+    <button class="btn btn-primary" onclick="savePreferences()"><i class="bi bi-floppy me-1"></i>Save Preferences</button>
+</div>
+
+<div id="save-alert" class="d-none mb-3"></div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="row fw-semibold small text-muted">
+            <div class="col-5">Notification Type</div>
+            <div class="col-2 text-center">In-App</div>
+            <div class="col-2 text-center">Email</div>
+            <div class="col-3 text-center">Quiet Hours</div>
+        </div>
+    </div>
+    <div class="card-body p-0" id="prefs-list">
+        <div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header fw-semibold">Global Quiet Hours</div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">When quiet hours are enabled for a notification type, you won't receive it during the selected hours.</p>
+        <div class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Quiet Hours Start</label>
+                <select id="global-qh-start" class="form-select">
+                    @for (int h = 0; h < 24; h++)
+                    {
+                        <option value="@h" selected="@(h == 22)">@($"{h:D2}:00")</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Quiet Hours End</label>
+                <select id="global-qh-end" class="form-select">
+                    @for (int h = 0; h < 24; h++)
+                    {
+                        <option value="@h" selected="@(h == 8)">@($"{h:D2}:00")</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <button class="btn btn-outline-primary" onclick="applyGlobalQH()">Apply to All Types</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const typeDescriptions = {
+    TaskDue: 'Task due soon reminder',
+    TaskOverdue: 'Task overdue alert',
+    FollowUpDue: 'Follow-up due soon reminder',
+    MeetingDue: 'Meeting starting soon reminder',
+    SystemAlert: 'System alerts and auto-escalations',
+    NewLeadAssigned: 'When a lead is assigned to you',
+    LeadUpdated: 'When your lead is updated',
+    CallMade: 'Call activity notifications',
+    NoteAdded: 'Notes added to your leads',
+};
+
+let prefsData = [];
+
+async function loadPreferences() {
+    const res = await fetch('/api/notification-preferences');
+    if (!res.ok) return;
+    prefsData = await res.json();
+    renderPrefs();
+}
+
+function renderPrefs() {
+    const list = document.getElementById('prefs-list');
+    list.innerHTML = prefsData.map(p => `
+        <div class="row align-items-center py-3 px-3 border-bottom" data-type="${p.notificationType}">
+            <div class="col-5">
+                <div class="fw-semibold small">${p.notificationType.replace(/([A-Z])/g, ' $1').trim()}</div>
+                <div class="text-muted" style="font-size:.75rem;">${typeDescriptions[p.notificationType] ?? ''}</div>
+            </div>
+            <div class="col-2 text-center">
+                <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input pref-inapp" type="checkbox" ${p.inApp ? 'checked' : ''}>
+                </div>
+            </div>
+            <div class="col-2 text-center">
+                <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input pref-email" type="checkbox" ${p.email ? 'checked' : ''}>
+                </div>
+            </div>
+            <div class="col-3 text-center">
+                <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input pref-qh" type="checkbox" ${p.quietHoursEnabled ? 'checked' : ''}>
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+function applyGlobalQH() {
+    const start = parseInt(document.getElementById('global-qh-start').value);
+    const end = parseInt(document.getElementById('global-qh-end').value);
+    prefsData.forEach(p => { p.quietHoursStart = start; p.quietHoursEnd = end; });
+}
+
+async function savePreferences() {
+    const rows = document.querySelectorAll('#prefs-list [data-type]');
+    const payload = [];
+    rows.forEach(row => {
+        const type = row.dataset.type;
+        payload.push({
+            notificationType: type,
+            inApp: row.querySelector('.pref-inapp').checked,
+            email: row.querySelector('.pref-email').checked,
+            quietHoursEnabled: row.querySelector('.pref-qh').checked,
+            quietHoursStart: parseInt(document.getElementById('global-qh-start').value),
+            quietHoursEnd: parseInt(document.getElementById('global-qh-end').value)
+        });
+    });
+
+    const res = await fetch('/api/notification-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    const alertEl = document.getElementById('save-alert');
+    alertEl.classList.remove('d-none', 'alert-success', 'alert-danger');
+    if (res.ok) {
+        alertEl.className = 'alert alert-success';
+        alertEl.textContent = '? Notification preferences saved successfully.';
+    } else {
+        alertEl.className = 'alert alert-danger';
+        alertEl.textContent = '? Error saving preferences.';
+    }
+    setTimeout(() => alertEl.classList.add('d-none'), 3000);
+}
+
+loadPreferences();
+</script>
+}

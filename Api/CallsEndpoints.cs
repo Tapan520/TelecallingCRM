@@ -236,8 +236,11 @@ public static class CallsEndpoints
         });
 
         // Inbound call webhook (e.g. from Twilio/Exotel)
-        group.MapPost("/inbound", async ([FromBody] InboundCallDto dto, AppDbContext db) =>
+        group.MapPost("/inbound", async ([FromBody] InboundCallDto dto, AppDbContext db, HttpContext http) =>
         {
+            // Verify HMAC signature from provider before processing
+            if (!await WebhookSignatureHelper.VerifyAsync(http, db))
+                return Results.Unauthorized();
             var lead = await db.Leads.FirstOrDefaultAsync(l => l.Phone == dto.FromPhone);
             if (lead == null) return Results.Ok(new { message = "Lead not found" });
 

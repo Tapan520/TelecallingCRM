@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DiagActivity = System.Diagnostics.Activity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -21,7 +22,7 @@ namespace TelecallingCRM.Pages
 
         public void OnGet()
         {
-            RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+            RequestId = DiagActivity.Current?.Id ?? HttpContext.TraceIdentifier;
         }
     }
 

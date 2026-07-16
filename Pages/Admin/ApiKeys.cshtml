@@ -1,0 +1,169 @@
+@page
+@model TelecallingCRM.Pages.Admin.ApiKeysModel
+@{
+    ViewData["Title"] = "API Keys";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-key-fill text-warning me-2"></i>API Keys</h5>
+        <small class="text-muted">Generate keys for external integrations. Keys are shown only once on creation.</small>
+    </div>
+    <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#keyModal" onclick="openKeyModal()">
+        <i class="bi bi-plus-circle"></i> Generate New Key
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Name</th>
+                    <th>Key Preview</th>
+                    <th>Scopes</th>
+                    <th>Created By</th>
+                    <th>Last Used</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="keys-tbody">
+                <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- New Key Modal -->
+<div class="modal fade" id="keyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Generate API Key</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Key Name *</label>
+                    <input type="text" id="k-name" class="form-control" placeholder="e.g. Mobile App, Zapier Integration">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Scopes</label>
+                    <div class="form-check"><input class="form-check-input k-scope" type="checkbox" id="scope-read" value="read" checked><label class="form-check-label" for="scope-read">Read (GET all endpoints)</label></div>
+                    <div class="form-check"><input class="form-check-input k-scope" type="checkbox" id="scope-write" value="write"><label class="form-check-label" for="scope-write">Write (POST/PUT/DELETE)</label></div>
+                    <div class="form-check"><input class="form-check-input k-scope" type="checkbox" id="scope-admin" value="admin"><label class="form-check-label" for="scope-admin">Admin (user and settings management)</label></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Expiry Date (optional)</label>
+                    <input type="date" id="k-expiry" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-warning" onclick="generateKey()"><i class="bi bi-key me-1"></i>Generate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Show Raw Key Modal (once) -->
+<div class="modal fade" id="showKeyModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content border-warning">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Save Your API Key</h5>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>This key will NOT be shown again.</strong> Copy and store it securely now.
+                </div>
+                <label class="form-label fw-semibold">Your API Key</label>
+                <div class="input-group">
+                    <input type="text" id="raw-key-display" class="form-control font-monospace" readonly>
+                    <button class="btn btn-outline-secondary" onclick="copyKey()"><i class="bi bi-copy"></i></button>
+                </div>
+                <div id="copy-msg" class="text-success small mt-1 d-none">? Copied to clipboard</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-warning" data-bs-dismiss="modal" onclick="loadKeys()">I've saved it — Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+async function loadKeys() {
+    const res = await fetch('/api/api-keys');
+    if (!res.ok) { document.getElementById('keys-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Unauthorized</td></tr>'; return; }
+    const keys = await res.json();
+    const tbody = document.getElementById('keys-tbody');
+    if (!keys.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No API keys yet. Generate your first one.</td></tr>'; return; }
+    tbody.innerHTML = keys.map(k => `
+        <tr>
+            <td class="fw-semibold">${k.name}</td>
+            <td><code class="text-muted">${k.keyPrefix}...</code></td>
+            <td>${k.scopes.split(',').map(s => `<span class="badge bg-light text-dark border me-1">${s.trim()}</span>`).join('')}</td>
+            <td><small>${k.createdBy}</small></td>
+            <td><small class="text-muted">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}</small></td>
+            <td><small class="${k.expiresAt && new Date(k.expiresAt) < new Date() ? 'text-danger' : 'text-muted'}">${k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : 'No expiry'}</small></td>
+            <td>${k.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Revoked</span>'}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-${k.isActive?'warning':'success'}" onclick="toggleKey('${k.id}')" title="${k.isActive?'Revoke':'Activate'}">
+                    <i class="bi bi-toggle-${k.isActive?'on text-warning':'off'}"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteKey('${k.id}')"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`).join('');
+}
+
+function openKeyModal() {
+    document.getElementById('k-name').value = '';
+    document.getElementById('k-expiry').value = '';
+    document.querySelectorAll('.k-scope').forEach(cb => { cb.checked = cb.value === 'read'; });
+}
+
+async function generateKey() {
+    const name = document.getElementById('k-name').value.trim();
+    if (!name) { alert('Key name is required.'); return; }
+    const scopes = Array.from(document.querySelectorAll('.k-scope:checked')).map(cb => cb.value).join(',') || 'read';
+    const expiry = document.getElementById('k-expiry').value || null;
+
+    const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, scopes, expiresAt: expiry })
+    });
+
+    if (!res.ok) { const e = await res.text(); alert('Error: ' + e); return; }
+    const d = await res.json();
+
+    bootstrap.Modal.getInstance(document.getElementById('keyModal')).hide();
+
+    // Show raw key once
+    document.getElementById('raw-key-display').value = d.rawKey;
+    new bootstrap.Modal(document.getElementById('showKeyModal')).show();
+}
+
+function copyKey() {
+    navigator.clipboard.writeText(document.getElementById('raw-key-display').value);
+    document.getElementById('copy-msg').classList.remove('d-none');
+    setTimeout(() => document.getElementById('copy-msg').classList.add('d-none'), 2000);
+}
+
+async function toggleKey(id) {
+    await fetch(`/api/api-keys/${id}/toggle`, { method: 'POST' });
+    loadKeys();
+}
+
+async function deleteKey(id) {
+    if (!confirm('Permanently delete this API key? Any integrations using it will stop working.')) return;
+    await fetch(`/api/api-keys/${id}`, { method: 'DELETE' });
+    loadKeys();
+}
+
+loadKeys();
+</script>
+}

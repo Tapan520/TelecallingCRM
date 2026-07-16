@@ -1,0 +1,161 @@
+@page
+@model TelecallingCRM.Pages.Automation.IndexModel
+@{
+    ViewData["Title"] = "Drip Automation";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 fw-bold"><i class="bi bi-arrow-repeat text-primary me-2"></i>Drip Automation</h5>
+    <button class="btn btn-primary btn-sm" onclick="openModal()"><i class="bi bi-plus-lg me-1"></i>New Sequence</button>
+</div>
+
+<div id="sequences-list">
+    <div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm"></div></div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="seqModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="seqModalTitle">New Sequence</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="seqId" />
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6"><label class="form-label">Name *</label><input type="text" class="form-control" id="seqName" /></div>
+                    <div class="col-md-3"><label class="form-label">Trigger</label>
+                        <select class="form-select" id="seqTrigger">
+                            <option value="LeadCreated">Lead Created</option>
+                            <option value="LeadStatusChanged">Status Changed</option>
+                            <option value="CampaignEnrolled">Campaign Enrolled</option>
+                            <option value="FollowUpOverdue">FollowUp Overdue</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end"><div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="seqActive" checked />
+                        <label class="form-check-label">Active</label>
+                    </div></div>
+                </div>
+                <hr/>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong class="small">Steps</strong>
+                    <button class="btn btn-outline-primary btn-sm" onclick="addStep()"><i class="bi bi-plus"></i> Add Step</button>
+                </div>
+                <div id="steps-container"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="saveSequence()">Save Sequence</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let stepCount = 0;
+
+function addStep(step = null) {
+    const i = stepCount++;
+    const types = ['SendSms','SendEmail','SendWhatsApp','AssignAgent','AddTag','UpdateStatus','Wait'];
+    const container = document.getElementById('steps-container');
+    const div = document.createElement('div');
+    div.className = 'card mb-2 p-2';
+    div.id = `step-${i}`;
+    div.innerHTML = `
+        <div class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" id="stype-${i}">
+                    ${types.map(t => `<option value="${t}" ${step?.stepType===t?'selected':''}>${t}</option>`).join('')}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="number" class="form-control form-control-sm" id="sdelay-${i}" value="${step?.delayDays??0}" min="0" placeholder="Delay days" />
+            </div>
+            <div class="col-md-6">
+                <input type="text" class="form-control form-control-sm" id="spayload-${i}" value="${step?.payload??''}" placeholder="Message text / tag / status" />
+            </div>
+            <div class="col-md-1 text-end">
+                <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('step-${i}').remove()"><i class="bi bi-trash"></i></button>
+            </div>
+        </div>`;
+    container.appendChild(div);
+}
+
+function collectSteps() {
+    const steps = [];
+    document.querySelectorAll('[id^="step-"]').forEach((el, i) => {
+        const idx = el.id.split('-')[1];
+        steps.push({
+            stepType: document.getElementById(`stype-${idx}`)?.value,
+            delayDays: parseInt(document.getElementById(`sdelay-${idx}`)?.value || '0'),
+            payload: document.getElementById(`spayload-${idx}`)?.value || ''
+        });
+    });
+    return steps;
+}
+
+function openModal(seq = null) {
+    stepCount = 0;
+    document.getElementById('seqId').value = seq?.id || '';
+    document.getElementById('seqName').value = seq?.name || '';
+    document.getElementById('seqTrigger').value = seq?.trigger || 'LeadCreated';
+    document.getElementById('seqActive').checked = seq?.isActive !== false;
+    document.getElementById('seqModalTitle').textContent = seq ? 'Edit Sequence' : 'New Sequence';
+    document.getElementById('steps-container').innerHTML = '';
+    (seq?.steps || []).forEach(s => addStep(s));
+    new bootstrap.Modal(document.getElementById('seqModal')).show();
+}
+
+async function loadSequences() {
+    const res = await fetch('/api/drip');
+    if (!res.ok) return;
+    const data = await res.json();
+    const container = document.getElementById('sequences-list');
+    if (!data.length) { container.innerHTML = '<div class="text-center text-muted py-4">No automation sequences yet.</div>'; return; }
+    container.innerHTML = `<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead class="table-light"><tr><th>Name</th><th>Trigger</th><th>Steps</th><th>Enrolled</th><th>Active</th><th></th></tr></thead>
+        <tbody>${data.map(s => `<tr>
+            <td class="fw-semibold">${s.name}</td>
+            <td><span class="badge bg-light text-dark">${s.trigger}</span></td>
+            <td>${s.stepCount}</td>
+            <td>${s.enrollmentCount}</td>
+            <td><span class="badge ${s.isActive ? 'bg-success' : 'bg-secondary'}">${s.isActive ? 'Active' : 'Inactive'}</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-secondary me-1" onclick="editSeq('${s.id}')"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteSeq('${s.id}')"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`).join('')}</tbody></table></div></div>`;
+}
+
+async function editSeq(id) {
+    const res = await fetch(`/api/drip/${id}`);
+    if (!res.ok) return;
+    const seq = await res.json();
+    openModal(seq);
+}
+
+async function deleteSeq(id) {
+    if (!confirm('Delete this sequence?')) return;
+    await fetch(`/api/drip/${id}`, { method: 'DELETE' });
+    loadSequences();
+}
+
+async function saveSequence() {
+    const id = document.getElementById('seqId').value;
+    const body = {
+        name: document.getElementById('seqName').value,
+        trigger: document.getElementById('seqTrigger').value,
+        isActive: document.getElementById('seqActive').checked,
+        campaignId: null,
+        steps: collectSteps()
+    };
+    const url = id ? `/api/drip/${id}` : '/api/drip';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('seqModal'))?.hide(); loadSequences(); }
+    else alert('Failed to save.');
+}
+
+loadSequences();
+</script>
+}

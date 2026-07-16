@@ -1,0 +1,191 @@
+@page
+@model TelecallingCRM.Pages.Calls.ScriptsModel
+@{
+    ViewData["Title"] = "Call Scripts & Dispositions";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Call Scripts &amp; Dispositions</h4>
+    <button class="btn btn-primary btn-sm" onclick="openScriptModal()">
+        <i class="bi bi-plus-lg me-1"></i>New Script
+    </button>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="list-group" id="scriptList"></div>
+    </div>
+    <div class="col-md-8" id="scriptDetail" style="display:none">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span id="scriptTitle" class="fw-semibold"></span>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="editScript()"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-outline-danger" onclick="deleteScript()"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <pre id="scriptContent" class="bg-light p-3 rounded" style="white-space:pre-wrap"></pre>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">Dispositions</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openDispModal()"><i class="bi bi-plus-lg"></i> Add</button>
+                </div>
+                <div id="dispositionList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script Modal -->
+<div class="modal fade" id="scriptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Call Script</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="scriptId">
+                <div class="mb-3"><label class="form-label">Title</label>
+                    <input type="text" id="scriptTitleInput" class="form-control"></div>
+                <div class="mb-3"><label class="form-label">Content (Markdown or plain text)</label>
+                    <textarea id="scriptContentInput" class="form-control" rows="10"></textarea></div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="scriptActiveInput" checked>
+                    <label class="form-check-label">Active</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveScript()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Disposition Modal -->
+<div class="modal fade" id="dispModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Disposition</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Label</label>
+                    <input type="text" id="dispLabel" class="form-control" placeholder="e.g. Interested"></div>
+                <div class="mb-3"><label class="form-label">Colour</label>
+                    <input type="color" id="dispColor" class="form-control form-control-color" value="#6366f1"></div>
+                <div class="mb-3"><label class="form-label">Maps to Lead Status</label>
+                    <select id="dispNextStatus" class="form-select">
+                        <option value="">— no change —</option>
+                        <option>New</option><option>Contacted</option><option>Interested</option>
+                        <option>NotInterested</option><option>FollowUp</option>
+                        <option>Converted</option><option>Dead</option>
+                    </select>
+                </div>
+                <div class="form-check mb-2">
+                    <input type="checkbox" class="form-check-input" id="dispCloses">
+                    <label class="form-check-label">Closes Lead</label>
+                </div>
+                <div class="mb-3"><label class="form-label">Sort Order</label>
+                    <input type="number" id="dispSort" class="form-control" value="0"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveDisposition()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentScriptId = null;
+
+async function loadScripts() {
+    const r = await fetch('/api/call-scripts');
+    const scripts = await r.json();
+    const list = document.getElementById('scriptList');
+    list.innerHTML = scripts.map(s =>
+        `<a href="#" class="list-group-item list-group-item-action" onclick="selectScript('${s.id}',event)">
+            <i class="bi bi-file-text me-2"></i>${s.title}</a>`
+    ).join('');
+}
+
+async function selectScript(id, e) {
+    e?.preventDefault();
+    currentScriptId = id;
+    const r = await fetch(`/api/call-scripts/${id}`);
+    const s = await r.json();
+    document.getElementById('scriptTitle').textContent = s.title;
+    document.getElementById('scriptContent').textContent = s.content;
+    document.getElementById('scriptDetail').style.display = '';
+    renderDispositions(s.dispositions || []);
+}
+
+function renderDispositions(disps) {
+    document.getElementById('dispositionList').innerHTML = disps.map(d =>
+        `<span class="badge me-2 mb-2 d-inline-flex align-items-center" style="background:${d.color||'#6366f1'}">
+            ${d.label}
+            <button class="btn-close btn-close-white btn-sm ms-2" style="font-size:.5rem"
+                onclick="deleteDisposition('${d.id}')"></button>
+        </span>`
+    ).join('');
+}
+
+function openScriptModal(script) {
+    document.getElementById('scriptId').value = script?.id || '';
+    document.getElementById('scriptTitleInput').value = script?.title || '';
+    document.getElementById('scriptContentInput').value = script?.content || '';
+    document.getElementById('scriptActiveInput').checked = script?.isActive !== false;
+    new bootstrap.Modal(document.getElementById('scriptModal')).show();
+}
+
+async function saveScript() {
+    const id = document.getElementById('scriptId').value;
+    const payload = {
+        title: document.getElementById('scriptTitleInput').value,
+        content: document.getElementById('scriptContentInput').value,
+        isActive: document.getElementById('scriptActiveInput').checked,
+        campaignId: null
+    };
+    const url = id ? `/api/call-scripts/${id}` : '/api/call-scripts';
+    const method = id ? 'PUT' : 'POST';
+    const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('scriptModal')).hide(); loadScripts(); }
+    else alert('Failed to save script.');
+}
+
+async function deleteScript() {
+    if (!currentScriptId || !confirm('Delete this script?')) return;
+    await fetch(`/api/call-scripts/${currentScriptId}`, { method:'DELETE' });
+    currentScriptId = null;
+    document.getElementById('scriptDetail').style.display = 'none';
+    loadScripts();
+}
+
+function openDispModal() { new bootstrap.Modal(document.getElementById('dispModal')).show(); }
+
+async function saveDisposition() {
+    const payload = {
+        scriptId: currentScriptId,
+        label: document.getElementById('dispLabel').value,
+        color: document.getElementById('dispColor').value,
+        closesLead: document.getElementById('dispCloses').checked,
+        nextStatus: document.getElementById('dispNextStatus').value || null,
+        sortOrder: parseInt(document.getElementById('dispSort').value) || 0,
+        isActive: true
+    };
+    const r = await fetch('/api/dispositions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('dispModal')).hide(); selectScript(currentScriptId); }
+    else alert('Failed to save disposition.');
+}
+
+async function deleteDisposition(id) {
+    await fetch(`/api/dispositions/${id}`, { method:'DELETE' });
+    selectScript(currentScriptId);
+}
+
+loadScripts();
+</script>
+}

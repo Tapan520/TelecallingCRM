@@ -1,0 +1,215 @@
+@page
+@model TelecallingCRM.Pages.Leads.ImportModel
+@{
+    ViewData["Title"] = "Import Leads with Field Mapping";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-upload text-success me-2"></i>Import Leads — Field Mapping</h5>
+        <small class="text-muted">Upload CSV, preview, map columns and import</small>
+    </div>
+    <a href="/Leads" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to Leads</a>
+</div>
+
+<!-- Step 1: Upload -->
+<div id="step-upload">
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-file-earmark-spreadsheet text-success" style="font-size:3rem;"></i>
+            <h6 class="mt-3 fw-semibold">Upload your CSV file</h6>
+            <p class="text-muted small">First row will be treated as header. Any column order is supported.</p>
+            <input type="file" id="csv-file" class="form-control w-auto mx-auto" accept=".csv,text/csv" style="max-width:320px;">
+            <div class="mt-3">
+                <button class="btn btn-success" onclick="parseCsv()"><i class="bi bi-table me-1"></i>Preview & Map</button>
+                <a href="#" class="btn btn-link btn-sm ms-2" onclick="downloadSample()">Download sample CSV</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Step 2: Map columns -->
+<div id="step-map" class="d-none">
+    <div class="card mb-4">
+        <div class="card-header fw-semibold"><i class="bi bi-diagram-3 me-1"></i>Map CSV Columns to CRM Fields</div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Select which CRM field each CSV column maps to. Unmapped columns are ignored.</p>
+            <div class="row g-3" id="mapping-grid"></div>
+            <div class="mt-4 d-flex gap-2">
+                <button class="btn btn-primary" onclick="runImport()"><i class="bi bi-cloud-upload me-1"></i>Import Leads</button>
+                <button class="btn btn-outline-secondary" onclick="resetImport()">Start Over</button>
+            </div>
+        </div>
+    </div>
+    <!-- Preview table -->
+    <div class="card">
+        <div class="card-header fw-semibold"><i class="bi bi-eye me-1"></i>Data Preview (first 5 rows)</div>
+        <div class="card-body p-0 overflow-auto">
+            <div id="preview-table"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Step 3: Result -->
+<div id="step-result" class="d-none">
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <div id="result-icon"></div>
+            <h5 class="mt-3 fw-bold" id="result-title"></h5>
+            <p class="text-muted" id="result-body"></p>
+            <div id="result-errors" class="text-start mx-auto" style="max-width:500px;"></div>
+            <div class="mt-4 d-flex gap-2 justify-content-center">
+                <a href="/Leads" class="btn btn-primary">View Leads</a>
+                <button class="btn btn-outline-secondary" onclick="resetImport()">Import More</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const crmFields = [
+    { key: '', label: '-- Skip --' },
+    { key: 'name', label: 'Full Name *' },
+    { key: 'phone', label: 'Phone *' },
+    { key: 'email', label: 'Email' },
+    { key: 'alternatePhone', label: 'Alternate Phone' },
+    { key: 'company', label: 'Company' },
+    { key: 'industry', label: 'Industry' },
+    { key: 'city', label: 'City' },
+    { key: 'state', label: 'State' },
+    { key: 'source', label: 'Source' },
+    { key: 'tags', label: 'Tags' },
+    { key: 'notes', label: 'Notes' },
+];
+
+// Simple auto-mapping hints
+const autoMap = {
+    name: 'name', 'full name': 'name', fname: 'name',
+    phone: 'phone', mobile: 'phone', contact: 'phone', 'phone number': 'phone',
+    email: 'email', 'email address': 'email',
+    altphone: 'alternatePhone', 'alternate phone': 'alternatePhone', 'alt phone': 'alternatePhone',
+    company: 'company', organization: 'company', org: 'company',
+    industry: 'industry',
+    city: 'city', town: 'city',
+    state: 'state', province: 'state',
+    source: 'source', 'lead source': 'source',
+    tags: 'tags', tag: 'tags',
+    notes: 'notes', note: 'notes', remarks: 'notes'
+};
+
+let csvHeaders = [], csvRows = [];
+
+function parseCsv() {
+    const file = document.getElementById('csv-file').files[0];
+    if (!file) { alert('Please select a CSV file.'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+        const lines = e.target.result.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length < 2) { alert('CSV must have at least a header and one data row.'); return; }
+        csvHeaders = parseCsvLine(lines[0]);
+        csvRows = lines.slice(1).map(parseCsvLine);
+        showMappingStep();
+    };
+    reader.readAsText(file);
+}
+
+function parseCsvLine(line) {
+    const result = [], re = /("((?:[^"]|"")*)")|([^,]*)/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+        if (m.index === re.lastIndex) { re.lastIndex++; continue; }
+        result.push(m[2] !== undefined ? m[2].replace(/""/g, '"') : m[3]);
+    }
+    return result.slice(0, csvHeaders.length || result.length);
+}
+
+function showMappingStep() {
+    document.getElementById('step-upload').classList.add('d-none');
+    document.getElementById('step-map').classList.remove('d-none');
+
+    // Build mapping UI
+    const grid = document.getElementById('mapping-grid');
+    grid.innerHTML = csvHeaders.map((h, i) => {
+        const suggested = autoMap[h.toLowerCase().trim()] ?? '';
+        const opts = crmFields.map(f => `<option value="${f.key}" ${f.key === suggested ? 'selected' : ''}>${f.label}</option>`).join('');
+        return `<div class="col-md-4 col-lg-3">
+            <label class="form-label small fw-semibold text-truncate w-100" title="${h}">${h}</label>
+            <select class="form-select form-select-sm col-map" data-col="${i}">${opts}</select>
+            <div class="text-muted mt-1" style="font-size:.7rem;">e.g. ${csvRows[0]?.[i] ?? '—'}</div>
+        </div>`;
+    }).join('');
+
+    // Preview table
+    const preview = document.getElementById('preview-table');
+    const previewRows = csvRows.slice(0, 5);
+    preview.innerHTML = `<table class="table table-sm mb-0"><thead class="table-light"><tr>${csvHeaders.map(h => `<th class="small">${h}</th>`).join('')}</tr></thead><tbody>${previewRows.map(r => `<tr>${csvHeaders.map((_,i) => `<td class="small text-truncate" style="max-width:120px;">${r[i]??''}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+async function runImport() {
+    const mapping = {};
+    document.querySelectorAll('.col-map').forEach(sel => {
+        if (sel.value) mapping[parseInt(sel.dataset.col)] = sel.value;
+    });
+
+    if (!Object.values(mapping).includes('name')) { alert('You must map a "Full Name" column.'); return; }
+    if (!Object.values(mapping).includes('phone')) { alert('You must map a "Phone" column.'); return; }
+
+    // Build leads array
+    const leads = csvRows.map(row => {
+        const lead = {};
+        Object.entries(mapping).forEach(([colIdx, field]) => { lead[field] = row[parseInt(colIdx)]?.trim() || null; });
+        return lead;
+    }).filter(l => l.name && l.phone);
+
+    if (!leads.length) { alert('No valid leads found.'); return; }
+
+    // Send to existing /api/leads/import (or do inline batch)
+    const btn = event.target;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Importing...';
+
+    let imported = 0, skipped = 0, errors = [];
+    for (const lead of leads) {
+        try {
+            const res = await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...lead, status: 0, priority: 0 })
+            });
+            if (res.ok) imported++;
+            else { skipped++; if (errors.length < 10) errors.push(`Row "${lead.name}": ${await res.text()}`); }
+        } catch { skipped++; }
+    }
+
+    showResult(imported, skipped, errors);
+}
+
+function showResult(imported, skipped, errors) {
+    document.getElementById('step-map').classList.add('d-none');
+    document.getElementById('step-result').classList.remove('d-none');
+    document.getElementById('result-icon').innerHTML = imported > 0
+        ? '<i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>'
+        : '<i class="bi bi-x-circle-fill text-danger" style="font-size:3rem;"></i>';
+    document.getElementById('result-title').textContent = `Import Complete`;
+    document.getElementById('result-body').textContent = `${imported} leads imported successfully. ${skipped} rows skipped.`;
+    if (errors.length) {
+        document.getElementById('result-errors').innerHTML = `<div class="alert alert-warning"><strong>Errors (first 10):</strong><ul class="mb-0 mt-1">${errors.map(e => `<li class="small">${e}</li>`).join('')}</ul></div>`;
+    }
+}
+
+function resetImport() {
+    csvHeaders = []; csvRows = [];
+    document.getElementById('csv-file').value = '';
+    document.getElementById('step-result').classList.add('d-none');
+    document.getElementById('step-map').classList.add('d-none');
+    document.getElementById('step-upload').classList.remove('d-none');
+}
+
+function downloadSample() {
+    const csv = 'Name,Phone,Email,Company,City,State,Source,Notes\nJohn Doe,9876543210,john@example.com,Acme Corp,Mumbai,MH,Web,Interested in product';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.download = 'leads_sample.csv'; a.click();
+}
+</script>
+}

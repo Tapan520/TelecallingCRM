@@ -1,0 +1,288 @@
+@page
+@model TelecallingCRM.Pages.Surveys.IndexModel
+@{
+    ViewData["Title"] = "NPS Surveys";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 fw-bold">
+        <i class="bi bi-star-half text-warning me-2"></i>NPS Surveys
+    </h5>
+    <button class="btn btn-primary btn-sm" onclick="openSurveyModal()">
+        <i class="bi bi-plus-lg me-1"></i>New Survey
+    </button>
+</div>
+
+<!-- Surveys list -->
+<div id="surveys-list">
+    <div class="text-center text-muted py-5">
+        <div class="spinner-border spinner-border-sm"></div>
+    </div>
+</div>
+
+<!-- Survey CRUD Modal -->
+<div class="modal fade" id="surveyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="surveyModalTitle">New NPS Survey</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="surveyId" />
+                <div class="mb-3">
+                    <label class="form-label">Survey Name *</label>
+                    <input type="text" class="form-control" id="surveyName" placeholder="e.g. Post-Call Satisfaction" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Intro Text <small class="text-muted">(shown to respondent)</small></label>
+                    <textarea class="form-control" id="surveyIntro" rows="2"
+                              placeholder="How likely are you to recommend us on a scale of 0–10?"></textarea>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label">Send Trigger</label>
+                        <select class="form-select" id="surveyTrigger">
+                            <option value="AfterCall">After Call</option>
+                            <option value="AfterConversion">After Conversion</option>
+                            <option value="Manual">Manual</option>
+                            <option value="Scheduled">Scheduled</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="surveyActive" checked />
+                            <label class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="saveSurvey()">Save Survey</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- NPS Analytics Modal -->
+<div class="modal fade" id="analyticsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="analyticsTitle">Survey Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="analytics-body">
+                <div class="text-center text-muted py-4">
+                    <div class="spinner-border spinner-border-sm"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function npsCategory(score) {
+    if (score >= 9) return { label: 'Promoter', cls: 'success' };
+    if (score >= 7) return { label: 'Passive', cls: 'warning' };
+    return { label: 'Detractor', cls: 'danger' };
+}
+
+async function loadSurveys() {
+    const res = await fetch('/api/nps');
+    if (!res.ok) { document.getElementById('surveys-list').innerHTML = '<div class="alert alert-danger">Failed to load surveys.</div>'; return; }
+    const surveys = await res.json();
+    const container = document.getElementById('surveys-list');
+    if (!surveys.length) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-star fs-1 d-block mb-2"></i>
+                No NPS surveys yet.<br/>
+                <small>Create a survey to measure customer satisfaction.</small>
+            </div>`;
+        return;
+    }
+    container.innerHTML = `
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Trigger</th>
+                            <th>Responses</th>
+                            <th>Avg Score</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${surveys.map(s => {
+                            const avg = Number(s.avgScore);
+                            const cat = npsCategory(avg);
+                            return `
+                            <tr>
+                                <td class="fw-semibold">${s.name}</td>
+                                <td><span class="badge bg-light text-dark">${s.trigger}</span></td>
+                                <td>${s.responseCount}</td>
+                                <td>
+                                    ${s.responseCount > 0
+                                        ? `<span class="badge bg-${cat.cls}">${avg.toFixed(1)} — ${cat.label}</span>`
+                                        : '<span class="text-muted small">—</span>'}
+                                </td>
+                                <td><span class="badge ${s.isActive ? 'bg-success' : 'bg-secondary'}">${s.isActive ? 'Active' : 'Inactive'}</span></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-1" title="View Results" onclick="viewAnalytics('${s.id}', '${s.name.replace(/'/g,"\\'")}')">
+                                        <i class="bi bi-bar-chart-line"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" onclick="editSurvey('${s.id}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteSurvey('${s.id}', '${s.name.replace(/'/g,"\\'")}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+function openSurveyModal(s = null) {
+    document.getElementById('surveyId').value = s?.id ?? '';
+    document.getElementById('surveyName').value = s?.name ?? '';
+    document.getElementById('surveyIntro').value = s?.introText ?? '';
+    document.getElementById('surveyTrigger').value = s?.trigger ?? 'AfterCall';
+    document.getElementById('surveyActive').checked = s?.isActive !== false;
+    document.getElementById('surveyModalTitle').textContent = s ? 'Edit NPS Survey' : 'New NPS Survey';
+    new bootstrap.Modal(document.getElementById('surveyModal')).show();
+}
+
+async function editSurvey(id) {
+    const res = await fetch(`/api/nps/${id}`);
+    if (!res.ok) return;
+    openSurveyModal(await res.json());
+}
+
+async function saveSurvey() {
+    const id = document.getElementById('surveyId').value;
+    const name = document.getElementById('surveyName').value.trim();
+    if (!name) { alert('Survey name is required.'); return; }
+    const body = {
+        name,
+        introText: document.getElementById('surveyIntro').value.trim() || null,
+        trigger: document.getElementById('surveyTrigger').value,
+        isActive: document.getElementById('surveyActive').checked,
+        campaignId: null
+    };
+    const res = await fetch(id ? `/api/nps/${id}` : '/api/nps', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('surveyModal'))?.hide();
+        loadSurveys();
+    } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message ?? 'Failed to save survey.');
+    }
+}
+
+async function deleteSurvey(id, name) {
+    if (!confirm(`Delete survey "${name}"?`)) return;
+    const res = await fetch(`/api/nps/${id}`, { method: 'DELETE' });
+    if (res.ok) loadSurveys();
+    else alert('Failed to delete survey.');
+}
+
+async function viewAnalytics(id, name) {
+    document.getElementById('analyticsTitle').textContent = `Results — ${name}`;
+    const modal = new bootstrap.Modal(document.getElementById('analyticsModal'));
+    modal.show();
+    const body = document.getElementById('analytics-body');
+    body.innerHTML = '<div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>';
+    const res = await fetch(`/api/nps/${id}/responses`);
+    if (!res.ok) { body.innerHTML = '<div class="alert alert-danger">Failed to load results.</div>'; return; }
+    const d = await res.json();
+    const passives = d.total - d.promoters - d.detractors;
+    const promoterPct = d.total ? Math.round(d.promoters / d.total * 100) : 0;
+    const passivePct  = d.total ? Math.round(passives / d.total * 100) : 0;
+    const detractorPct = d.total ? Math.round(d.detractors / d.total * 100) : 0;
+    const npsColor = d.npsScore >= 50 ? 'success' : d.npsScore >= 0 ? 'warning' : 'danger';
+    body.innerHTML = `
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card text-center p-3 border-0 bg-light">
+                    <div class="text-muted small mb-1">NPS Score</div>
+                    <div class="fw-bold text-${npsColor}" style="font-size:2rem;">${d.npsScore}</div>
+                    <div class="text-muted" style="font-size:.7rem;">Range: &minus;100 to +100</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3 border-0 bg-light">
+                    <div class="text-muted small mb-1">Total Responses</div>
+                    <div class="fw-bold fs-3">${d.total}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3 border-0 bg-success bg-opacity-10">
+                    <div class="text-muted small mb-1">Promoters (9–10)</div>
+                    <div class="fw-bold fs-3 text-success">${d.promoters}</div>
+                    <div class="text-muted small">${promoterPct}%</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3 border-0 bg-danger bg-opacity-10">
+                    <div class="text-muted small mb-1">Detractors (0–6)</div>
+                    <div class="fw-bold fs-3 text-danger">${d.detractors}</div>
+                    <div class="text-muted small">${detractorPct}%</div>
+                </div>
+            </div>
+        </div>
+        <!-- Score distribution bar -->
+        <div class="mb-4">
+            <div class="d-flex rounded overflow-hidden" style="height:24px;">
+                <div class="bg-success" style="width:${promoterPct}%; transition:.5s;" title="Promoters ${promoterPct}%"></div>
+                <div class="bg-warning" style="width:${passivePct}%; transition:.5s;" title="Passives ${passivePct}%"></div>
+                <div class="bg-danger" style="width:${detractorPct}%; transition:.5s;" title="Detractors ${detractorPct}%"></div>
+            </div>
+            <div class="d-flex gap-3 mt-1" style="font-size:.75rem;">
+                <span><span class="badge bg-success me-1">&nbsp;</span>Promoters ${promoterPct}%</span>
+                <span><span class="badge bg-warning me-1">&nbsp;</span>Passives ${passivePct}%</span>
+                <span><span class="badge bg-danger me-1">&nbsp;</span>Detractors ${detractorPct}%</span>
+            </div>
+        </div>
+        ${d.items.length === 0
+            ? '<div class="text-center text-muted py-3">No responses yet.</div>'
+            : `<div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th>Lead</th><th>Score</th><th>Category</th><th>Feedback</th><th>Date</th></tr>
+                    </thead>
+                    <tbody>
+                        ${d.items.map(r => {
+                            const cat = npsCategory(r.score);
+                            return `<tr>
+                                <td class="fw-semibold">${r.leadName}</td>
+                                <td>
+                                    <span class="badge bg-${cat.cls} fs-6">${r.score}</span>
+                                    <span class="text-muted small">/10</span>
+                                </td>
+                                <td><span class="badge bg-${cat.cls} bg-opacity-25 text-${cat.cls}">${cat.label}</span></td>
+                                <td class="text-muted small">${r.feedback ?? '—'}</td>
+                                <td class="text-muted small">${new Date(r.respondedAt).toLocaleDateString()}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+               </div>`}`;
+}
+
+loadSurveys();
+</script>
+}

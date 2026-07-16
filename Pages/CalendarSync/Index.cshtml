@@ -1,0 +1,282 @@
+@page
+@model TelecallingCRM.Pages.CalendarSync.IndexModel
+@{
+    ViewData["Title"] = "Calendar Sync";
+}
+
+<div class="row g-4">
+    <!-- Left column: Connection & Preferences -->
+    <div class="col-lg-4">
+        <!-- Connection Status -->
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-calendar2-event text-primary fs-5"></i>
+                <span class="fw-semibold">Calendar Connection</span>
+            </div>
+            <div class="card-body" id="status-body">
+                <div class="text-center text-muted py-3">
+                    <div class="spinner-border spinner-border-sm"></div>
+                </div>
+            </div>
+        </div>
+        <!-- Sync Preferences (shown when connected) -->
+        <div class="card d-none" id="prefs-card">
+            <div class="card-header fw-semibold">Sync Preferences</div>
+            <div class="card-body">
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="syncFollowUps" />
+                    <label class="form-check-label">Sync Follow-ups to Calendar</label>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="syncMeetings" />
+                    <label class="form-check-label">Sync Meetings to Calendar</label>
+                </div>
+                <button class="btn btn-primary btn-sm w-100" onclick="savePrefs(this)">
+                    <i class="bi bi-save me-1"></i>Save Preferences
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: Upcoming events -->
+    <div class="col-lg-8">
+        <div class="card d-none" id="upcoming-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-calendar3 me-2 text-primary"></i>Upcoming Events</span>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 small text-muted">Days ahead:</label>
+                    <select class="form-select form-select-sm w-auto" id="daysAhead" onchange="loadUpcoming()">
+                        <option value="7">7</option>
+                        <option value="14" selected>14</option>
+                        <option value="30">30</option>
+                        <option value="60">60</option>
+                    </select>
+                </div>
+            </div>
+            <div id="upcoming-body" class="card-body p-0">
+                <div class="text-center text-muted py-4">
+                    <div class="spinner-border spinner-border-sm"></div>
+                </div>
+            </div>
+        </div>
+        <div class="card d-none" id="disconnected-card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
+                <p class="mb-0">Connect a calendar to see your upcoming meetings and follow-ups here.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connect Modal -->
+<div class="modal fade" id="connectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Connect Calendar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Provider</label>
+                    <select class="form-select" id="calProvider">
+                        <option value="Google">Google Calendar</option>
+                        <option value="Outlook">Microsoft Outlook</option>
+                        <option value="iCal">iCal / Other</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Access Token *</label>
+                    <input type="text" class="form-control" id="calAccessToken" placeholder="Paste OAuth access token" />
+                    <div class="form-text">Obtain from your calendar provider's OAuth flow.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Refresh Token <span class="text-muted">(optional)</span></label>
+                    <input type="text" class="form-control" id="calRefreshToken" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Calendar ID <span class="text-muted">(optional)</span></label>
+                    <input type="text" class="form-control" id="calId" placeholder="primary" />
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="connSyncFU" checked />
+                            <label class="form-check-label small">Sync Follow-ups</label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="connSyncMtg" checked />
+                            <label class="form-check-label small">Sync Meetings</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="saveConnection(this)">
+                    <i class="bi bi-plug me-1"></i>Connect
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+async function loadStatus() {
+    const res = await fetch('/api/calendar-sync');
+    if (!res.ok) return;
+    const d = await res.json();
+    const statusBody = document.getElementById('status-body');
+    const prefsCard = document.getElementById('prefs-card');
+    const upcomingCard = document.getElementById('upcoming-card');
+    const disconnectedCard = document.getElementById('disconnected-card');
+
+    if (d.connected) {
+        const expiry = d.tokenExpiresAt ? new Date(d.tokenExpiresAt).toLocaleDateString() : '—';
+        statusBody.innerHTML = `
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="badge bg-success fs-6 px-3 py-2">
+                    <i class="bi bi-check-circle me-1"></i>Connected
+                </span>
+            </div>
+            <div class="mb-1"><span class="text-muted small">Provider:</span> <strong>${d.provider ?? '—'}</strong></div>
+            ${d.calendarId ? `<div class="mb-1"><span class="text-muted small">Calendar ID:</span> <span class="text-monospace small">${d.calendarId}</span></div>` : ''}
+            <div class="mb-3"><span class="text-muted small">Token expires:</span> ${expiry}</div>
+            <button class="btn btn-outline-danger btn-sm w-100" onclick="disconnect()">
+                <i class="bi bi-plug me-1"></i>Disconnect
+            </button>`;
+        document.getElementById('syncFollowUps').checked = d.syncFollowUps;
+        document.getElementById('syncMeetings').checked = d.syncMeetings;
+        prefsCard.classList.remove('d-none');
+        upcomingCard.classList.remove('d-none');
+        disconnectedCard.classList.add('d-none');
+        loadUpcoming();
+    } else {
+        statusBody.innerHTML = `
+            <div class="text-center py-3">
+                <i class="bi bi-calendar-x text-muted mb-3 d-block" style="font-size:2.5rem;"></i>
+                <p class="text-muted small mb-3">No calendar connected.</p>
+                <button class="btn btn-primary btn-sm w-100" onclick="openConnectModal()">
+                    <i class="bi bi-plug me-1"></i>Connect Calendar
+                </button>
+            </div>`;
+        prefsCard.classList.add('d-none');
+        upcomingCard.classList.add('d-none');
+        disconnectedCard.classList.remove('d-none');
+    }
+}
+
+function openConnectModal() {
+    document.getElementById('calAccessToken').value = '';
+    document.getElementById('calRefreshToken').value = '';
+    document.getElementById('calId').value = '';
+    new bootstrap.Modal(document.getElementById('connectModal')).show();
+}
+
+async function saveConnection(btn) {
+    const token = document.getElementById('calAccessToken').value.trim();
+    if (!token) { alert('Access token is required.'); return; }
+    btn.disabled = true;
+    const body = {
+        provider: document.getElementById('calProvider').value,
+        accessToken: token,
+        refreshToken: document.getElementById('calRefreshToken').value.trim() || null,
+        tokenExpiresAt: null,
+        calendarId: document.getElementById('calId').value.trim() || null,
+        syncFollowUps: document.getElementById('connSyncFU').checked,
+        syncMeetings: document.getElementById('connSyncMtg').checked
+    };
+    const res = await fetch('/api/calendar-sync/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    btn.disabled = false;
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('connectModal'))?.hide();
+        loadStatus();
+    } else {
+        alert('Failed to connect calendar.');
+    }
+}
+
+async function disconnect() {
+    if (!confirm('Disconnect your calendar? Sync will stop immediately.')) return;
+    const res = await fetch('/api/calendar-sync/disconnect', { method: 'DELETE' });
+    if (res.ok) loadStatus();
+    else alert('Failed to disconnect.');
+}
+
+async function savePrefs(btn) {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+    const body = {
+        syncFollowUps: document.getElementById('syncFollowUps').checked,
+        syncMeetings: document.getElementById('syncMeetings').checked
+    };
+    const res = await fetch('/api/calendar-sync/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    btn.disabled = false;
+    if (res.ok) {
+        btn.innerHTML = '<i class="bi bi-check2 me-1"></i>Saved!';
+        setTimeout(() => { btn.innerHTML = original; }, 2000);
+        loadUpcoming();
+    } else {
+        btn.innerHTML = original;
+        alert('Failed to save preferences.');
+    }
+}
+
+async function loadUpcoming() {
+    const days = document.getElementById('daysAhead')?.value ?? 14;
+    const body = document.getElementById('upcoming-body');
+    body.innerHTML = '<div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>';
+    const res = await fetch(`/api/calendar-sync/upcoming?days=${days}`);
+    if (!res.ok) { body.innerHTML = '<div class="alert alert-danger m-3">Failed to load events.</div>'; return; }
+    const events = await res.json();
+    if (!events.length) {
+        body.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-calendar-check fs-1 d-block mb-2"></i>No upcoming events in this window.</div>';
+        return;
+    }
+    const typeConfig = {
+        meeting:  { icon: 'bi-camera-video text-primary',  label: 'Meeting' },
+        followup: { icon: 'bi-calendar-check text-warning', label: 'Follow-up' }
+    };
+    // Group by date
+    const grouped = {};
+    events.forEach(e => {
+        const day = new Date(e.start).toDateString();
+        if (!grouped[day]) grouped[day] = [];
+        grouped[day].push(e);
+    });
+    body.innerHTML = Object.entries(grouped).map(([day, evs]) => `
+        <div class="px-3 py-2 border-bottom bg-light">
+            <small class="fw-semibold text-muted text-uppercase">${new Date(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</small>
+        </div>
+        ${evs.map(e => {
+            const cfg = typeConfig[e.type] ?? { icon: 'bi-calendar', label: e.type };
+            const start = new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const end   = new Date(e.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `
+            <div class="d-flex align-items-start gap-3 px-3 py-3 border-bottom">
+                <i class="bi ${cfg.icon} mt-1 fs-5 flex-shrink-0"></i>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold">${e.title}</div>
+                    ${e.leadName ? `<div class="text-muted small"><i class="bi bi-person me-1"></i>${e.leadName}</div>` : ''}
+                    <div class="text-muted small"><i class="bi bi-clock me-1"></i>${start} – ${end}</div>
+                </div>
+                <span class="badge bg-light text-dark align-self-center">${cfg.label}</span>
+            </div>`;
+        }).join('')}`).join('');
+}
+
+loadStatus();
+</script>
+}

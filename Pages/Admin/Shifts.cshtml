@@ -1,0 +1,149 @@
+@page
+@model TelecallingCRM.Pages.Admin.ShiftsModel
+@{
+    ViewData["Title"] = "Agent Shifts & Availability";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-clock me-2 text-primary"></i>Agent Shifts &amp; Availability</h4>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#shiftModal">
+        <i class="bi bi-plus-lg me-1"></i>Add / Edit Shift
+    </button>
+</div>
+
+<div id="presenceSection" class="mb-4">
+    <h6 class="text-muted mb-2">Live Presence</h6>
+    <div id="presenceList" class="d-flex flex-wrap gap-2"></div>
+</div>
+
+<div id="shiftTableWrapper">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Agent</th><th>Work Days</th><th>Shift Start (UTC)</th>
+                <th>Shift End (UTC)</th><th>Timezone</th><th>Active</th><th></th>
+            </tr>
+        </thead>
+        <tbody id="shiftTableBody"></tbody>
+    </table>
+</div>
+
+<!-- Shift modal -->
+<div class="modal fade" id="shiftModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Agent Shift</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Agent</label>
+                    <select id="shiftAgentId" class="form-select"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Work Days</label>
+                    <div id="workDaysCheckboxes" class="d-flex gap-2 flex-wrap"></div>
+                </div>
+                <div class="row g-3">
+                    <div class="col">
+                        <label class="form-label">Start (UTC)</label>
+                        <input type="time" id="shiftStart" class="form-control" value="03:30">
+                    </div>
+                    <div class="col">
+                        <label class="form-label">End (UTC)</label>
+                        <input type="time" id="shiftEnd" class="form-control" value="13:30">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Timezone</label>
+                    <input type="text" id="shiftTimezone" class="form-control" value="Asia/Kolkata">
+                </div>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="shiftActive" checked>
+                    <label class="form-check-label" for="shiftActive">Active</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveShift()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const days = [{label:'Mon',bit:1},{label:'Tue',bit:2},{label:'Wed',bit:4},{label:'Thu',bit:8},{label:'Fri',bit:16},{label:'Sat',bit:32},{label:'Sun',bit:64}];
+
+// Build day checkboxes
+const wd = document.getElementById('workDaysCheckboxes');
+days.forEach(d => {
+    const cb = document.createElement('div');
+    cb.className = 'form-check form-check-inline';
+    cb.innerHTML = `<input class="form-check-input day-cb" type="checkbox" id="day${d.bit}" value="${d.bit}" ${d.bit<32?'checked':''}>
+                    <label class="form-check-label" for="day${d.bit}">${d.label}</label>`;
+    wd.appendChild(cb);
+});
+
+async function loadPresence() {
+    const r = await fetch('/api/agent-shifts/presence');
+    if (!r.ok) return;
+    const list = await r.json();
+    const el = document.getElementById('presenceList');
+    el.innerHTML = list.map(p =>
+        `<span class="badge bg-${p.isOnline?'success':'secondary'} px-3 py-2">
+            <i class="bi bi-circle-fill me-1" style="font-size:.55rem"></i>${p.agentName}</span>`
+    ).join('');
+}
+
+async function loadShifts() {
+    const r = await fetch('/api/agent-shifts');
+    if (!r.ok) return;
+    const shifts = await r.json();
+    const tb = document.getElementById('shiftTableBody');
+    tb.innerHTML = shifts.map(s => {
+        const dayLabels = days.filter(d => (s.workDays & d.bit) !== 0).map(d => d.label).join(', ');
+        return `<tr>
+            <td>${s.agentName}</td><td>${dayLabels}</td>
+            <td>${s.shiftStartUtc}</td><td>${s.shiftEndUtc}</td>
+            <td>${s.timezone??''}</td>
+            <td><span class="badge bg-${s.isActive?'success':'secondary'}">${s.isActive?'Yes':'No'}</span></td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteShift('${s.agentId}')"><i class="bi bi-trash"></i></button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function loadAgents() {
+    const r = await fetch('/api/admin/users');
+    if (!r.ok) return;
+    const data = await r.json();
+    const sel = document.getElementById('shiftAgentId');
+    sel.innerHTML = (data.users||data).filter(u=>u.role==='agent').map(u =>
+        `<option value="${u.id}">${u.fullName}</option>`).join('');
+}
+
+async function saveShift() {
+    const workDays = [...document.querySelectorAll('.day-cb:checked')].reduce((a,cb) => a + parseInt(cb.value), 0);
+    const payload = {
+        agentId: document.getElementById('shiftAgentId').value,
+        workDays,
+        shiftStartUtc: document.getElementById('shiftStart').value + ':00',
+        shiftEndUtc:   document.getElementById('shiftEnd').value   + ':00',
+        timezone:      document.getElementById('shiftTimezone').value,
+        isActive:      document.getElementById('shiftActive').checked
+    };
+    const r = await fetch('/api/agent-shifts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('shiftModal')).hide(); loadShifts(); }
+    else alert('Failed to save shift.');
+}
+
+async function deleteShift(agentId) {
+    if (!confirm('Remove shift for this agent?')) return;
+    await fetch(`/api/agent-shifts/${agentId}`, { method:'DELETE' });
+    loadShifts();
+}
+
+loadPresence(); loadShifts(); loadAgents();
+setInterval(loadPresence, 30000);
+</script>
+}

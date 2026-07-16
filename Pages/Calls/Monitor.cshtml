@@ -1,0 +1,129 @@
+@page
+@model TelecallingCRM.Pages.Calls.MonitorModel
+@{
+    ViewData["Title"] = "Live Call Monitor";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-display text-success me-2"></i>Live Call Center Monitor</h5>
+        <small class="text-muted">Real-time agent activity — updates every 15 seconds</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-success" id="live-badge"><i class="bi bi-circle-fill me-1" style="font-size:.6rem;"></i>LIVE</span>
+        <small class="text-muted" id="last-updated">—</small>
+    </div>
+</div>
+
+<!-- Summary row -->
+<div class="row g-3 mb-4" id="monitor-summary">
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-success" id="stat-active">—</div><div class="small text-muted">Active Calls</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-primary" id="stat-today-calls">—</div><div class="small text-muted">Calls Today</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-warning" id="stat-idle">—</div><div class="small text-muted">Agents Idle</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-info" id="stat-total-agents">—</div><div class="small text-muted">Total Agents</div></div></div></div>
+</div>
+
+<!-- Agent cards grid -->
+<div class="row g-3" id="agent-cards-grid">
+    <div class="col-12 text-center text-muted py-5"><div class="spinner-border text-success"></div><div class="mt-2">Loading agents...</div></div>
+</div>
+
+@section Scripts {
+<script>
+let agentsData = [];
+
+async function refresh() {
+    const [agentRes, callRes] = await Promise.all([
+        fetch('/api/admin/users?pageSize=200'),
+        fetch('/api/calls?pageSize=500')
+    ]);
+    if (!agentRes.ok) return;
+
+    const agentData = await agentRes.json();
+    const agents = agentData.users ?? [];
+
+    // Get today's calls
+    const today = new Date(); today.setHours(0,0,0,0);
+    let todayCalls = [];
+    if (callRes.ok) {
+        const cd = await callRes.json();
+        todayCalls = (cd.calls ?? []).filter(c => new Date(c.startedAt) >= today);
+    }
+
+    // Identify who has an open call (no endedAt in last 2h)
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const activeCalls = todayCalls.filter(c => !c.endedAt && new Date(c.startedAt) >= twoHoursAgo);
+
+    const agentCallMap = {};
+    todayCalls.forEach(c => {
+        if (!agentCallMap[c.agentId]) agentCallMap[c.agentId] = { calls: [], active: null };
+        agentCallMap[c.agentId].calls.push(c);
+        if (!c.endedAt && new Date(c.startedAt) >= twoHoursAgo)
+            agentCallMap[c.agentId].active = c;
+    });
+
+    const agentOnly = agents.filter(a => a.role === 'agent' || a.role === 'manager');
+
+    document.getElementById('stat-active').textContent = activeCalls.length;
+    document.getElementById('stat-today-calls').textContent = todayCalls.length;
+    document.getElementById('stat-idle').textContent = agentOnly.filter(a => !agentCallMap[a.id]?.active).length;
+    document.getElementById('stat-total-agents').textContent = agentOnly.length;
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+    document.getElementById('agent-cards-grid').innerHTML = agentOnly.map(agent => {
+        const info = agentCallMap[agent.id];
+        const active = info?.active;
+        const callCount = info?.calls.length ?? 0;
+        const converted = info?.calls.filter(c => c.outcome === 5).length ?? 0;
+
+        const status = !agent.isActive ? 'offline'
+            : active ? 'in-call'
+            : callCount > 0 ? 'idle-recent'
+            : 'idle';
+
+        const statusConfig = {
+            'offline':      { badge: 'bg-secondary', text: 'Offline',   icon: 'bi-x-circle',       border: 'border-secondary' },
+            'in-call':      { badge: 'bg-success',   text: 'In Call',   icon: 'bi-telephone-fill',  border: 'border-success' },
+            'idle-recent':  { badge: 'bg-primary',   text: 'Available', icon: 'bi-check-circle',    border: 'border-primary' },
+            'idle':         { badge: 'bg-warning text-dark', text: 'Idle', icon: 'bi-dash-circle', border: 'border-warning' }
+        }[status];
+
+        // Call timer if active
+        let timerHtml = '';
+        if (active) {
+            const secs = Math.floor((Date.now() - new Date(active.startedAt)) / 1000);
+            const m = Math.floor(secs / 60), s = secs % 60;
+            timerHtml = `<div class="text-success fw-bold font-monospace">${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</div>
+                         <div class="text-muted small">on call with ${active.lead ?? 'unknown'}</div>`;
+        }
+
+        return `
+        <div class="col-md-4 col-xl-3">
+            <div class="card h-100 ${statusConfig.border} border-2">
+                <div class="card-body text-center py-3">
+                    <div class="rounded-circle bg-light border d-flex align-items-center justify-content-center mx-auto mb-2" style="width:50px;height:50px;font-size:1.3rem;">
+                        ${agent.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="fw-semibold">${agent.fullName}</div>
+                    <div class="mb-2"><span class="badge ${statusConfig.badge}"><i class="bi ${statusConfig.icon} me-1"></i>${statusConfig.text}</span></div>
+                    ${timerHtml}
+                    <div class="row g-2 text-center mt-2">
+                        <div class="col-6 border-end"><div class="fw-bold">${callCount}</div><div class="text-muted" style="font-size:.7rem;">Calls Today</div></div>
+                        <div class="col-6"><div class="fw-bold text-success">${converted}</div><div class="text-muted" style="font-size:.7rem;">Converted</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('') || '<div class="col-12 text-center text-muted py-4">No agents found.</div>';
+}
+
+refresh();
+setInterval(refresh, 15000); // refresh every 15s
+
+// Also refresh on SignalR events
+if (window.crmHubConnection) {
+    window.crmHubConnection.on('CallStarted', refresh);
+    window.crmHubConnection.on('CallEnded', refresh);
+}
+</script>
+}

@@ -1,0 +1,167 @@
+@page
+@model TelecallingCRM.Pages.Reports.RevenueModel
+@{
+    ViewData["Title"] = "Revenue Analytics";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-currency-rupee text-success me-2"></i>Revenue Analytics</h5>
+        <small class="text-muted">Payment collections, trends and agent performance</small>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <input type="date" id="rev-from" class="form-control form-control-sm" style="width:145px;">
+        <span class="text-muted">to</span>
+        <input type="date" id="rev-to" class="form-control form-control-sm" style="width:145px;">
+        <button class="btn btn-primary btn-sm" onclick="loadRevenue()"><i class="bi bi-funnel"></i> Apply</button>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4" id="rev-kpi-row">
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-success" id="kpi-total">—</div><div class="small text-muted">Total Collected</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-warning" id="kpi-pending">—</div><div class="small text-muted">Pending</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-info" id="kpi-txns">—</div><div class="small text-muted">Transactions</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-primary" id="kpi-avg">—</div><div class="small text-muted">Avg Deal Size</div></div></div></div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Monthly Revenue Trend</div>
+            <div class="card-body"><canvas id="revenueChart" height="200"></canvas></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Revenue by Status</div>
+            <div class="card-body d-flex align-items-center justify-content-center"><canvas id="statusPieChart" height="220"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue by Agent -->
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Revenue by Agent</div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light"><tr><th>Agent</th><th>Transactions</th><th>Total Collected</th><th>Avg Deal</th><th>% of Total</th></tr></thead>
+            <tbody id="agent-rev-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent Payments -->
+<div class="card">
+    <div class="card-header fw-semibold">Recent Payments</div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light"><tr><th>Lead</th><th>Amount</th><th>Status</th><th>Agent</th><th>Date</th></tr></thead>
+            <tbody id="recent-pay-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let revenueChartInst, statusPieInst;
+
+(function() {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), 0, 1);
+    document.getElementById('rev-from').value = first.toISOString().slice(0,10);
+    document.getElementById('rev-to').value = now.toISOString().slice(0,10);
+})();
+
+const fmt = n => n.toLocaleString('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 });
+
+async function loadRevenue() {
+    const from = document.getElementById('rev-from').value;
+    const to = document.getElementById('rev-to').value;
+    const res = await fetch(`/api/payments?pageSize=2000${from?'&from='+from:''}${to?'&to='+to:''}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const all = d.items ?? [];
+
+    const captured = all.filter(p => p.status === 'Captured');
+    const pending = all.filter(p => p.status === 'Pending');
+    const totalAmt = captured.reduce((s,p) => s + p.amount, 0);
+    const pendingAmt = pending.reduce((s,p) => s + p.amount, 0);
+    const avgDeal = captured.length > 0 ? totalAmt / captured.length : 0;
+
+    document.getElementById('kpi-total').textContent = fmt(totalAmt);
+    document.getElementById('kpi-pending').textContent = fmt(pendingAmt);
+    document.getElementById('kpi-txns').textContent = captured.length;
+    document.getElementById('kpi-avg').textContent = fmt(avgDeal);
+
+    // Monthly trend chart
+    const monthlyMap = {};
+    captured.forEach(p => {
+        const mo = new Date(p.createdAt).toLocaleString('default', { month:'short', year:'numeric' });
+        monthlyMap[mo] = (monthlyMap[mo] ?? 0) + p.amount;
+    });
+    const labels = Object.keys(monthlyMap);
+    const vals = Object.values(monthlyMap);
+
+    if (revenueChartInst) revenueChartInst.destroy();
+    revenueChartInst = new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Revenue', data: vals, backgroundColor: 'rgba(34,197,94,0.7)', borderRadius: 6 }] },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+
+    // Status pie
+    const statusMap = {};
+    all.forEach(p => { statusMap[p.status] = (statusMap[p.status] ?? 0) + p.amount; });
+    if (statusPieInst) statusPieInst.destroy();
+    statusPieInst = new Chart(document.getElementById('statusPieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(statusMap),
+            datasets: [{ data: Object.values(statusMap), backgroundColor: ['#22c55e','#f59e0b','#ef4444','#94a3b8'] }]
+        },
+        options: { cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // Agent breakdown
+    const agentMap = {};
+    captured.forEach(p => {
+        if (!agentMap[p.recordedBy]) agentMap[p.recordedBy] = { name: p.recordedBy, txns: 0, total: 0 };
+        agentMap[p.recordedBy].txns++;
+        agentMap[p.recordedBy].total += p.amount;
+    });
+    const agentRows = Object.values(agentMap).sort((a,b) => b.total - a.total);
+    document.getElementById('agent-rev-tbody').innerHTML = agentRows.map(a => `
+        <tr>
+            <td class="fw-semibold">${a.name}</td>
+            <td>${a.txns}</td>
+            <td class="text-success fw-bold">${fmt(a.total)}</td>
+            <td>${fmt(a.total / a.txns)}</td>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-fill" style="height:6px;">
+                        <div class="progress-bar bg-success" style="width:${totalAmt>0?Math.round(a.total/totalAmt*100):0}%"></div>
+                    </div>
+                    <small>${totalAmt>0?Math.round(a.total/totalAmt*100):0}%</small>
+                </div>
+            </td>
+        </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted py-3">No data</td></tr>';
+
+    // Recent payments
+    const recent = all.sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,15);
+    const statusBadge = s => ({Captured:'<span class="badge bg-success">Captured</span>',Pending:'<span class="badge bg-warning text-dark">Pending</span>',Refunded:'<span class="badge bg-secondary">Refunded</span>'}[s] ?? `<span class="badge bg-secondary">${s}</span>`);
+    document.getElementById('recent-pay-tbody').innerHTML = recent.map(p => `
+        <tr>
+            <td><a href="/Leads/${p.leadId}/detail" class="text-decoration-none fw-semibold">${p.leadName}</a></td>
+            <td class="${p.status==='Captured'?'text-success fw-bold':''}">${p.currency} ${Number(p.amount).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+            <td>${statusBadge(p.status)}</td>
+            <td><small>${p.recordedBy}</small></td>
+            <td><small>${new Date(p.createdAt).toLocaleDateString()}</small></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted py-3">No payments</td></tr>';
+}
+
+loadRevenue();
+</script>
+}

@@ -4,17 +4,38 @@
     ViewData["Title"] = "Call Log";
 }
 
+<div class="d-flex gap-2 flex-wrap align-items-center mb-3">
+    <select id="agent-filter" class="form-select form-select-sm" style="width:200px;" onchange="currentPage=1;loadCalls()">
+        <option value="">All Agents</option>
+    </select>
+    <select id="outcome-filter" class="form-select form-select-sm" style="width:180px;" onchange="currentPage=1;loadCalls()">
+        <option value="">All Outcomes</option>
+        <option value="0">No Answer</option>
+        <option value="1">Busy</option>
+        <option value="2">Callback</option>
+        <option value="3">Interested</option>
+        <option value="4">Not Interested</option>
+        <option value="5">Converted</option>
+        <option value="6">Wrong Number</option>
+        <option value="7">Other</option>
+    </select>
+    <div class="ms-auto d-flex gap-2">
+        <a href="/api/export/calls/csv?days=30" class="btn btn-outline-success btn-sm" target="_blank"><i class="bi bi-filetype-csv"></i> CSV</a>
+        <a href="/api/export/calls/xlsx?days=30" class="btn btn-outline-success btn-sm" target="_blank"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
             <thead class="table-light">
                 <tr>
                     <th>Lead</th><th>Agent</th><th>Date</th>
-                    <th>Duration</th><th>Outcome</th><th>Sentiment</th><th>Summary</th>
+                    <th>Duration</th><th>Outcome</th><th>Sentiment</th><th>Summary</th><th>Audio</th>
                 </tr>
             </thead>
             <tbody id="calls-tbody">
-                <tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
             </tbody>
         </table>
     </div>
@@ -35,8 +56,26 @@ const pageSize = 25;
 const outcomeLabels = ['No Answer','Busy','Callback','Interested','Not Interested','Converted','Wrong Number','Other'];
 const sentimentColor = s => s === 'positive' ? 'success' : s === 'negative' ? 'danger' : 'secondary';
 
+async function loadAgentFilter() {
+    try {
+        const res = await fetch('/api/admin/users?pageSize=500');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sel = document.getElementById('agent-filter');
+        (data.users ?? data).forEach(a => {
+            const o = document.createElement('option');
+            o.value = a.id; o.textContent = a.fullName;
+            sel.appendChild(o);
+        });
+    } catch {}
+}
+
 async function loadCalls() {
-    const res = await fetch(`/api/calls?page=${currentPage}&pageSize=${pageSize}`);
+    const agentId = document.getElementById('agent-filter').value;
+    let url = `/api/calls?page=${currentPage}&pageSize=${pageSize}`;
+    if (agentId) url += `&agentId=${agentId}`;
+
+    const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
 
@@ -49,6 +88,9 @@ async function loadCalls() {
             <td><span class="badge bg-secondary">${outcomeLabels[c.outcome] ?? c.outcome}</span></td>
             <td>${c.aiSentiment ? `<span class="badge bg-${sentimentColor(c.aiSentiment)}">${c.aiSentiment}</span>` : '-'}</td>
             <td><small class="text-muted">${c.aiSummary ? c.aiSummary.slice(0, 80) + (c.aiSummary.length > 80 ? '...' : '') : '-'}</small></td>
+            <td>${c.audioFileUrl
+                ? `<audio controls style="height:28px;max-width:160px;" src="${c.audioFileUrl}"></audio>`
+                : '<span class="text-muted small">-</span>'}</td>
         </tr>`).join('');
 
     document.getElementById('calls-count').textContent = `${data.total} calls`;
@@ -58,6 +100,6 @@ async function loadCalls() {
 
 function changePage(dir) { currentPage += dir; loadCalls(); }
 
-loadCalls();
+loadAgentFilter().then(() => loadCalls());
 </script>
 }

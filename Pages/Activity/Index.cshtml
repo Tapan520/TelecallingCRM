@@ -1,0 +1,147 @@
+@page
+@model TelecallingCRM.Pages.ActivityFeed.IndexModel
+@{
+    ViewData["Title"] = "Activity Feed";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-activity text-primary me-2"></i>Activity Feed</h5>
+        <small class="text-muted">All CRM activity across your leads and team</small>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2 d-flex gap-3 flex-wrap align-items-center">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="my-activity-toggle" onchange="currentPage=1;loadFeed()">
+            <label class="form-check-label small fw-semibold" for="my-activity-toggle">My Activity Only</label>
+        </div>
+        <select id="type-filter" class="form-select form-select-sm w-auto" onchange="currentPage=1;loadFeed()">
+            <option value="">All Types</option>
+            <option value="CallMade">Calls</option>
+            <option value="FollowUpScheduled">Follow-ups Scheduled</option>
+            <option value="FollowUpCompleted">Follow-ups Completed</option>
+            <option value="LeadCreated">Leads Created</option>
+            <option value="LeadUpdated">Leads Updated</option>
+            <option value="NoteAdded">Notes Added</option>
+            <option value="DocumentUploaded">Documents</option>
+            <option value="PaymentRecorded">Payments</option>
+        </select>
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <input type="date" id="af-from" class="form-control form-control-sm" style="width:140px;" onchange="currentPage=1;loadFeed()">
+            <span class="text-muted small">to</span>
+            <input type="date" id="af-to" class="form-control form-control-sm" style="width:140px;" onchange="currentPage=1;loadFeed()">
+        </div>
+    </div>
+</div>
+
+<!-- Activity list -->
+<div id="feed-list">
+    <div class="text-center text-muted py-5"><div class="spinner-border text-primary"></div></div>
+</div>
+
+<!-- Pagination -->
+<div class="d-flex justify-content-center gap-3 mt-3" id="feed-pagination">
+    <button class="btn btn-outline-secondary btn-sm" id="feed-prev" onclick="changePage(-1)" disabled>‹ Prev</button>
+    <small class="text-muted align-self-center" id="feed-info"></small>
+    <button class="btn btn-outline-secondary btn-sm" id="feed-next" onclick="changePage(1)">Next ›</button>
+</div>
+
+@section Scripts {
+<script>
+let currentPage = 1;
+const pageSize = 50;
+
+const typeIcons = {
+    CallMade: { icon: 'bi-telephone-fill', color: 'primary' },
+    FollowUpScheduled: { icon: 'bi-calendar-plus', color: 'warning' },
+    FollowUpCompleted: { icon: 'bi-calendar-check', color: 'success' },
+    LeadCreated: { icon: 'bi-person-plus-fill', color: 'info' },
+    LeadUpdated: { icon: 'bi-pencil-fill', color: 'secondary' },
+    NoteAdded: { icon: 'bi-sticky-fill', color: 'warning' },
+    DocumentUploaded: { icon: 'bi-file-earmark-fill', color: 'secondary' },
+    PaymentRecorded: { icon: 'bi-currency-rupee', color: 'success' },
+    StatusChanged: { icon: 'bi-arrow-left-right', color: 'primary' },
+};
+
+async function loadFeed() {
+    const myOnly = document.getElementById('my-activity-toggle').checked;
+    const type = document.getElementById('type-filter').value;
+    const from = document.getElementById('af-from').value;
+    const to = document.getElementById('af-to').value;
+
+    let url = `/api/activity-feed?page=${currentPage}&pageSize=${pageSize}&myActivity=${myOnly}`;
+    if (type) url += `&type=${type}`;
+    if (from) url += `&from=${from}`;
+    if (to) url += `&to=${to}`;
+
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('feed-list').innerHTML = '<div class="alert alert-danger">Failed to load.</div>'; return; }
+    const d = await res.json();
+    const items = d.items ?? [];
+
+    document.getElementById('feed-prev').disabled = currentPage <= 1;
+    document.getElementById('feed-next').disabled = currentPage * pageSize >= d.total;
+    document.getElementById('feed-info').textContent = `${Math.min((currentPage-1)*pageSize+1, d.total)}–${Math.min(currentPage*pageSize, d.total)} of ${d.total}`;
+
+    if (!items.length) {
+        document.getElementById('feed-list').innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-activity fs-1 opacity-25"></i><p class="mt-2">No activity found for the selected filters.</p></div>';
+        return;
+    }
+
+    // Group by date
+    const grouped = {};
+    items.forEach(item => {
+        const day = new Date(item.occurredAt).toLocaleDateString('default', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+        if (!grouped[day]) grouped[day] = [];
+        grouped[day].push(item);
+    });
+
+    document.getElementById('feed-list').innerHTML = Object.entries(grouped).map(([day, dayItems]) => `
+        <div class="mb-4">
+            <div class="text-muted small fw-semibold text-uppercase mb-2" style="letter-spacing:.05em;">${day}</div>
+            <div class="timeline">
+                ${dayItems.map(item => {
+                    const cfg = typeIcons[item.type] ?? { icon: 'bi-activity', color: 'secondary' };
+                    return `
+                    <div class="timeline-item mb-3 d-flex gap-3">
+                        <div class="timeline-icon bg-${cfg.color} text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                            <i class="bi ${cfg.icon}" style="font-size:.75rem;"></i>
+                        </div>
+                        <div class="card flex-grow-1">
+                            <div class="card-body py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <span class="small">${item.summary}</span>
+                                        ${item.leadName ? `<span class="text-muted small"> — <a href="/Leads/${item.leadId}/detail" class="text-decoration-none">${item.leadName}</a></span>` : ''}
+                                    </div>
+                                    <small class="text-muted flex-shrink-0 ms-2">${new Date(item.occurredAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small>
+                                </div>
+                                <div class="text-muted" style="font-size:.75rem;">by ${item.by}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`).join('');
+}
+
+function changePage(dir) { currentPage += dir; loadFeed(); }
+
+// Set default date range: last 7 days
+(function() {
+    const to = new Date(), from = new Date(Date.now() - 7*24*60*60*1000);
+    document.getElementById('af-from').value = from.toISOString().slice(0,10);
+    document.getElementById('af-to').value = to.toISOString().slice(0,10);
+})();
+
+loadFeed();
+</script>
+<style>
+.timeline { border-left: 2px solid #e2e8f0; padding-left: 1.5rem; margin-left: 17px; }
+.timeline-item { position: relative; }
+.timeline-icon { position: absolute; left: -2.1rem; top: 4px; }
+</style>
+}

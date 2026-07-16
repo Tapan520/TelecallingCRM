@@ -103,6 +103,19 @@ public static class WebhookEndpoints
 
             return Results.Accepted();
         });
+
+        // POST send a test ping to verify the endpoint is reachable
+        group.MapPost("/{id:guid}/test", async (Guid id, TenantContext tc, AppDbContext db, IWebhookDispatcher dispatcher) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var hook = await db.WebhookConfigs.FirstOrDefaultAsync(w => w.Id == id && w.TenantId == tc.TenantId);
+            if (hook == null) return Results.NotFound();
+
+            Hangfire.BackgroundJob.Enqueue<IWebhookDispatcher>(d =>
+                d.DeliverAsync(id, "Test", new { message = "This is a test ping from TelecallingCRM.", timestamp = DateTime.UtcNow }));
+
+            return Results.Ok(new { message = "Test ping queued. Check Delivery Logs in a few seconds." });
+        });
     }
 }
 

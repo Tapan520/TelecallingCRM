@@ -37,6 +37,33 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<SmsTemplate> SmsTemplates => Set<SmsTemplate>();
     public DbSet<WhatsAppTemplate> WhatsAppTemplates => Set<WhatsAppTemplate>();
     public DbSet<AgentGoal> AgentGoals => Set<AgentGoal>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<CustomLeadField> CustomLeadFields => Set<CustomLeadField>();
+    public DbSet<LeadTag> LeadTags => Set<LeadTag>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<AgentShift> AgentShifts => Set<AgentShift>();
+    public DbSet<AgentPresence> AgentPresences => Set<AgentPresence>();
+    public DbSet<RoundRobinState> RoundRobinStates => Set<RoundRobinState>();
+    public DbSet<CallScript> CallScripts => Set<CallScript>();
+    public DbSet<CallDisposition> CallDispositions => Set<CallDisposition>();
+    public DbSet<CrmSyncConfig> CrmSyncConfigs => Set<CrmSyncConfig>();
+    public DbSet<CrmSyncLog> CrmSyncLogs => Set<CrmSyncLog>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+
+    // New modules
+    public DbSet<Deal> Deals => Set<Deal>();
+    public DbSet<DripSequence> DripSequences => Set<DripSequence>();
+    public DbSet<DripStep> DripSteps => Set<DripStep>();
+    public DbSet<DripEnrollment> DripEnrollments => Set<DripEnrollment>();
+    public DbSet<Quote> Quotes => Set<Quote>();
+    public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
+    public DbSet<CommissionEntry> CommissionEntries => Set<CommissionEntry>();
+    public DbSet<DispositionForm> DispositionForms => Set<DispositionForm>();
+    public DbSet<DispositionField> DispositionFields => Set<DispositionField>();
+    public DbSet<DispositionResponse> DispositionResponses => Set<DispositionResponse>();
+    public DbSet<NpsSurvey> NpsSurveys => Set<NpsSurvey>();
+    public DbSet<NpsSurveyResponse> NpsSurveyResponses => Set<NpsSurveyResponse>();
+    public DbSet<CalendarSyncConfig> CalendarSyncConfigs => Set<CalendarSyncConfig>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -318,6 +345,269 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.HasOne(g => g.CreatedBy).WithMany(u => u.CreatedGoals)
              .HasForeignKey(g => g.CreatedById).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(g => new { g.TenantId, g.AgentId });
+        });
+
+        builder.Entity<ApiKey>(e =>
+        {
+            e.HasOne(a => a.Tenant).WithMany()
+             .HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.CreatedBy).WithMany()
+             .HasForeignKey(a => a.CreatedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(a => a.TenantId);
+        });
+
+        builder.Entity<CustomLeadField>(e =>
+        {
+            e.HasOne(f => f.Tenant).WithMany()
+             .HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(f => f.TenantId);
+        });
+
+        builder.Entity<LeadTag>(e =>
+        {
+            e.HasOne(t => t.Tenant).WithMany()
+             .HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(t => new { t.TenantId, t.Name }).IsUnique();
+        });
+
+        builder.Entity<NotificationPreference>(e =>
+        {
+            e.HasOne(p => p.User).WithMany()
+             .HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(p => new { p.UserId, p.NotificationType }).IsUnique();
+        });
+
+        builder.Entity<AgentShift>(e =>
+        {
+            e.HasOne(s => s.Tenant).WithMany(t => t.AgentShifts)
+             .HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(s => s.Agent).WithMany(u => u.AgentShifts)
+             .HasForeignKey(s => s.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(s => new { s.TenantId, s.AgentId });
+        });
+
+        builder.Entity<AgentPresence>(e =>
+        {
+            e.HasOne(p => p.Tenant).WithMany(t => t.AgentPresences)
+             .HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.Agent).WithMany(u => u.AgentPresences)
+             .HasForeignKey(p => p.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(p => new { p.AgentId, p.ChangedAt });
+        });
+
+        builder.Entity<RoundRobinState>(e =>
+        {
+            e.HasOne(r => r.Tenant).WithMany(t => t.RoundRobinStates)
+             .HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(r => r.AgentQueueJson).HasColumnType("LONGTEXT");
+            e.HasIndex(r => new { r.TenantId, r.CampaignId }).IsUnique();
+        });
+
+        builder.Entity<CallScript>(e =>
+        {
+            e.HasOne(s => s.Tenant).WithMany(t => t.CallScripts)
+             .HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(s => s.Campaign).WithMany()
+             .HasForeignKey(s => s.CampaignId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.Property(s => s.Content).HasColumnType("LONGTEXT");
+            e.HasIndex(s => s.TenantId);
+        });
+
+        builder.Entity<CallDisposition>(e =>
+        {
+            e.HasOne(d => d.Tenant).WithMany(t => t.CallDispositions)
+             .HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(d => d.Script).WithMany(s => s.Dispositions)
+             .HasForeignKey(d => d.ScriptId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(d => d.TenantId);
+        });
+
+        builder.Entity<CrmSyncConfig>(e =>
+        {
+            e.HasOne(c => c.Tenant).WithMany(t => t.CrmSyncConfigs)
+             .HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(c => new { c.TenantId, c.Provider }).IsUnique();
+        });
+
+        builder.Entity<CrmSyncLog>(e =>
+        {
+            e.HasOne(l => l.Config).WithMany()
+             .HasForeignKey(l => l.CrmSyncConfigId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => new { l.CrmSyncConfigId, l.SyncedAt });
+        });
+
+        builder.Entity<Invoice>(e =>
+        {
+            e.HasOne(i => i.Tenant).WithMany(t => t.Invoices)
+             .HasForeignKey(i => i.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(i => i.Lead).WithMany()
+             .HasForeignKey(i => i.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(i => i.Payment).WithMany()
+             .HasForeignKey(i => i.PaymentId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(i => i.CreatedBy).WithMany(u => u.CreatedInvoices)
+             .HasForeignKey(i => i.CreatedById).OnDelete(DeleteBehavior.Restrict);
+            e.Property(i => i.SubTotal).HasColumnType("decimal(18,2)");
+            e.Property(i => i.TaxAmount).HasColumnType("decimal(18,2)");
+            e.Property(i => i.Total).HasColumnType("decimal(18,2)");
+            e.Property(i => i.TaxPercent).HasColumnType("decimal(5,2)");
+            e.Property(i => i.LineItemsJson).HasColumnType("LONGTEXT");
+            e.HasIndex(i => i.TenantId);
+            e.HasIndex(i => new { i.TenantId, i.InvoiceNumber }).IsUnique();
+        });
+
+        // ?? Deal Pipeline ?????????????????????????????????????????????????????
+        builder.Entity<Deal>(e =>
+        {
+            e.HasOne(d => d.Tenant).WithMany(t => t.Deals)
+             .HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(d => d.Lead).WithMany()
+             .HasForeignKey(d => d.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(d => d.AssignedTo).WithMany()
+             .HasForeignKey(d => d.AssignedToId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.Property(d => d.Value).HasColumnType("decimal(18,2)");
+            e.HasIndex(d => d.TenantId);
+            e.HasIndex(d => d.LeadId);
+        });
+
+        // ?? Drip Automation ???????????????????????????????????????????????????
+        builder.Entity<DripSequence>(e =>
+        {
+            e.HasOne(s => s.Tenant).WithMany(t => t.DripSequences)
+             .HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(s => s.Campaign).WithMany()
+             .HasForeignKey(s => s.CampaignId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(s => s.TenantId);
+        });
+
+        builder.Entity<DripStep>(e =>
+        {
+            e.HasOne(s => s.Sequence).WithMany(seq => seq.Steps)
+             .HasForeignKey(s => s.SequenceId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(s => s.Payload).HasColumnType("LONGTEXT");
+            e.HasIndex(s => s.SequenceId);
+        });
+
+        builder.Entity<DripEnrollment>(e =>
+        {
+            e.HasOne(en => en.Sequence).WithMany(s => s.Enrollments)
+             .HasForeignKey(en => en.SequenceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(en => en.Lead).WithMany()
+             .HasForeignKey(en => en.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(en => new { en.SequenceId, en.LeadId }).IsUnique();
+            e.HasIndex(en => en.NextRunAt);
+        });
+
+        // ?? Quotation Management ??????????????????????????????????????????????
+        builder.Entity<Quote>(e =>
+        {
+            e.HasOne(q => q.Tenant).WithMany(t => t.Quotes)
+             .HasForeignKey(q => q.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(q => q.Lead).WithMany()
+             .HasForeignKey(q => q.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(q => q.Deal).WithMany()
+             .HasForeignKey(q => q.DealId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(q => q.CreatedBy).WithMany()
+             .HasForeignKey(q => q.CreatedById).OnDelete(DeleteBehavior.Restrict);
+            e.Property(q => q.SubTotal).HasColumnType("decimal(18,2)");
+            e.Property(q => q.DiscountAmount).HasColumnType("decimal(18,2)");
+            e.Property(q => q.TaxPercent).HasColumnType("decimal(5,2)");
+            e.Property(q => q.TaxAmount).HasColumnType("decimal(18,2)");
+            e.Property(q => q.Total).HasColumnType("decimal(18,2)");
+            e.Property(q => q.LineItemsJson).HasColumnType("LONGTEXT");
+            e.HasIndex(q => q.TenantId);
+            e.HasIndex(q => new { q.TenantId, q.QuoteNumber }).IsUnique();
+        });
+
+        // ?? Commission Tracker ????????????????????????????????????????????????
+        builder.Entity<CommissionRule>(e =>
+        {
+            e.HasOne(r => r.Tenant).WithMany(t => t.CommissionRules)
+             .HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Campaign).WithMany()
+             .HasForeignKey(r => r.CampaignId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.Property(r => r.Value).HasColumnType("decimal(10,2)");
+            e.HasIndex(r => r.TenantId);
+        });
+
+        builder.Entity<CommissionEntry>(e =>
+        {
+            e.HasOne(ce => ce.Tenant).WithMany(t => t.CommissionEntries)
+             .HasForeignKey(ce => ce.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(ce => ce.Agent).WithMany()
+             .HasForeignKey(ce => ce.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(ce => ce.Payment).WithMany()
+             .HasForeignKey(ce => ce.PaymentId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(ce => ce.Lead).WithMany()
+             .HasForeignKey(ce => ce.LeadId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(ce => ce.Rule).WithMany(r => r.Entries)
+             .HasForeignKey(ce => ce.RuleId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.Property(ce => ce.Amount).HasColumnType("decimal(18,2)");
+            e.HasIndex(ce => new { ce.TenantId, ce.AgentId });
+        });
+
+        // ?? Post-Call Disposition Forms ???????????????????????????????????????
+        builder.Entity<DispositionForm>(e =>
+        {
+            e.HasOne(f => f.Tenant).WithMany(t => t.DispositionForms)
+             .HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(f => f.Campaign).WithMany()
+             .HasForeignKey(f => f.CampaignId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(f => f.TenantId);
+        });
+
+        builder.Entity<DispositionField>(e =>
+        {
+            e.HasOne(f => f.Form).WithMany(fm => fm.Fields)
+             .HasForeignKey(f => f.FormId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(f => f.FormId);
+        });
+
+        builder.Entity<DispositionResponse>(e =>
+        {
+            e.HasOne(r => r.Tenant).WithMany()
+             .HasForeignKey(r => r.TenantId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(r => r.Form).WithMany(f => f.Responses)
+             .HasForeignKey(r => r.FormId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.Call).WithMany()
+             .HasForeignKey(r => r.CallId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.Agent).WithMany()
+             .HasForeignKey(r => r.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.Lead).WithMany()
+             .HasForeignKey(r => r.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(r => r.AnswersJson).HasColumnType("LONGTEXT");
+            e.HasIndex(r => r.CallId);
+        });
+
+        // ?? NPS Surveys ????????????????????????????????????????????????????????
+        builder.Entity<NpsSurvey>(e =>
+        {
+            e.HasOne(s => s.Tenant).WithMany(t => t.NpsSurveys)
+             .HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(s => s.Campaign).WithMany()
+             .HasForeignKey(s => s.CampaignId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(s => s.TenantId);
+        });
+
+        builder.Entity<NpsSurveyResponse>(e =>
+        {
+            e.HasOne(r => r.Survey).WithMany(s => s.Responses)
+             .HasForeignKey(r => r.SurveyId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Lead).WithMany()
+             .HasForeignKey(r => r.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.Agent).WithMany()
+             .HasForeignKey(r => r.AgentId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(r => r.Call).WithMany()
+             .HasForeignKey(r => r.CallId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.Ignore(r => r.TenantId);
+            e.HasIndex(r => r.SurveyId);
+        });
+
+        // ?? Calendar Sync ?????????????????????????????????????????????????????
+        builder.Entity<CalendarSyncConfig>(e =>
+        {
+            e.HasOne(c => c.User).WithMany()
+             .HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(c => c.UserId).IsUnique();
         });
     }
 }

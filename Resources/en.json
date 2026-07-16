@@ -1,0 +1,48 @@
+{
+  "Common": {
+    "Save": "Save",
+    "Cancel": "Cancel",
+    "Delete": "Delete",
+    "Edit": "Edit",
+    "Add": "Add",
+    "Search": "Search",
+    "Loading": "Loading...",
+    "NoData": "No records found.",
+    "Success": "Operation successful.",
+    "Error": "An error occurred.",
+    "Confirm": "Are you sure?"
+  },
+  "Nav": {
+    "Dashboard": "Dashboard",
+    "Leads": "Leads",
+    "Calls": "Calls",
+    "FollowUps": "Follow-ups",
+    "Tasks": "Tasks",
+    "Campaigns": "Campaigns",
+    "Messaging": "Messaging",
+    "Reports": "Reports",
+    "Payments": "Payments",
+    "Invoices": "Invoices",
+    "Goals": "Goals",
+    "Admin": "Admin",
+    "Shifts": "Shifts",
+    "CrmSync": "CRM Sync",
+    "CallScripts": "Call Scripts"
+  },
+  "Leads": {
+    "Title": "Leads",
+    "NewLead": "New Lead",
+    "AssignedTo": "Assigned To",
+    "Status": "Status",
+    "Priority": "Priority",
+    "Source": "Source"
+  },
+  "Calls": {
+    "Title": "Calls",
+    "StartCall": "Start Call",
+    "Duration": "Duration",
+    "Outcome": "Outcome",
+    "Script": "Script",
+    "Disposition": "Disposition"
+  }
+}

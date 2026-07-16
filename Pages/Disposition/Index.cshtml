@@ -1,0 +1,294 @@
+@page
+@model TelecallingCRM.Pages.Disposition.IndexModel
+@{
+    ViewData["Title"] = "Post-Call Disposition Forms";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 fw-bold">
+        <i class="bi bi-clipboard2-check text-primary me-2"></i>Post-Call Disposition Forms
+    </h5>
+    <button class="btn btn-primary btn-sm" onclick="openFormModal()">
+        <i class="bi bi-plus-lg me-1"></i>New Form
+    </button>
+</div>
+
+<div id="forms-list">
+    <div class="text-center text-muted py-5">
+        <div class="spinner-border spinner-border-sm"></div>
+    </div>
+</div>
+
+<!-- Form Builder Modal -->
+<div class="modal fade" id="formModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="formModalTitle">New Disposition Form</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="formId" />
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Form Name *</label>
+                        <input type="text" class="form-control" id="formName" />
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end gap-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="formDefault" />
+                            <label class="form-check-label">Set as Default</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="formActive" checked />
+                            <label class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                </div>
+                <hr />
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong class="small">Form Fields</strong>
+                    <button class="btn btn-outline-primary btn-sm" onclick="addField()">
+                        <i class="bi bi-plus"></i> Add Field
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Label</th>
+                                <th>Type</th>
+                                <th>Options <small class="text-muted">(comma-sep)</small></th>
+                                <th class="text-center">Required</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="fields-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="text-muted small mt-2" id="fields-empty">No fields added yet. Click "Add Field" to start.</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="saveForm()">Save Form</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Responses Modal -->
+<div class="modal fade" id="responsesModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Form Responses</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="responses-body">
+                <div class="text-center text-muted py-4">
+                    <div class="spinner-border spinner-border-sm"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let fieldCount = 0;
+
+function updateFieldsEmpty() {
+    const tbody = document.getElementById('fields-tbody');
+    document.getElementById('fields-empty').style.display = tbody.children.length === 0 ? '' : 'none';
+}
+
+function addField(field = null) {
+    const i = fieldCount++;
+    const types = ['Text', 'Number', 'Select', 'MultiSelect', 'Checkbox', 'Date', 'Rating'];
+    const tbody = document.getElementById('fields-tbody');
+    const tr = document.createElement('tr');
+    tr.id = `field-${i}`;
+    tr.innerHTML = `
+        <td><input type="text" class="form-control form-control-sm" id="flabel-${i}"
+             value="${field?.label ?? ''}" placeholder="e.g. Outcome" /></td>
+        <td>
+            <select class="form-select form-select-sm" id="ftype-${i}">
+                ${types.map(t => `<option value="${t}" ${field?.fieldType === t ? 'selected' : ''}>${t}</option>`).join('')}
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm" id="fopts-${i}"
+             value="${field?.options ?? ''}" placeholder="Yes,No,Callback" /></td>
+        <td class="text-center">
+            <div class="form-check d-flex justify-content-center mb-0">
+                <input class="form-check-input" type="checkbox" id="freq-${i}" ${field?.isRequired ? 'checked' : ''} />
+            </div>
+        </td>
+        <td>
+            <button class="btn btn-sm btn-outline-danger"
+                    onclick="document.getElementById('field-${i}').remove(); updateFieldsEmpty()">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    updateFieldsEmpty();
+}
+
+function collectFields() {
+    const fields = [];
+    document.querySelectorAll('#fields-tbody tr[id^="field-"]').forEach(el => {
+        const idx = el.id.split('-')[1];
+        const label = document.getElementById(`flabel-${idx}`)?.value?.trim();
+        if (!label) return;
+        fields.push({
+            label,
+            fieldType: document.getElementById(`ftype-${idx}`)?.value ?? 'Text',
+            options: document.getElementById(`fopts-${idx}`)?.value?.trim() || null,
+            isRequired: document.getElementById(`freq-${idx}`)?.checked ?? false
+        });
+    });
+    return fields;
+}
+
+function openFormModal(form = null) {
+    fieldCount = 0;
+    document.getElementById('formId').value = form?.id ?? '';
+    document.getElementById('formName').value = form?.name ?? '';
+    document.getElementById('formDefault').checked = form?.isDefault ?? false;
+    document.getElementById('formActive').checked = form?.isActive !== false;
+    document.getElementById('formModalTitle').textContent = form ? 'Edit Disposition Form' : 'New Disposition Form';
+    document.getElementById('fields-tbody').innerHTML = '';
+    (form?.fields ?? []).forEach(f => addField(f));
+    updateFieldsEmpty();
+    new bootstrap.Modal(document.getElementById('formModal')).show();
+}
+
+async function loadForms() {
+    const res = await fetch('/api/disposition-forms');
+    if (!res.ok) { document.getElementById('forms-list').innerHTML = '<div class="alert alert-danger">Failed to load forms.</div>'; return; }
+    const forms = await res.json();
+    const container = document.getElementById('forms-list');
+    if (!forms.length) {
+        container.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-clipboard2 fs-1 d-block mb-2"></i>No disposition forms yet.<br/><small>Create a form to capture post-call outcomes.</small></div>';
+        return;
+    }
+    container.innerHTML = `
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Form Name</th>
+                            <th>Fields</th>
+                            <th>Campaign</th>
+                            <th>Default</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${forms.map(f => `
+                        <tr>
+                            <td class="fw-semibold">${f.name}</td>
+                            <td><span class="badge bg-light text-dark">${f.fieldCount} field${f.fieldCount !== 1 ? 's' : ''}</span></td>
+                            <td class="text-muted small">${f.campaignName ?? '—'}</td>
+                            <td>${f.isDefault ? '<span class="badge bg-success"><i class="bi bi-check2 me-1"></i>Default</span>' : '<span class="text-muted small">—</span>'}</td>
+                            <td><span class="badge ${f.isActive ? 'bg-success' : 'bg-secondary'}">${f.isActive ? 'Active' : 'Inactive'}</span></td>
+                            <td class="text-muted small">${new Date(f.createdAt).toLocaleDateString()}</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-info me-1" title="View Responses" onclick="viewResponses('${f.id}')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" onclick="editForm('${f.id}')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteForm('${f.id}', '${f.name}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+async function editForm(id) {
+    const res = await fetch(`/api/disposition-forms/${id}`);
+    if (!res.ok) return;
+    openFormModal(await res.json());
+}
+
+async function saveForm() {
+    const id = document.getElementById('formId').value;
+    const name = document.getElementById('formName').value.trim();
+    if (!name) { alert('Form name is required.'); return; }
+    const body = {
+        name,
+        isDefault: document.getElementById('formDefault').checked,
+        isActive: document.getElementById('formActive').checked,
+        campaignId: null,
+        fields: collectFields()
+    };
+    const res = await fetch(id ? `/api/disposition-forms/${id}` : '/api/disposition-forms', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('formModal'))?.hide();
+        loadForms();
+    } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message ?? 'Failed to save form.');
+    }
+}
+
+async function deleteForm(id, name) {
+    if (!confirm(`Delete form "${name}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/disposition-forms/${id}`, { method: 'DELETE' });
+    if (res.ok) loadForms();
+    else alert('Failed to delete form.');
+}
+
+async function viewResponses(id) {
+    const modal = new bootstrap.Modal(document.getElementById('responsesModal'));
+    modal.show();
+    const body = document.getElementById('responses-body');
+    body.innerHTML = '<div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div></div>';
+    const res = await fetch(`/api/disposition-forms/${id}/responses`);
+    if (!res.ok) { body.innerHTML = '<div class="alert alert-danger">Failed to load responses.</div>'; return; }
+    const d = await res.json();
+    if (!d.items.length) {
+        body.innerHTML = '<div class="text-center text-muted py-4">No responses submitted yet.</div>';
+        return;
+    }
+    body.innerHTML = `
+        <div class="mb-2 text-muted small">Total responses: <strong>${d.total}</strong></div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th>Agent</th><th>Lead</th><th>Submitted</th><th>Answers</th></tr>
+                </thead>
+                <tbody>
+                    ${d.items.map(r => {
+                        let answers = r.answersJson;
+                        try {
+                            const parsed = JSON.parse(r.answersJson);
+                            answers = Object.entries(parsed).map(([k,v]) => `<span class="badge bg-light text-dark me-1">${k}: ${v}</span>`).join('');
+                        } catch {}
+                        return `<tr>
+                            <td class="fw-semibold">${r.agentName}</td>
+                            <td>${r.leadName}</td>
+                            <td class="text-muted small">${new Date(r.submittedAt).toLocaleString()}</td>
+                            <td>${answers}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+loadForms();
+</script>
+}

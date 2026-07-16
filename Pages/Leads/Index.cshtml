@@ -31,6 +31,15 @@
         <button class="btn btn-primary btn-sm" onclick="openNewLead()">
             <i class="bi bi-plus-lg"></i> Add Lead
         </button>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item small" href="/api/export/leads/csv" target="_blank"><i class="bi bi-filetype-csv me-1 text-success"></i>Export CSV</a></li>
+                <li><a class="dropdown-item small" href="/api/export/leads/xlsx" target="_blank"><i class="bi bi-file-earmark-excel me-1 text-success"></i>Export Excel</a></li>
+            </ul>
+        </div>
     </div>
 </div>
 
@@ -292,7 +301,7 @@ async function loadLeads() {
     document.getElementById('leads-tbody').innerHTML = data.leads.map(l =>
         '<tr>' +
         '<td><input type="checkbox" class="lead-chk" value="' + l.id + '" ' + (selectedLeadIds.has(l.id) ? 'checked' : '') + ' onchange="toggleLeadSelect(this)"></td>' +
-        '<td><a href="/Leads/' + l.id + '" class="fw-semibold text-decoration-none">' + priorityIcon(l.priority) + ' ' + l.name + '</a></td>' +
+        '<td><a href="/Leads/' + l.id + '/detail" class="fw-semibold text-decoration-none">' + priorityIcon(l.priority) + ' ' + l.name + '</a></td>' +
         '<td>' + l.phone + '</td>' +
         '<td>' + (l.company || '-') + '</td>' +
         '<td>' + statusBadge(l.status) + '</td>' +

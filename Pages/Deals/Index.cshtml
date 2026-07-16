@@ -1,0 +1,167 @@
+@page
+@model TelecallingCRM.Pages.Deals.IndexModel
+@{
+    ViewData["Title"] = "Deal Pipeline";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 fw-bold"><i class="bi bi-diagram-3 text-primary me-2"></i>Deal Pipeline</h5>
+    <button class="btn btn-primary btn-sm" onclick="openDealModal()"><i class="bi bi-plus-lg me-1"></i>New Deal</button>
+</div>
+
+<!-- Pipeline Summary Cards -->
+<div class="row g-3 mb-4" id="pipeline-summary"></div>
+
+<!-- Kanban Board -->
+<div class="d-flex gap-3 overflow-auto pb-3" id="kanban-board" style="min-height:500px;">
+    @foreach (var stage in new[]{"Prospecting","Qualification","Proposal","Negotiation","ClosedWon","ClosedLost"})
+    {
+        var color = stage switch { "ClosedWon" => "success", "ClosedLost" => "danger", "Proposal" => "warning", "Negotiation" => "info", _ => "primary" };
+        <div class="flex-shrink-0" style="width:280px;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="fw-semibold text-@color small">@stage</span>
+                    <span class="badge bg-@color" id="cnt-@stage">0</span>
+                </div>
+                <div class="card-body p-2" id="col-@stage" style="min-height:300px;"></div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Deal Modal -->
+<div class="modal fade" id="dealModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="dealModalTitle">New Deal</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="dealId" />
+                <div class="mb-3"><label class="form-label">Title *</label><input type="text" class="form-control" id="dealTitle" /></div>
+                <div class="mb-3"><label class="form-label">Lead ID *</label><input type="text" class="form-control" id="dealLeadId" placeholder="Paste Lead GUID" /></div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6"><label class="form-label">Value (&#8377;)</label><input type="number" class="form-control" id="dealValue" value="0" /></div>
+                    <div class="col-6"><label class="form-label">Stage</label>
+                        <select class="form-select" id="dealStage">
+                            <option>Prospecting</option><option>Qualification</option><option>Proposal</option>
+                            <option>Negotiation</option><option>ClosedWon</option><option>ClosedLost</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6"><label class="form-label">Probability %</label><input type="number" class="form-control" id="dealProb" min="0" max="100" value="10" /></div>
+                    <div class="col-6"><label class="form-label">Expected Close</label><input type="date" class="form-control" id="dealClose" /></div>
+                </div>
+                <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="dealNotes" rows="2"></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="saveDeal()">Save Deal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let deals = [];
+
+async function loadDeals() {
+    const res = await fetch('/api/deals?pageSize=200');
+    if (!res.ok) return;
+    const d = await res.json();
+    deals = d.deals;
+    renderBoard();
+    loadSummary();
+}
+
+async function loadSummary() {
+    const res = await fetch('/api/deals/pipeline-summary');
+    if (!res.ok) return;
+    const data = await res.json();
+    const container = document.getElementById('pipeline-summary');
+    container.innerHTML = data.map(s => `
+        <div class="col-md-2 col-6">
+            <div class="card text-center p-2">
+                <div class="small text-muted">${s.stage}</div>
+                <div class="fw-bold fs-5">&#8377;${Number(s.totalValue).toLocaleString('en-IN')}</div>
+                <div class="small text-muted">${s.count} deals</div>
+            </div>
+        </div>`).join('');
+}
+
+function renderBoard() {
+    const stages = ['Prospecting','Qualification','Proposal','Negotiation','ClosedWon','ClosedLost'];
+    stages.forEach(stage => {
+        const col = document.getElementById('col-' + stage);
+        const badge = document.getElementById('cnt-' + stage);
+        const stageDeals = deals.filter(d => d.stage === stage);
+        badge.textContent = stageDeals.length;
+        col.innerHTML = stageDeals.map(d => `
+            <div class="card mb-2 deal-card" style="cursor:pointer;" onclick="editDeal('${d.id}')">
+                <div class="card-body p-2">
+                    <div class="fw-semibold small">${d.title}</div>
+                    <div class="text-muted" style="font-size:.75rem;">${d.leadName}</div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <span class="badge bg-light text-dark small">&#8377;${Number(d.value).toLocaleString('en-IN')}</span>
+                        <span class="text-muted" style="font-size:.7rem;">${d.probability}%</span>
+                    </div>
+                </div>
+            </div>`).join('') || '<div class="text-center text-muted small py-4">No deals</div>';
+    });
+}
+
+function openDealModal() {
+    document.getElementById('dealId').value = '';
+    document.getElementById('dealTitle').value = '';
+    document.getElementById('dealLeadId').value = '';
+    document.getElementById('dealValue').value = '0';
+    document.getElementById('dealStage').value = 'Prospecting';
+    document.getElementById('dealProb').value = '10';
+    document.getElementById('dealClose').value = '';
+    document.getElementById('dealNotes').value = '';
+    document.getElementById('dealModalTitle').textContent = 'New Deal';
+    new bootstrap.Modal(document.getElementById('dealModal')).show();
+}
+
+function editDeal(id) {
+    const d = deals.find(x => x.id === id);
+    if (!d) return;
+    document.getElementById('dealId').value = d.id;
+    document.getElementById('dealTitle').value = d.title;
+    document.getElementById('dealLeadId').value = d.leadId;
+    document.getElementById('dealValue').value = d.value;
+    document.getElementById('dealStage').value = d.stage;
+    document.getElementById('dealProb').value = d.probability;
+    document.getElementById('dealClose').value = d.expectedCloseDate ? d.expectedCloseDate.split('T')[0] : '';
+    document.getElementById('dealNotes').value = d.notes || '';
+    document.getElementById('dealModalTitle').textContent = 'Edit Deal';
+    new bootstrap.Modal(document.getElementById('dealModal')).show();
+}
+
+async function saveDeal() {
+    const id = document.getElementById('dealId').value;
+    const body = {
+        title: document.getElementById('dealTitle').value,
+        leadId: document.getElementById('dealLeadId').value,
+        value: parseFloat(document.getElementById('dealValue').value),
+        stage: document.getElementById('dealStage').value,
+        probability: parseInt(document.getElementById('dealProb').value),
+        expectedCloseDate: document.getElementById('dealClose').value || null,
+        notes: document.getElementById('dealNotes').value,
+        currency: 'INR', assignedToId: null
+    };
+    const url = id ? `/api/deals/${id}` : '/api/deals';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('dealModal'))?.hide();
+        loadDeals();
+    } else {
+        const err = await res.json().catch(() => ({ message: 'Failed to save deal.' }));
+        alert(err.message || 'Failed to save deal.');
+    }
+}
+
+loadDeals();
+</script>
+}

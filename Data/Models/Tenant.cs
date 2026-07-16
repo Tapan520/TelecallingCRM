@@ -39,4 +39,18 @@ public class Tenant
     public ICollection<SmsTemplate> SmsTemplates { get; set; } = new List<SmsTemplate>();
     public ICollection<WhatsAppTemplate> WhatsAppTemplates { get; set; } = new List<WhatsAppTemplate>();
     public ICollection<AgentGoal> AgentGoals { get; set; } = new List<AgentGoal>();
+    public ICollection<AgentShift> AgentShifts { get; set; } = new List<AgentShift>();
+    public ICollection<AgentPresence> AgentPresences { get; set; } = new List<AgentPresence>();
+    public ICollection<RoundRobinState> RoundRobinStates { get; set; } = new List<RoundRobinState>();
+    public ICollection<CallScript> CallScripts { get; set; } = new List<CallScript>();
+    public ICollection<CallDisposition> CallDispositions { get; set; } = new List<CallDisposition>();
+    public ICollection<CrmSyncConfig> CrmSyncConfigs { get; set; } = new List<CrmSyncConfig>();
+    public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
+    public ICollection<Deal> Deals { get; set; } = new List<Deal>();
+    public ICollection<Quote> Quotes { get; set; } = new List<Quote>();
+    public ICollection<CommissionRule> CommissionRules { get; set; } = new List<CommissionRule>();
+    public ICollection<CommissionEntry> CommissionEntries { get; set; } = new List<CommissionEntry>();
+    public ICollection<DripSequence> DripSequences { get; set; } = new List<DripSequence>();
+    public ICollection<DispositionForm> DispositionForms { get; set; } = new List<DispositionForm>();
+    public ICollection<NpsSurvey> NpsSurveys { get; set; } = new List<NpsSurvey>();
 }

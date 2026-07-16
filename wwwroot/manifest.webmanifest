@@ -1,0 +1,46 @@
+{
+  "name": "TelecallingCRM",
+  "short_name": "TeleCRM",
+  "description": "Multi-tenant Telecalling CRM — manage leads, calls, deals and sales pipeline.",
+  "start_url": "/Dashboard/Index",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1e1b4b",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "url": "/Dashboard/Index",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Leads",
+      "short_name": "Leads",
+      "url": "/Leads/Index",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Dialer",
+      "short_name": "Dialer",
+      "url": "/Calls/Dialer",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Deal Pipeline",
+      "short_name": "Deals",
+      "url": "/Deals/Index",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

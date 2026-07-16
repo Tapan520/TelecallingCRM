@@ -4,6 +4,15 @@
     ViewData["Title"] = "Dashboard";
 }
 
+<!-- Date Range Filter -->
+<div class="d-flex justify-content-end align-items-center mb-3 gap-2">
+    <label class="form-label mb-0 small fw-semibold me-1">Period:</label>
+    <input type="date" id="range-from" class="form-control form-control-sm" style="width:145px;">
+    <span class="text-muted small">to</span>
+    <input type="date" id="range-to" class="form-control form-control-sm" style="width:145px;">
+    <button class="btn btn-primary btn-sm" onclick="loadDashboard()"><i class="bi bi-funnel"></i> Apply</button>
+</div>
+
 <div class="row g-4 mb-4">
     <div class="col-sm-6 col-xl-3">
         <div class="card h-100">
@@ -53,6 +62,32 @@
                 <div>
                     <div class="text-muted small">Converted</div>
                     <div class="fw-bold fs-4" id="stat-converted">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-3" style="background:#d1fae5;">
+                    <i class="bi bi-currency-rupee fs-4" style="color:#059669;"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Revenue Collected</div>
+                    <div class="fw-bold fs-4" id="stat-revenue">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-3" style="background:#fef3c7;">
+                    <i class="bi bi-calendar-check-fill fs-4" style="color:#d97706;"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Follow-ups Today</div>
+                    <div class="fw-bold fs-4" id="stat-followups-today">-</div>
                 </div>
             </div>
         </div>
@@ -107,8 +142,23 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
-    (async () => {
-        const res = await fetch('/api/dashboard/stats');
+    let callsChartInst, statusChartInst;
+
+    // Default date range: current month
+    (function () {
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        document.getElementById('range-from').value = firstDay.toISOString().slice(0,10);
+        document.getElementById('range-to').value = now.toISOString().slice(0,10);
+    })();
+
+    async function loadDashboard() {
+        const from = document.getElementById('range-from').value;
+        const to   = document.getElementById('range-to').value;
+        let url = '/api/dashboard/stats';
+        if (from || to) url += `?from=${from}&to=${to}`;
+
+        const res = await fetch(url);
         if (!res.ok) return;
         const d = await res.json();
 
@@ -117,8 +167,27 @@
         document.getElementById('stat-today-calls').textContent = d.todayCalls;
         document.getElementById('stat-converted').textContent = d.convertedLeads;
 
+        // Revenue from payments
+        const payRes = await fetch('/api/payments?pageSize=1000');
+        if (payRes.ok) {
+            const pd = await payRes.json();
+            const total = (pd.items ?? [])
+                .filter(p => p.status === 'Captured')
+                .reduce((s, p) => s + p.amount, 0);
+            document.getElementById('stat-revenue').textContent =
+                total.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+        }
+
+        // Follow-ups due today
+        const fuRes = await fetch('/api/followups/today');
+        if (fuRes.ok) {
+            const fuData = await fuRes.json();
+            document.getElementById('stat-followups-today').textContent = Array.isArray(fuData) ? fuData.length : '-';
+        }
+
         // Calls chart
-        new Chart(document.getElementById('callsChart'), {
+        if (callsChartInst) callsChartInst.destroy();
+        callsChartInst = new Chart(document.getElementById('callsChart'), {
             type: 'bar',
             data: {
                 labels: d.callsLast7Days.map(x => new Date(x.date).toLocaleDateString()),
@@ -128,8 +197,9 @@
         });
 
         // Status donut chart
+        if (statusChartInst) statusChartInst.destroy();
         const statusColors = { New:'#3b82f6', Contacted:'#f59e0b', Interested:'#10b981', NotInterested:'#ef4444', FollowUp:'#8b5cf6', Converted:'#22c55e', Dead:'#94a3b8' };
-        new Chart(document.getElementById('statusChart'), {
+        statusChartInst = new Chart(document.getElementById('statusChart'), {
             type: 'doughnut',
             data: {
                 labels: d.leadsByStatus.map(x => x.status),
@@ -148,6 +218,11 @@
                 return `<tr><td>${a.fullName}</td><td>${a.callCount}</td><td>${a.convertedCount}</td><td>${rate}%</td></tr>`;
             }).join('');
         }
-    })();
+    }
+
+    loadDashboard();
+
+    // Refresh dashboard on SignalR DashboardUpdated event
+    document.addEventListener('crm:dashboard-updated', loadDashboard);
     </script>
 }

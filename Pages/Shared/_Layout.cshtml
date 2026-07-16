@@ -8,6 +8,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/TelecallingCRM.styles.css" asp-append-version="true" />
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TeleCRM" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
     <style>
         :root {
             --sidebar-width: 250px;
@@ -134,9 +141,15 @@
                     <a class="@NavClass("/Dashboard/Index")" asp-page="/Dashboard/Index">
                         <i class="bi bi-grid-1x2"></i> Dashboard
                     </a>
+                    <a class="@NavClass("/Search/Index")" asp-page="/Search/Index">
+                        <i class="bi bi-search text-secondary"></i> Global Search
+                    </a>
                     <div class="nav-section-label">Sales</div>
                     <a class="@NavClass("/Leads/Index")" asp-page="/Leads/Index">
                         <i class="bi bi-person-lines-fill"></i> Leads
+                    </a>
+                    <a class="@NavClass("/Leads/Import")" asp-page="/Leads/Import">
+                        <i class="bi bi-upload text-success"></i> Import Leads
                     </a>
                     <a class="@NavClass("/Leads/Pipeline")" asp-page="/Leads/Pipeline">
                         <i class="bi bi-kanban"></i> Pipeline
@@ -144,12 +157,21 @@
                     <a class="@NavClass("/Campaigns/Index")" asp-page="/Campaigns/Index">
                         <i class="bi bi-megaphone"></i> Campaigns
                     </a>
+                    <a class="@NavClass("/Campaigns/Broadcast")" asp-page="/Campaigns/Broadcast">
+                        <i class="bi bi-broadcast"></i> Broadcast
+                    </a>
                     <a class="@NavClass("/Calls/Dialer")" asp-page="/Calls/Dialer">
                         <i class="bi bi-telephone-fill"></i> Dialer
                     </a>
                     <a class="@NavClass("/Calls/Index")" asp-page="/Calls/Index">
                         <i class="bi bi-telephone-inbound"></i> Call Log
                     </a>
+                    @if (User.IsInRole("admin") || User.IsInRole("manager") || User.IsInRole("superadmin"))
+                    {
+                        <a class="@NavClass("/Calls/Monitor")" asp-page="/Calls/Monitor">
+                            <i class="bi bi-display text-success"></i> Live Monitor
+                        </a>
+                    }
                     <a class="@NavClass("/Payments/Index")" asp-page="/Payments/Index">
                         <i class="bi bi-credit-card text-success"></i> Payments
                     </a>
@@ -166,12 +188,41 @@
                     <a class="@NavClass("/Messaging/Templates")" asp-page="/Messaging/Templates">
                         <i class="bi bi-collection"></i> Templates
                     </a>
+                    <a class="@NavClass("/Messaging/Inbox")" asp-page="/Messaging/Inbox">
+                        <i class="bi bi-inbox-fill"></i> Inbox
+                    </a>
+                    <div class="nav-section-label">Sales Intelligence</div>
+                    <a class="@NavClass("/Deals/Index")" asp-page="/Deals/Index">
+                        <i class="bi bi-diagram-3 text-primary"></i> Deal Pipeline
+                    </a>
+                    <a class="@NavClass("/Quotes/Index")" asp-page="/Quotes/Index">
+                        <i class="bi bi-file-earmark-text text-info"></i> Quotations
+                    </a>
+                    <a class="@NavClass("/Commissions/Index")" asp-page="/Commissions/Index">
+                        <i class="bi bi-currency-rupee text-success"></i> Commissions
+                    </a>
+                    <div class="nav-section-label">Automation</div>
+                    <a class="@NavClass("/Automation/Index")" asp-page="/Automation/Index">
+                        <i class="bi bi-arrow-repeat text-primary"></i> Drip Automation
+                    </a>
+                    <a class="@NavClass("/Disposition/Index")" asp-page="/Disposition/Index">
+                        <i class="bi bi-clipboard2-check text-warning"></i> Disposition Forms
+                    </a>
+                    <a class="@NavClass("/Surveys/Index")" asp-page="/Surveys/Index">
+                        <i class="bi bi-star-half text-warning"></i> NPS Surveys
+                    </a>
                     <div class="nav-section-label">Productivity</div>
                     <a class="@NavClass("/Meetings/Index")" asp-page="/Meetings/Index">
                         <i class="bi bi-camera-video"></i> Meetings
                     </a>
                     <a class="@NavClass("/FollowUps/Index")" asp-page="/FollowUps/Index">
                         <i class="bi bi-calendar-check"></i> Follow-ups
+                    </a>
+                    <a class="@NavClass("/FollowUps/Calendar")" asp-page="/FollowUps/Calendar">
+                        <i class="bi bi-calendar3 text-warning"></i> FU Calendar
+                    </a>
+                    <a class="@NavClass("/CalendarSync/Index")" asp-page="/CalendarSync/Index">
+                        <i class="bi bi-calendar2-event text-primary"></i> Calendar Sync
                     </a>
                     <a class="@NavClass("/Tasks/Index")" asp-page="/Tasks/Index">
                         <i class="bi bi-check2-square"></i> Tasks
@@ -188,6 +239,12 @@
                     </a>
                     <a class="@NavClass("/Reports/Leaderboard")" asp-page="/Reports/Leaderboard">
                         <i class="bi bi-trophy text-warning"></i> Leaderboard
+                    </a>
+                    <a class="@NavClass("/Reports/Revenue")" asp-page="/Reports/Revenue">
+                        <i class="bi bi-currency-rupee text-success"></i> Revenue
+                    </a>
+                    <a class="@NavClass("/Activity/Index")" asp-page="/Activity/Index">
+                        <i class="bi bi-activity"></i> Activity Feed
                     </a>
                     <div class="nav-section-label">AI Tools</div>
                     <a class="@NavClass("/Ai/Insights")" asp-page="/Ai/Insights">
@@ -213,6 +270,18 @@
                         </a>
                         @if (User.IsInRole("admin"))
                         {
+                            <a class="@NavClass("/Admin/CustomFields")" asp-page="/Admin/CustomFields">
+                                <i class="bi bi-layout-text-sidebar-reverse"></i> Custom Fields
+                            </a>
+                            <a class="@NavClass("/Admin/Tags")" asp-page="/Admin/Tags">
+                                <i class="bi bi-tags-fill text-info"></i> Tags
+                            </a>
+                            <a class="@NavClass("/Admin/ApiKeys")" asp-page="/Admin/ApiKeys">
+                                <i class="bi bi-key-fill text-warning"></i> API Keys
+                            </a>
+                            <a class="@NavClass("/Admin/ExportCenter")" asp-page="/Admin/ExportCenter">
+                                <i class="bi bi-cloud-download text-success"></i> Export Center
+                            </a>
                             <a class="@NavClass("/Admin/Integrations")" asp-page="/Admin/Integrations">
                                 <i class="bi bi-plug"></i> Integrations
                             </a>
@@ -226,6 +295,13 @@
                                 <i class="bi bi-gear"></i> Settings
                             </a>
                         }
+                        <div class="nav-section-label">My Account</div>
+                        <a class="@NavClass("/Profile/Index")" asp-page="/Profile/Index">
+                            <i class="bi bi-person-circle"></i> My Profile
+                        </a>
+                        <a class="@NavClass("/Profile/Notifications")" asp-page="/Profile/Notifications">
+                            <i class="bi bi-bell-fill text-warning"></i> Notification Prefs
+                        </a>
                     }
                 }
             </div>
@@ -374,5 +450,12 @@
     }
     </script>
     @await RenderSectionAsync("Scripts", required: false)
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+    }
+    </script>
 </body>
 </html>

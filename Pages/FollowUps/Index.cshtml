@@ -50,7 +50,12 @@
         <div class="modal-content">
             <div class="modal-header"><h5 class="modal-title">Schedule Follow-up</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
-                <div class="mb-3"><label class="form-label">Lead ID (paste lead ID)</label><input type="text" id="fu-lead" class="form-control" placeholder="Lead GUID"></div>
+                <div class="mb-3 position-relative">
+                    <label class="form-label fw-semibold">Lead *</label>
+                    <input type="text" id="fu-lead-search" class="form-control" placeholder="Search lead name or phone..." oninput="searchFuLeads(this.value)" autocomplete="off">
+                    <input type="hidden" id="fu-lead">
+                    <div id="fu-lead-suggestions" class="list-group position-absolute w-100 shadow" style="z-index:1050;display:none;max-height:200px;overflow-y:auto;"></div>
+                </div>
                 <div class="row g-2">
                     <div class="col-6"><label class="form-label">Date & Time *</label><input type="datetime-local" id="fu-date" class="form-control"></div>
                     <div class="col-6">
@@ -106,7 +111,14 @@ async function loadFollowUps() {
             <td><span class="badge bg-${statusColors[f.status] ?? 'secondary'}">${f.status}</span></td>
             <td><small>${f.notes ?? ''}</small></td>
             <td>
-                ${f.status === 'Pending' ? `<button class="btn btn-sm btn-outline-success" onclick="complete('${f.id}')"><i class="bi bi-check-lg"></i></button>` : ''}
+                <div class="d-flex gap-1 flex-wrap">
+                ${f.channel === 0 ? `<a href="tel:${f.leadPhone}" class="btn btn-sm btn-outline-primary" title="Call"><i class="bi bi-telephone"></i></a>` : ''}
+                ${f.channel === 1 ? `<a href="https://wa.me/${f.leadPhone.replace(/\D/g,'')}" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>` : ''}
+                ${f.channel === 2 ? `<a href="sms:${f.leadPhone}" class="btn btn-sm btn-outline-info" title="SMS"><i class="bi bi-chat-dots"></i></a>` : ''}
+                ${f.channel === 3 ? `<a href="/Messaging/Email?leadId=${f.leadId}" class="btn btn-sm btn-outline-warning" title="Email"><i class="bi bi-envelope"></i></a>` : ''}
+                ${f.channel === 4 ? `<a href="/Meetings?leadId=${f.leadId}" class="btn btn-sm btn-outline-secondary" title="Meeting"><i class="bi bi-people"></i></a>` : ''}
+                ${f.status === 'Pending' ? `<button class="btn btn-sm btn-outline-success" onclick="complete('${f.id}')" title="Mark Done"><i class="bi bi-check-lg"></i></button>` : ''}
+                </div>
             </td>
         </tr>`).join('');
 }
@@ -117,8 +129,10 @@ function fuChangePage(dir) {
 }
 
 async function scheduleFollowUp() {
+    const leadId = document.getElementById('fu-lead').value;
+    if (!leadId) { alert('Please select a lead.'); return; }
     const body = {
-        leadId: document.getElementById('fu-lead').value,
+        leadId: leadId,
         scheduledAt: document.getElementById('fu-date').value,
         channel: parseInt(document.getElementById('fu-channel').value),
         notes: document.getElementById('fu-notes').value,
@@ -128,6 +142,31 @@ async function scheduleFollowUp() {
     const res = await fetch('/api/followups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('fuModal')).hide(); loadFollowUps(); }
     else alert('Error scheduling follow-up');
+}
+
+let fuLeadTimer;
+function searchFuLeads(q) {
+    clearTimeout(fuLeadTimer);
+    const box = document.getElementById('fu-lead-suggestions');
+    if (q.length < 2) { box.style.display = 'none'; return; }
+    fuLeadTimer = setTimeout(async () => {
+        const r = await fetch(`/api/leads?q=${encodeURIComponent(q)}&pageSize=8`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const items = d.leads ?? d.items ?? [];
+        if (!items.length) { box.style.display = 'none'; return; }
+        box.innerHTML = items.map(l =>
+            `<a href="javascript:void(0)" class="list-group-item list-group-item-action small" onclick="selectFuLead('${l.id}','${l.name.replace(/'/g,"\\'")}','${l.phone}')">
+                <strong>${l.name}</strong> <span class="text-muted">${l.phone}</span>
+            </a>`).join('');
+        box.style.display = 'block';
+    }, 300);
+}
+
+function selectFuLead(id, name, phone) {
+    document.getElementById('fu-lead').value = id;
+    document.getElementById('fu-lead-search').value = `${name} (${phone})`;
+    document.getElementById('fu-lead-suggestions').style.display = 'none';
 }
 
 async function complete(id) {

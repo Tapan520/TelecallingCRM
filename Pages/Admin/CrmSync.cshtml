@@ -1,0 +1,118 @@
+@page
+@model TelecallingCRM.Pages.Admin.CrmSyncModel
+@{
+    ViewData["Title"] = "CRM Sync (Salesforce / HubSpot)";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Third-party CRM Sync</h4>
+</div>
+
+<div class="row g-4">
+    @foreach (var provider in new[] { "hubspot", "salesforce" })
+    {
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header fw-semibold text-capitalize">
+                    <i class="bi bi-cloud me-2"></i>@provider
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Access Token</label>
+                        <input type="password" id="@(provider)_at" class="form-control" placeholder="Paste access token">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@(provider == "salesforce" ? "Instance URL" : "Portal ID")</label>
+                        <input type="text" id="@(provider)_extra" class="form-control"
+                               placeholder="@(provider == "salesforce" ? "https://yourorg.salesforce.com" : "12345678")">
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="saveConfig('@provider')">
+                        <i class="bi bi-save me-1"></i>Save Config
+                    </button>
+                    <button class="btn btn-sm btn-success me-2" onclick="triggerPush('@provider')">
+                        <i class="bi bi-upload me-1"></i>Push Leads
+                    </button>
+                    @if (provider == "hubspot")
+                    {
+                        <button class="btn btn-sm btn-info text-white" onclick="triggerPull('@provider')">
+                            <i class="bi bi-download me-1"></i>Pull Contacts
+                        </button>
+                    }
+                </div>
+                <div class="card-footer text-muted small" id="@(provider)_status">Last sync: —</div>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="mt-5">
+    <h6 class="mb-3">Sync Log</h6>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead class="table-light">
+                <tr><th>Provider</th><th>Object</th><th>Direction</th><th>External ID</th><th>Status</th><th>Synced At</th></tr>
+            </thead>
+            <tbody id="syncLogBody"></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+async function loadConfigs() {
+    const r = await fetch('/api/crm-sync/configs');
+    if (!r.ok) return;
+    const configs = await r.json();
+    configs.forEach(c => {
+        const statusEl = document.getElementById(`${c.provider}_status`);
+        if (statusEl) statusEl.textContent = `Last sync: ${c.lastSyncedAt ? new Date(c.lastSyncedAt).toLocaleString() : '—'} | Status: ${c.lastSyncStatus || '—'}`;
+    });
+}
+
+async function saveConfig(provider) {
+    const at = document.getElementById(`${provider}_at`).value;
+    const extra = document.getElementById(`${provider}_extra`).value;
+    const payload = {
+        provider,
+        accessToken: at,
+        refreshToken: null,
+        instanceUrl: provider === 'salesforce' ? extra : null,
+        portalId: provider === 'hubspot' ? extra : null,
+        isActive: true
+    };
+    const r = await fetch('/api/crm-sync/configs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    alert(r.ok ? 'Config saved!' : 'Failed to save config.');
+}
+
+async function triggerPush(provider) {
+    const r = await fetch(`/api/crm-sync/${provider}/push`, { method:'POST' });
+    alert(r.ok ? `${provider} push queued!` : 'Failed.');
+    setTimeout(loadSyncLog, 3000);
+}
+
+async function triggerPull(provider) {
+    const r = await fetch(`/api/crm-sync/${provider}/pull`, { method:'POST' });
+    alert(r.ok ? `${provider} pull queued!` : 'Failed.');
+    setTimeout(loadSyncLog, 3000);
+}
+
+async function loadSyncLog() {
+    const r = await fetch('/api/crm-sync/logs?pageSize=30');
+    if (!r.ok) return;
+    const data = await r.json();
+    document.getElementById('syncLogBody').innerHTML = (data.logs || []).map(l =>
+        `<tr>
+            <td class="text-capitalize">${l.provider}</td>
+            <td>${l.objectType}</td>
+            <td><span class="badge bg-${l.direction==='push'?'primary':'info'}">${l.direction}</span></td>
+            <td><small>${l.externalId || '—'}</small></td>
+            <td><span class="badge bg-${l.success?'success':'danger'}">${l.success?'OK':'Error'}</span>
+                ${l.errorMessage ? `<small class="text-danger ms-1">${l.errorMessage}</small>` : ''}</td>
+            <td><small>${new Date(l.syncedAt).toLocaleString()}</small></td>
+        </tr>`
+    ).join('');
+}
+
+loadConfigs(); loadSyncLog();
+</script>
+}

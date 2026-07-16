@@ -1,0 +1,201 @@
+@page
+@model TelecallingCRM.Pages.Commissions.IndexModel
+@{
+    ViewData["Title"] = "Commission Tracker";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 fw-bold"><i class="bi bi-currency-rupee text-success me-2"></i>Commission Tracker</h5>
+    <div class="d-flex gap-2">
+        <select class="form-select form-select-sm w-auto" id="filterMonth" onchange="loadSummary()">
+            @for (int m = 1; m <= 12; m++)
+            {
+                <option value="@m" selected="@(m == DateTime.Now.Month ? "selected" : null)">@System.Globalization.DateTimeFormatInfo.CurrentInfo.GetMonthName(m)</option>
+            }
+        </select>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="tab" data-bs-target="#rules-tab-pane">Manage Rules</button>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="commTabs">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#summary-tab-pane">Summary</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#entries-tab-pane">Entries</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rules-tab-pane">Rules</button></li>
+</ul>
+
+<div class="tab-content">
+    <!-- Summary Tab -->
+    <div class="tab-pane fade show active" id="summary-tab-pane">
+        <div id="commission-summary"></div>
+    </div>
+
+    <!-- Entries Tab -->
+    <div class="tab-pane fade" id="entries-tab-pane">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th>Agent</th><th>Amount</th><th>Lead</th><th>Status</th><th>Earned</th><th></th></tr>
+                    </thead>
+                    <tbody id="entries-tbody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rules Tab -->
+    <div class="tab-pane fade" id="rules-tab-pane">
+        <div class="d-flex justify-content-end mb-2">
+            <button class="btn btn-primary btn-sm" onclick="openRuleModal()"><i class="bi bi-plus-lg me-1"></i>New Rule</button>
+        </div>
+        <div id="rules-list"></div>
+    </div>
+</div>
+
+<!-- Rule Modal -->
+<div class="modal fade" id="ruleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Commission Rule</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="ruleId" />
+                <div class="mb-3"><label class="form-label">Name *</label><input type="text" class="form-control" id="ruleName" /></div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6"><label class="form-label">Type</label>
+                        <select class="form-select" id="ruleType">
+                            <option value="PercentOfPayment">% of Payment</option>
+                            <option value="FlatPerConversion">Flat per Conversion</option>
+                        </select>
+                    </div>
+                    <div class="col-6"><label class="form-label">Value</label><input type="number" class="form-control" id="ruleValue" /></div>
+                </div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="ruleActive" checked /><label class="form-check-label">Active</label></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="saveRule()">Save Rule</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+async function loadSummary() {
+    const month = document.getElementById('filterMonth').value;
+    const year = new Date().getFullYear();
+    const res = await fetch(`/api/commissions/summary?month=${month}&year=${year}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const container = document.getElementById('commission-summary');
+    if (!d.agents.length) { container.innerHTML = '<div class="text-center text-muted py-4">No commission data for this month.</div>'; return; }
+    container.innerHTML = `<div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="card text-center p-3"><div class="text-muted small">Total Earned</div><div class="fw-bold fs-4 text-success">&#8377;${d.agents.reduce((s,a)=>s+a.totalEarned,0).toLocaleString('en-IN')}</div></div></div>
+        <div class="col-md-4"><div class="card text-center p-3"><div class="text-muted small">Pending Approval</div><div class="fw-bold fs-4 text-warning">&#8377;${d.agents.reduce((s,a)=>s+a.pending,0).toLocaleString('en-IN')}</div></div></div>
+        <div class="col-md-4"><div class="card text-center p-3"><div class="text-muted small">Paid Out</div><div class="fw-bold fs-4 text-primary">&#8377;${d.agents.reduce((s,a)=>s+a.paid,0).toLocaleString('en-IN')}</div></div></div>
+    </div>
+    <div class="card"><div class="table-responsive"><table class="table mb-0">
+        <thead class="table-light"><tr><th>Agent</th><th>Total Earned</th><th>Pending</th><th>Approved</th><th>Paid</th></tr></thead>
+        <tbody>${d.agents.map(a=>`<tr>
+            <td class="fw-semibold">${a.fullName}</td>
+            <td>&#8377;${Number(a.totalEarned).toLocaleString('en-IN')}</td>
+            <td><span class="badge bg-warning text-dark">&#8377;${Number(a.pending).toLocaleString('en-IN')}</span></td>
+            <td><span class="badge bg-info text-dark">&#8377;${Number(a.approved).toLocaleString('en-IN')}</span></td>
+            <td><span class="badge bg-success">&#8377;${Number(a.paid).toLocaleString('en-IN')}</span></td>
+        </tr>`).join('')}</tbody>
+    </table></div></div>`;
+}
+
+async function loadEntries() {
+    const res = await fetch('/api/commissions/entries?pageSize=50');
+    if (!res.ok) return;
+    const d = await res.json();
+    const statusBadge = s => ({ Pending:'warning', Approved:'info', Paid:'success' }[s]||'secondary');
+    document.getElementById('entries-tbody').innerHTML = d.items.map(e => `<tr>
+        <td>${e.agentName}</td>
+        <td class="fw-semibold">&#8377;${Number(e.amount).toLocaleString('en-IN')}</td>
+        <td>${e.leadName||'-'}</td>
+        <td><span class="badge bg-${statusBadge(e.status)}">${e.status}</span></td>
+        <td>${new Date(e.earnedAt).toLocaleDateString()}</td>
+        <td>
+            ${e.status==='Pending'?`<button class="btn btn-sm btn-outline-info me-1" onclick="approveEntry('${e.id}')">Approve</button>`:''}
+            ${e.status==='Approved'?`<button class="btn btn-sm btn-outline-success" onclick="markPaid('${e.id}')">Mark Paid</button>`:''}
+        </td>
+    </tr>`).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">No entries.</td></tr>';
+}
+
+async function loadRules() {
+    const res = await fetch('/api/commissions/rules');
+    if (!res.ok) return;
+    const rules = await res.json();
+    document.getElementById('rules-list').innerHTML = rules.length === 0
+        ? '<div class="text-center text-muted py-4">No rules defined.</div>'
+        : `<div class="card"><div class="table-responsive"><table class="table mb-0">
+            <thead class="table-light"><tr><th>Name</th><th>Type</th><th>Value</th><th>Active</th><th></th></tr></thead>
+            <tbody>${rules.map(r=>`<tr>
+                <td>${r.name}</td><td>${r.type}</td>
+                <td>${r.type==='PercentOfPayment'?r.value+'%':'&#8377;'+r.value}</td>
+                <td><span class="badge ${r.isActive?'bg-success':'bg-secondary'}">${r.isActive?'Yes':'No'}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="editRule(${JSON.stringify(r)})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRule('${r.id}')"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>`).join('')}</tbody>
+          </table></div></div>`;
+}
+
+function openRuleModal(r = null) {
+    document.getElementById('ruleId').value = r?.id || '';
+    document.getElementById('ruleName').value = r?.name || '';
+    document.getElementById('ruleType').value = r?.type || 'PercentOfPayment';
+    document.getElementById('ruleValue').value = r?.value || '';
+    document.getElementById('ruleActive').checked = r?.isActive !== false;
+    new bootstrap.Modal(document.getElementById('ruleModal')).show();
+}
+
+function editRule(r) { openRuleModal(r); }
+
+async function saveRule() {
+    const id = document.getElementById('ruleId').value;
+    const body = {
+        name: document.getElementById('ruleName').value,
+        type: document.getElementById('ruleType').value,
+        value: parseFloat(document.getElementById('ruleValue').value),
+        isActive: document.getElementById('ruleActive').checked,
+        campaignId: null
+    };
+    const url = id ? `/api/commissions/rules/${id}` : '/api/commissions/rules';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('ruleModal'))?.hide(); loadRules(); }
+    else alert('Failed to save rule.');
+}
+
+async function deleteRule(id) {
+    if (!confirm('Delete this rule?')) return;
+    await fetch(`/api/commissions/rules/${id}`, { method: 'DELETE' });
+    loadRules();
+}
+
+async function approveEntry(id) {
+    await fetch(`/api/commissions/entries/${id}/approve`, { method: 'PATCH' });
+    loadEntries();
+}
+
+async function markPaid(id) {
+    await fetch(`/api/commissions/entries/${id}/mark-paid`, { method: 'PATCH' });
+    loadEntries(); loadSummary();
+}
+
+document.querySelectorAll('#commTabs button').forEach(btn => {
+    btn.addEventListener('shown.bs.tab', e => {
+        if (e.target.dataset.bsTarget === '#entries-tab-pane') loadEntries();
+        if (e.target.dataset.bsTarget === '#rules-tab-pane') loadRules();
+    });
+});
+
+loadSummary();
+</script>
+}

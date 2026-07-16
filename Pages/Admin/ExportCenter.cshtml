@@ -1,0 +1,219 @@
+@page
+@model TelecallingCRM.Pages.Admin.ExportCenterModel
+@{
+    ViewData["Title"] = "Data Export Center";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-cloud-download text-success me-2"></i>Data Export Center</h5>
+        <small class="text-muted">Download your CRM data in CSV or Excel format</small>
+    </div>
+</div>
+
+<!-- Date Range -->
+<div class="card mb-4">
+    <div class="card-body py-3 d-flex gap-3 flex-wrap align-items-center">
+        <label class="fw-semibold mb-0">Date Range:</label>
+        <div class="d-flex align-items-center gap-2">
+            <input type="date" id="export-from" class="form-control form-control-sm" style="width:145px;">
+            <span class="text-muted">to</span>
+            <input type="date" id="export-to" class="form-control form-control-sm" style="width:145px;">
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" onclick="setPreset('month')">This Month</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="setPreset('quarter')">This Quarter</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="setPreset('year')">This Year</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="setPreset('all')">All Time</button>
+    </div>
+</div>
+
+<!-- Export cards -->
+<div class="row g-4">
+    @{
+        var exports = new[] {
+            new { Icon="person-lines-fill", Color="primary", Title="Leads", Desc="All leads with status, tags, assigned agent and AI score", CsvUrl="/api/export/leads/csv", XlsxUrl="/api/export/leads/xlsx" },
+            new { Icon="telephone-fill", Color="success", Title="Calls", Desc="Call log with duration, outcome, sentiment and AI summary", CsvUrl="/api/export/calls/csv", XlsxUrl="/api/export/calls/xlsx" },
+            new { Icon="trophy-fill", Color="warning", Title="Agent Performance", Desc="Per-agent call stats, conversions and talk time", CsvUrl="/api/export/agents/csv", XlsxUrl="/api/export/agents/xlsx" },
+        };
+    }
+    @foreach (var ex in exports)
+    {
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="rounded-3 p-3 bg-@(ex.Color)-subtle">
+                            <i class="bi bi-@(ex.Icon) fs-4 text-@(ex.Color)"></i>
+                        </div>
+                        <div>
+                            <div class="fw-semibold">@ex.Title</div>
+                            <div class="text-muted small">@ex.Desc</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white d-flex gap-2">
+                    <a id="csv-@(ex.Title.ToLower().Replace(" ",""))" href="@ex.CsvUrl" class="btn btn-outline-success btn-sm flex-fill" target="_blank">
+                        <i class="bi bi-filetype-csv me-1"></i>CSV
+                    </a>
+                    <a id="xlsx-@(ex.Title.ToLower().Replace(" ",""))" href="@ex.XlsxUrl" class="btn btn-outline-success btn-sm flex-fill" target="_blank">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- DNC List Export -->
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="rounded-3 p-3 bg-danger-subtle">
+                        <i class="bi bi-slash-circle fs-4 text-danger"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">DNC List</div>
+                        <div class="text-muted small">Do-Not-Call numbers for compliance</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white">
+                <button class="btn btn-outline-success btn-sm w-100" onclick="exportDnc()">
+                    <i class="bi bi-filetype-csv me-1"></i>Export DNC as CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Follow-ups Export -->
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="rounded-3 p-3 bg-warning-subtle">
+                        <i class="bi bi-calendar-check fs-4 text-warning"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">Follow-ups</div>
+                        <div class="text-muted small">Scheduled and completed follow-ups</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white">
+                <button class="btn btn-outline-success btn-sm w-100" onclick="exportFollowUps()">
+                    <i class="bi bi-filetype-csv me-1"></i>Export Follow-ups as CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payments Export -->
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="rounded-3 p-3 bg-success-subtle">
+                        <i class="bi bi-currency-rupee fs-4 text-success"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">Payments</div>
+                        <div class="text-muted small">Payment transactions and revenue data</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white">
+                <button class="btn btn-outline-success btn-sm w-100" onclick="exportPayments()">
+                    <i class="bi bi-filetype-csv me-1"></i>Export Payments as CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function setPreset(preset) {
+    const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+    let from, to = now.toISOString().slice(0,10);
+    if (preset === 'month') from = new Date(y, m, 1).toISOString().slice(0,10);
+    else if (preset === 'quarter') from = new Date(y, Math.floor(m/3)*3, 1).toISOString().slice(0,10);
+    else if (preset === 'year') from = new Date(y, 0, 1).toISOString().slice(0,10);
+    else { from = '2020-01-01'; to = now.toISOString().slice(0,10); }
+    document.getElementById('export-from').value = from;
+    document.getElementById('export-to').value = to;
+    updateLinks();
+}
+
+function updateLinks() {
+    const from = document.getElementById('export-from').value;
+    const to = document.getElementById('export-to').value;
+    const qs = (from || to) ? `?from=${from}&to=${to}` : '';
+
+    const mappings = [
+        { id: 'csv-leads', base: '/api/export/leads/csv' },
+        { id: 'xlsx-leads', base: '/api/export/leads/xlsx' },
+        { id: 'csv-calls', base: '/api/export/calls/csv' },
+        { id: 'xlsx-calls', base: '/api/export/calls/xlsx' },
+        { id: 'csv-agentperformance', base: '/api/export/agents/csv' },
+        { id: 'xlsx-agentperformance', base: '/api/export/agents/xlsx' },
+    ];
+    mappings.forEach(m => {
+        const el = document.getElementById(m.id);
+        if (el) el.href = m.base + qs;
+    });
+}
+
+async function exportDnc() {
+    const res = await fetch('/api/dnc?pageSize=10000');
+    if (!res.ok) return;
+    const d = await res.json();
+    let csv = 'Phone,Reason,AddedBy,AddedAt\n';
+    (d.items ?? []).forEach(e => {
+        csv += `"${e.phone}","${(e.reason??'').replace(/"/g,'""')}","${e.addedBy??''}","${new Date(e.addedAt).toLocaleDateString()}"\n`;
+    });
+    downloadCsv(csv, 'dnc_list.csv');
+}
+
+async function exportFollowUps() {
+    const from = document.getElementById('export-from').value;
+    const to = document.getElementById('export-to').value;
+    const res = await fetch(`/api/followups?pageSize=5000`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const chNames = ['Call','WhatsApp','SMS','Email','Meeting'];
+    let csv = 'Lead,Phone,Channel,ScheduledAt,Status,AssignedTo,Notes\n';
+    (d.items ?? []).forEach(f => {
+        const dt = new Date(f.scheduledAt);
+        if (from && dt < new Date(from)) return;
+        if (to && dt > new Date(to + 'T23:59:59')) return;
+        csv += `"${f.leadName}","${f.leadPhone}","${chNames[f.channel]??f.channel}","${dt.toLocaleString()}","${f.status}","${f.assignedTo}","${(f.notes??'').replace(/"/g,'""')}"\n`;
+    });
+    downloadCsv(csv, 'followups.csv');
+}
+
+async function exportPayments() {
+    const from = document.getElementById('export-from').value;
+    const to = document.getElementById('export-to').value;
+    const res = await fetch(`/api/payments?pageSize=5000${from?'&from='+from:''}${to?'&to='+to:''}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    let csv = 'Lead,Amount,Currency,Status,RecordedBy,Date\n';
+    (d.items ?? []).forEach(p => {
+        csv += `"${p.leadName}","${p.amount}","${p.currency}","${p.status}","${p.recordedBy}","${new Date(p.createdAt).toLocaleDateString()}"\n`;
+    });
+    downloadCsv(csv, 'payments.csv');
+}
+
+function downloadCsv(csv, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = filename; a.click();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setPreset('month');
+    document.getElementById('export-from').addEventListener('change', updateLinks);
+    document.getElementById('export-to').addEventListener('change', updateLinks);
+});
+</script>
+}

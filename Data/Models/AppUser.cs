@@ -35,4 +35,7 @@ public class AppUser : IdentityUser<Guid>
     public ICollection<DncEntry> DncEntries { get; set; } = new List<DncEntry>();
     public ICollection<AgentGoal> AgentGoals { get; set; } = new List<AgentGoal>();
     public ICollection<AgentGoal> CreatedGoals { get; set; } = new List<AgentGoal>();
+    public ICollection<AgentShift> AgentShifts { get; set; } = new List<AgentShift>();
+    public ICollection<AgentPresence> AgentPresences { get; set; } = new List<AgentPresence>();
+    public ICollection<Invoice> CreatedInvoices { get; set; } = new List<Invoice>();
 }
