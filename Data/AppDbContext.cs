@@ -565,7 +565,7 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
         builder.Entity<DispositionResponse>(e =>
         {
             e.HasOne(r => r.Tenant).WithMany()
-             .HasForeignKey(r => r.TenantId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+             .HasForeignKey(r => r.TenantId).IsRequired(true).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(r => r.Form).WithMany(f => f.Responses)
              .HasForeignKey(r => r.FormId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(r => r.Call).WithMany()

@@ -3071,7 +3071,8 @@ namespace TelecallingCRM.Data.Migrations
                     b.HasOne("TelecallingCRM.Data.Models.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Agent");
 
