@@ -1,0 +1,300 @@
+@page
+@model TelecallingCRM.Pages.Payments.IndexModel
+@{
+    ViewData["Title"] = "Payments";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-credit-card text-success me-2"></i>Payments</h5>
+        <small class="text-muted">Track Razorpay and manual payment collections</small>
+    </div>
+    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#manualPaymentModal">
+        <i class="bi bi-plus-circle"></i> Record Manual Payment
+    </button>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4" id="payment-summary-cards">
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-success" id="sum-captured">—</div>
+                <div class="small text-muted">Total Collected</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-warning" id="sum-pending">—</div>
+                <div class="small text-muted">Pending</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-danger" id="sum-failed">—</div>
+                <div class="small text-muted">Failed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-secondary" id="sum-refunded">—</div>
+                <div class="small text-muted">Refunded</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2 d-flex gap-3 flex-wrap align-items-center">
+        <div>
+            <label class="form-label mb-0 me-1 small fw-semibold">Status</label>
+            <select id="filter-status" class="form-select form-select-sm d-inline-block w-auto" onchange="loadPayments()">
+                <option value="">All</option>
+                <option value="Pending">Pending</option>
+                <option value="Captured">Captured</option>
+                <option value="Failed">Failed</option>
+                <option value="Refunded">Refunded</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label mb-0 me-1 small fw-semibold">Lead</label>
+            <input type="text" id="filter-lead-name" class="form-control form-control-sm d-inline-block" placeholder="Search lead..." oninput="searchLeadFilter(this.value)" style="width:180px;">
+            <input type="hidden" id="filter-lead-id">
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()"><i class="bi bi-x-circle"></i> Clear</button>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Lead</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Receipt / Order</th>
+                    <th>Recorded By</th>
+                    <th>Date</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="payments-tbody">
+                <tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+        <small class="text-muted" id="pay-page-info"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="pay-btn-prev" onclick="payChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="pay-btn-next" onclick="payChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Payment Modal -->
+<div class="modal fade" id="manualPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cash-coin me-2"></i>Record Manual Payment</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Lead *</label>
+                    <input type="text" id="mp-lead-search" class="form-control" placeholder="Type lead name..." oninput="searchLeadForPayment(this.value)">
+                    <input type="hidden" id="mp-lead-id">
+                    <div id="mp-lead-suggestions" class="list-group position-absolute" style="z-index:1000;max-height:180px;overflow-y:auto;display:none;width:auto;min-width:300px;"></div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-7">
+                        <label class="form-label fw-semibold">Amount *</label>
+                        <input type="number" id="mp-amount" class="form-control" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                    <div class="col-5">
+                        <label class="form-label fw-semibold">Currency</label>
+                        <select id="mp-currency" class="form-select">
+                            <option value="INR">INR ?</option>
+                            <option value="USD">USD $</option>
+                            <option value="EUR">EUR €</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3 mt-2">
+                    <label class="form-label fw-semibold">Receipt Number</label>
+                    <input type="text" id="mp-receipt" class="form-control" placeholder="e.g. RCPT-001">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Description</label>
+                    <input type="text" id="mp-description" class="form-control" placeholder="e.g. Product subscription, Consulting fee">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-success" onclick="saveManualPayment()"><i class="bi bi-check-lg"></i> Record Payment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let payPage = 1;
+const payPageSize = 25;
+let payTotal = 0;
+
+async function loadSummary() {
+    const res = await fetch('/api/payments?pageSize=1000');
+    if (!res.ok) return;
+    const d = await res.json();
+    const all = d.items;
+    const fmt = (arr) => {
+        const total = arr.reduce((s, p) => s + p.amount, 0);
+        return total.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+    };
+    document.getElementById('sum-captured').textContent  = fmt(all.filter(p => p.status === 'Captured'));
+    document.getElementById('sum-pending').textContent   = all.filter(p => p.status === 'Pending').length;
+    document.getElementById('sum-failed').textContent    = all.filter(p => p.status === 'Failed').length;
+    document.getElementById('sum-refunded').textContent  = all.filter(p => p.status === 'Refunded').length;
+}
+
+async function loadPayments() {
+    const status = document.getElementById('filter-status').value;
+    const leadId = document.getElementById('filter-lead-id').value;
+    let url = `/api/payments?page=${payPage}&pageSize=${payPageSize}`;
+    if (status) url += `&status=${status}`;
+    if (leadId) url += `&leadId=${leadId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('payments-tbody').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Failed to load. Please login.</td></tr>'; return; }
+    const d = await res.json();
+    payTotal = d.total;
+
+    document.getElementById('pay-page-info').textContent = `Showing ${Math.min(1,(payPage-1)*payPageSize+1)}–${Math.min(payPage*payPageSize, d.total)} of ${d.total}`;
+    document.getElementById('pay-btn-prev').disabled = payPage <= 1;
+    document.getElementById('pay-btn-next').disabled = payPage * payPageSize >= d.total;
+
+    const statusBadge = s => ({
+        Pending:'<span class="badge bg-warning text-dark">Pending</span>',
+        Captured:'<span class="badge bg-success">Captured</span>',
+        Failed:'<span class="badge bg-danger">Failed</span>',
+        Refunded:'<span class="badge bg-secondary">Refunded</span>'
+    }[s] ?? `<span class="badge bg-secondary">${s}</span>`);
+
+    if (!d.items.length) { document.getElementById('payments-tbody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No payments found.</td></tr>'; return; }
+
+    document.getElementById('payments-tbody').innerHTML = d.items.map(p => `
+        <tr>
+            <td>
+                <a href="/Leads/Timeline/${p.leadId}" class="fw-semibold text-decoration-none">${p.leadName}</a>
+            </td>
+            <td class="fw-semibold">
+                <span class="${p.status === 'Captured' ? 'text-success' : ''}">
+                    ${p.currency} ${Number(p.amount).toLocaleString('en-IN', {minimumFractionDigits:2})}
+                </span>
+            </td>
+            <td>${statusBadge(p.status)}</td>
+            <td>
+                <small class="font-monospace text-muted">${p.receiptNumber ?? p.razorpayOrderId ?? '—'}</small>
+                ${p.razorpayPaymentId ? `<br><small class="text-muted">pay: ${p.razorpayPaymentId}</small>` : ''}
+            </td>
+            <td><small>${p.recordedBy}</small></td>
+            <td><small>${new Date(p.createdAt).toLocaleDateString()}</small></td>
+            <td class="text-end">
+                ${p.status === 'Captured' ? `<button class="btn btn-sm btn-outline-warning" onclick="refundPayment('${p.id}','${p.currency} ${p.amount}')" title="Refund"><i class="bi bi-arrow-counterclockwise"></i></button>` : ''}
+            </td>
+        </tr>`).join('');
+}
+
+function payChangePage(dir) { payPage += dir; loadPayments(); }
+
+function clearFilters() {
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-lead-id').value = '';
+    document.getElementById('filter-lead-name').value = '';
+    payPage = 1;
+    loadPayments();
+}
+
+async function refundPayment(id, label) {
+    if (!confirm(`Refund payment of ${label}? This cannot be undone.`)) return;
+    const res = await fetch(`/api/payments/${id}/refund`, { method: 'POST' });
+    if (res.ok) { loadPayments(); loadSummary(); }
+    else alert('Refund failed.');
+}
+
+// Lead search for filter bar
+let filterLeadTimer;
+function searchLeadFilter(q) {
+    clearTimeout(filterLeadTimer);
+    if (!q) { document.getElementById('filter-lead-id').value = ''; loadPayments(); return; }
+    filterLeadTimer = setTimeout(async () => {
+        const res = await fetch(`/api/leads?search=${encodeURIComponent(q)}&pageSize=5`);
+        // We just use the text as a hint; actual filter is by leadId
+    }, 300);
+}
+
+// Lead search for manual payment modal
+let mpTimer;
+async function searchLeadForPayment(q) {
+    clearTimeout(mpTimer);
+    if (q.length < 2) { document.getElementById('mp-lead-suggestions').style.display = 'none'; return; }
+    mpTimer = setTimeout(async () => {
+        const res = await fetch(`/api/leads?q=${encodeURIComponent(q)}&pageSize=8`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const items = d.leads ?? d.items ?? [];
+        const box = document.getElementById('mp-lead-suggestions');
+        if (!items.length) { box.style.display = 'none'; return; }
+        box.innerHTML = items.map(l => `<a href="javascript:void(0)" class="list-group-item list-group-item-action small" onclick="selectLeadForPayment('${l.id}','${l.name}')">${l.name} <span class="text-muted">${l.phone}</span></a>`).join('');
+        box.style.display = 'block';
+    }, 300);
+}
+function selectLeadForPayment(id, name) {
+    document.getElementById('mp-lead-id').value = id;
+    document.getElementById('mp-lead-search').value = name;
+    document.getElementById('mp-lead-suggestions').style.display = 'none';
+}
+
+async function saveManualPayment() {
+    const leadId = document.getElementById('mp-lead-id').value;
+    const amount = parseFloat(document.getElementById('mp-amount').value);
+    if (!leadId) { alert('Please select a lead.'); return; }
+    if (!amount || amount <= 0) { alert('Please enter a valid amount.'); return; }
+    const body = {
+        leadId,
+        amount,
+        currency: document.getElementById('mp-currency').value,
+        receiptNumber: document.getElementById('mp-receipt').value || null,
+        description: document.getElementById('mp-description').value || null
+    };
+    const res = await fetch('/api/payments/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { alert('Error recording payment.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('manualPaymentModal')).hide();
+    document.getElementById('mp-lead-id').value = '';
+    document.getElementById('mp-lead-search').value = '';
+    document.getElementById('mp-amount').value = '';
+    document.getElementById('mp-receipt').value = '';
+    document.getElementById('mp-description').value = '';
+    loadPayments();
+    loadSummary();
+}
+
+loadSummary();
+loadPayments();
+</script>
+}

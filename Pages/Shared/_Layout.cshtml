@@ -147,6 +147,9 @@
                     <a class="@NavClass("/Calls/Index")" asp-page="/Calls/Index">
                         <i class="bi bi-telephone-inbound"></i> Call Log
                     </a>
+                    <a class="@NavClass("/Payments/Index")" asp-page="/Payments/Index">
+                        <i class="bi bi-credit-card text-success"></i> Payments
+                    </a>
                     <div class="nav-section-label">Messaging</div>
                     <a class="@NavClass("/Messaging/WhatsApp")" asp-page="/Messaging/WhatsApp">
                         <i class="bi bi-whatsapp"></i> WhatsApp
@@ -170,12 +173,18 @@
                     <a class="@NavClass("/Tasks/Index")" asp-page="/Tasks/Index">
                         <i class="bi bi-check2-square"></i> Tasks
                     </a>
+                    <a class="@NavClass("/Escalations/Index")" asp-page="/Escalations/Index">
+                        <i class="bi bi-exclamation-triangle text-warning"></i> Escalations
+                    </a>
                     <a class="@NavClass("/Documents/Index")" asp-page="/Documents/Index">
                         <i class="bi bi-folder2-open"></i> Documents
                     </a>
                     <div class="nav-section-label">Analytics</div>
                     <a class="@NavClass("/Reports/Index")" asp-page="/Reports/Index">
                         <i class="bi bi-bar-chart-line"></i> Reports
+                    </a>
+                    <a class="@NavClass("/Reports/Leaderboard")" asp-page="/Reports/Leaderboard">
+                        <i class="bi bi-trophy text-warning"></i> Leaderboard
                     </a>
                     <div class="nav-section-label">AI Tools</div>
                     <a class="@NavClass("/Ai/Insights")" asp-page="/Ai/Insights">
@@ -203,6 +212,12 @@
                         {
                             <a class="@NavClass("/Admin/Integrations")" asp-page="/Admin/Integrations">
                                 <i class="bi bi-plug"></i> Integrations
+                            </a>
+                            <a class="@NavClass("/Admin/Webhooks")" asp-page="/Admin/Webhooks">
+                                <i class="bi bi-broadcast"></i> Webhooks
+                            </a>
+                            <a class="@NavClass("/Admin/AuditLog")" asp-page="/Admin/AuditLog">
+                                <i class="bi bi-shield-check"></i> Audit Log
                             </a>
                             <a class="@NavClass("/Admin/Settings")" asp-page="/Admin/Settings">
                                 <i class="bi bi-gear"></i> Settings

@@ -106,6 +106,16 @@ public static class EmailEndpoints
             return Results.Created($"/api/email/templates/{tmpl.Id}", tmpl);
         });
 
+        group.MapPut("/templates/{id:guid}", async (Guid id, [FromBody] EmailTemplateDto dto, TenantContext tc, AppDbContext db) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var tmpl = await db.EmailTemplates.FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tc.TenantId);
+            if (tmpl == null) return Results.NotFound();
+            tmpl.Name = dto.Name; tmpl.Subject = dto.Subject; tmpl.Body = dto.Body; tmpl.Category = dto.Category;
+            await db.SaveChangesAsync();
+            return Results.Ok();
+        });
+
         group.MapDelete("/templates/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();

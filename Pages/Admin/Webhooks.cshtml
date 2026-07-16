@@ -1,0 +1,224 @@
+@page
+@model TelecallingCRM.Pages.Admin.WebhooksModel
+@{
+    ViewData["Title"] = "Webhook Configuration";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-plug text-primary me-2"></i>Outbound Webhooks</h5>
+        <small class="text-muted">Send real-time events to your systems when leads, calls or payments occur</small>
+    </div>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#webhookModal" onclick="openWebhookModal(null)">
+        <i class="bi bi-plus-circle"></i> New Webhook
+    </button>
+</div>
+
+<!-- Available events reference -->
+<div class="alert alert-info d-flex gap-2 align-items-start py-2 mb-4">
+    <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
+    <div class="small">
+        <strong>Available Events:</strong>
+        <span class="badge bg-light text-dark border mx-1">LeadCreated</span>
+        <span class="badge bg-light text-dark border mx-1">LeadUpdated</span>
+        <span class="badge bg-light text-dark border mx-1">LeadConverted</span>
+        <span class="badge bg-light text-dark border mx-1">CallCompleted</span>
+        <span class="badge bg-light text-dark border mx-1">FollowUpDue</span>
+        <span class="badge bg-light text-dark border mx-1">TaskCompleted</span>
+        <span class="badge bg-light text-dark border mx-1">SmsSent</span>
+        <span class="badge bg-light text-dark border mx-1">WhatsAppSent</span>
+        <span class="badge bg-light text-dark border mx-1">EmailSent</span>
+        — All payloads signed with HMAC-SHA256.
+    </div>
+</div>
+
+<!-- Webhooks list -->
+<div class="row g-3" id="webhooks-grid">
+    <div class="col-12 text-center text-muted py-4">Loading...</div>
+</div>
+
+<!-- Delivery Logs Modal -->
+<div class="modal fade" id="logsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-journal-text me-2"></i>Delivery Logs</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Event</th><th>HTTP</th><th>Status</th><th>Error</th><th>Attempted</th></tr>
+                    </thead>
+                    <tbody id="logs-tbody">
+                        <tr><td colspan="5" class="text-center text-muted py-3">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-retry" class="btn btn-warning btn-sm" onclick="retryWebhook()"><i class="bi bi-arrow-clockwise"></i> Retry Last Failed</button>
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Webhook Modal -->
+<div class="modal fade" id="webhookModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="wh-modal-title">New Webhook</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="wh-edit-id">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Webhook Name *</label>
+                        <input type="text" id="wh-name" class="form-control" placeholder="e.g. CRM Sync, Slack Alerts">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Endpoint URL *</label>
+                        <input type="url" id="wh-url" class="form-control" placeholder="https://your-server.com/webhook">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Signing Secret <small class="text-muted">(optional — used for HMAC-SHA256 header)</small></label>
+                        <input type="text" id="wh-secret" class="form-control font-monospace" placeholder="Leave blank to skip signature verification">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Events to Subscribe *</label>
+                        <div class="row g-2 mt-1" id="event-checkboxes">
+                            @foreach (var ev in new[]{"LeadCreated","LeadUpdated","LeadConverted","CallCompleted","FollowUpDue","TaskCompleted","SmsSent","WhatsAppSent","EmailSent"})
+                            {
+                                <div class="col-6 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input wh-event-chk" type="checkbox" value="@ev" id="ev-@ev">
+                                        <label class="form-check-label small" for="ev-@ev">@ev</label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveWebhook()"><i class="bi bi-floppy"></i> Save Webhook</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentLogsWebhookId = null;
+
+async function loadWebhooks() {
+    const res = await fetch('/api/webhooks');
+    if (!res.ok) { document.getElementById('webhooks-grid').innerHTML = '<div class="col-12 text-center text-danger py-4">Failed to load. Please login.</div>'; return; }
+    const hooks = await res.json();
+    const grid = document.getElementById('webhooks-grid');
+    if (!hooks.length) { grid.innerHTML = '<div class="col-12 text-center text-muted py-4">No webhooks configured yet.</div>'; return; }
+    grid.innerHTML = hooks.map(h => {
+        let events = [];
+        try { events = JSON.parse(h.events); } catch {}
+        return `
+        <div class="col-md-6">
+            <div class="card h-100 ${h.isActive ? '' : 'border-secondary opacity-75'}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <div class="fw-bold">${h.name}</div>
+                            <div class="small text-primary font-monospace text-truncate" style="max-width:280px;" title="${h.url}">${h.url}</div>
+                        </div>
+                        <span class="badge ${h.isActive ? 'bg-success' : 'bg-secondary'}">${h.isActive ? 'Active' : 'Paused'}</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                        ${events.map(e => `<span class="badge bg-light text-dark border" style="font-size:.7rem;">${e}</span>`).join('')}
+                    </div>
+                    <div class="row text-center mt-2">
+                        <div class="col-6"><small class="text-muted">Last Triggered</small><br><small>${h.lastTriggeredAt ? new Date(h.lastTriggeredAt).toLocaleString() : '—'}</small></div>
+                        <div class="col-6"><small class="text-muted">Failures</small><br><small class="${h.failureCount > 0 ? 'text-danger fw-bold' : ''}">${h.failureCount}</small></div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top-0 d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-info flex-fill" onclick="viewLogs('${h.id}')"><i class="bi bi-journal-text"></i> Logs</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openWebhookModal(${JSON.stringify(h).replace(/"/g,'&quot;')})" data-bs-toggle="modal" data-bs-target="#webhookModal"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleWebhook('${h.id}')"><i class="bi bi-toggle-${h.isActive?'on text-success':'off'}"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteWebhook('${h.id}')"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openWebhookModal(h) {
+    document.getElementById('wh-edit-id').value = h?.id ?? '';
+    document.getElementById('wh-modal-title').textContent = h ? 'Edit Webhook' : 'New Webhook';
+    document.getElementById('wh-name').value = h?.name ?? '';
+    document.getElementById('wh-url').value = h?.url ?? '';
+    document.getElementById('wh-secret').value = h?.secret ?? '';
+    let selected = [];
+    try { selected = h ? JSON.parse(h.events) : []; } catch {}
+    document.querySelectorAll('.wh-event-chk').forEach(chk => { chk.checked = selected.includes(chk.value); });
+}
+
+async function saveWebhook() {
+    const id = document.getElementById('wh-edit-id').value;
+    const events = Array.from(document.querySelectorAll('.wh-event-chk:checked')).map(c => c.value);
+    if (!events.length) { alert('Please select at least one event.'); return; }
+    const body = {
+        name: document.getElementById('wh-name').value,
+        url: document.getElementById('wh-url').value,
+        secret: document.getElementById('wh-secret').value || null,
+        events
+    };
+    if (!body.name || !body.url) { alert('Name and URL are required.'); return; }
+    const url = id ? `/api/webhooks/${id}` : '/api/webhooks';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { alert('Error saving webhook.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('webhookModal')).hide();
+    loadWebhooks();
+}
+
+async function toggleWebhook(id) {
+    await fetch(`/api/webhooks/${id}/toggle`, { method: 'POST' });
+    loadWebhooks();
+}
+
+async function deleteWebhook(id) {
+    if (!confirm('Delete this webhook? Delivery logs will also be removed.')) return;
+    await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+    loadWebhooks();
+}
+
+async function viewLogs(id) {
+    currentLogsWebhookId = id;
+    document.getElementById('logs-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Loading...</td></tr>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('logsModal')).show();
+    const res = await fetch(`/api/webhooks/${id}/logs?pageSize=50`);
+    if (!res.ok) { document.getElementById('logs-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Failed to load.</td></tr>'; return; }
+    const d = await res.json();
+    if (!d.logs.length) { document.getElementById('logs-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No delivery logs yet.</td></tr>'; return; }
+    document.getElementById('logs-tbody').innerHTML = d.logs.map(l => `
+        <tr>
+            <td><small class="badge bg-light text-dark border">${l.eventName}</small></td>
+            <td><span class="badge ${l.httpStatus >= 200 && l.httpStatus < 300 ? 'bg-success' : 'bg-danger'}">${l.httpStatus}</span></td>
+            <td><span class="badge ${l.success ? 'bg-success' : 'bg-danger'}">${l.success ? 'OK' : 'FAIL'}</span></td>
+            <td><small class="text-danger">${l.errorMessage ?? ''}</small></td>
+            <td><small>${new Date(l.attemptedAt).toLocaleString()}</small></td>
+        </tr>`).join('');
+}
+
+async function retryWebhook() {
+    if (!currentLogsWebhookId) return;
+    const res = await fetch(`/api/webhooks/${currentLogsWebhookId}/retry`, { method: 'POST' });
+    if (res.ok) alert('Retry queued successfully.');
+    else alert('No failed deliveries to retry, or retry failed.');
+}
+
+loadWebhooks();
+</script>
+}

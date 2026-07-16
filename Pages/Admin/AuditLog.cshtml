@@ -1,0 +1,172 @@
+@page
+@model TelecallingCRM.Pages.Admin.AuditLogModel
+@{
+    ViewData["Title"] = "Audit Log";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-shield-check text-success me-2"></i>Audit Log</h5>
+        <small class="text-muted">Full activity trail — every action by every user</small>
+    </div>
+    <a href="/api/export/leads/csv" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download"></i> Export Leads CSV
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2 d-flex flex-wrap gap-3 align-items-center">
+        <div>
+            <label class="form-label mb-0 me-1 small fw-semibold">Activity Type</label>
+            <select id="filter-type" class="form-select form-select-sm d-inline-block w-auto" onchange="loadAuditLog()">
+                <option value="">All Types</option>
+                <option value="LeadCreated">Lead Created</option>
+                <option value="LeadUpdated">Lead Updated</option>
+                <option value="StatusChanged">Status Changed</option>
+                <option value="LeadAssigned">Lead Assigned</option>
+                <option value="LeadConverted">Lead Converted</option>
+                <option value="CallMade">Call Made</option>
+                <option value="FollowUpScheduled">Follow-up Scheduled</option>
+                <option value="FollowUpCompleted">Follow-up Completed</option>
+                <option value="TaskCreated">Task Created</option>
+                <option value="TaskCompleted">Task Completed</option>
+                <option value="NoteAdded">Note Added</option>
+                <option value="DocumentUploaded">Document Uploaded</option>
+                <option value="EmailSent">Email Sent</option>
+                <option value="SmsSent">SMS Sent</option>
+                <option value="WhatsAppSent">WhatsApp Sent</option>
+                <option value="MeetingScheduled">Meeting Scheduled</option>
+                <option value="MeetingCompleted">Meeting Completed</option>
+                <option value="EscalationRaised">Escalation Raised</option>
+                <option value="EscalationResolved">Escalation Resolved</option>
+                <option value="PaymentReceived">Payment Received</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label mb-0 me-1 small fw-semibold">Agent</label>
+            <select id="filter-user" class="form-select form-select-sm d-inline-block w-auto" onchange="loadAuditLog()">
+                <option value="">All Agents</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label mb-0 me-1 small fw-semibold">Lead ID</label>
+            <input type="text" id="filter-lead-id" class="form-control form-control-sm d-inline-block" placeholder="Paste Lead ID..." style="width:230px;" oninput="loadAuditLog()">
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="clearAuditFilters()">
+            <i class="bi bi-x-circle"></i> Clear
+        </button>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>When</th>
+                    <th>Type</th>
+                    <th>Summary</th>
+                    <th>By</th>
+                    <th>Lead</th>
+                </tr>
+            </thead>
+            <tbody id="audit-tbody">
+                <tr><td colspan="5" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+        <small class="text-muted" id="audit-page-info"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="audit-btn-prev" onclick="auditChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="audit-btn-next" onclick="auditChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let auditPage = 1;
+const auditPageSize = 50;
+
+const typeIcons = {
+    LeadCreated:'bi-person-plus text-primary', LeadUpdated:'bi-pencil text-info',
+    StatusChanged:'bi-arrow-repeat text-warning', LeadAssigned:'bi-person-check text-primary',
+    LeadConverted:'bi-trophy text-success', CallMade:'bi-telephone text-info',
+    FollowUpScheduled:'bi-calendar-plus text-warning', FollowUpCompleted:'bi-calendar-check text-success',
+    TaskCreated:'bi-plus-square text-primary', TaskCompleted:'bi-check2-square text-success',
+    NoteAdded:'bi-sticky text-warning', DocumentUploaded:'bi-file-earmark-arrow-up text-secondary',
+    EmailSent:'bi-envelope text-info', SmsSent:'bi-chat-dots text-primary',
+    WhatsAppSent:'bi-whatsapp text-success', MeetingScheduled:'bi-camera-video text-info',
+    MeetingCompleted:'bi-camera-video-fill text-success', EscalationRaised:'bi-exclamation-triangle text-danger',
+    EscalationResolved:'bi-shield-check text-success', PaymentReceived:'bi-credit-card text-success'
+};
+
+async function loadAgentsFilter() {
+    const res = await fetch('/api/admin/users');
+    if (!res.ok) return;
+    const users = await res.json();
+    const sel = document.getElementById('filter-user');
+    users.forEach(u => sel.innerHTML += `<option value="${u.id}">${u.fullName}</option>`);
+}
+
+async function loadAuditLog() {
+    const type = document.getElementById('filter-type').value;
+    const userId = document.getElementById('filter-user').value;
+    const leadId = document.getElementById('filter-lead-id').value.trim();
+    let url = `/api/admin/audit-log?page=${auditPage}&pageSize=${auditPageSize}`;
+    if (userId) url += `&userId=${userId}`;
+    if (leadId) url += `&leadId=${leadId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Failed to load. Please login.</td></tr>'; return; }
+    const d = await res.json();
+
+    // Client-side type filter (API doesn't support it yet)
+    let logs = d.logs;
+    if (type) logs = logs.filter(l => l.type === type);
+
+    document.getElementById('audit-page-info').textContent = `Page ${auditPage} — ${d.total} total entries`;
+    document.getElementById('audit-btn-prev').disabled = auditPage <= 1;
+    document.getElementById('audit-btn-next').disabled = auditPage * auditPageSize >= d.total;
+
+    if (!logs.length) { document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No activity found.</td></tr>'; return; }
+
+    document.getElementById('audit-tbody').innerHTML = logs.map(l => {
+        const icon = typeIcons[l.type] ?? 'bi-activity text-muted';
+        const ts = new Date(l.occurredAt);
+        return `<tr>
+            <td>
+                <div class="small fw-semibold">${ts.toLocaleDateString()}</div>
+                <div class="small text-muted">${ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+            </td>
+            <td><span class="badge bg-light text-dark border"><i class="bi ${icon} me-1"></i>${l.type}</span></td>
+            <td class="small">${l.summary}</td>
+            <td><small class="text-muted">${l.by ?? '—'}</small></td>
+            <td>
+                ${l.leadId ? `<a href="/Leads/Timeline/${l.leadId}" class="btn btn-xs btn-outline-secondary btn-sm" title="View lead timeline"><i class="bi bi-eye"></i></a>` : '—'}
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function auditChangePage(dir) { auditPage += dir; loadAuditLog(); }
+
+function clearAuditFilters() {
+    document.getElementById('filter-type').value = '';
+    document.getElementById('filter-user').value = '';
+    document.getElementById('filter-lead-id').value = '';
+    auditPage = 1;
+    loadAuditLog();
+}
+
+loadAgentsFilter();
+loadAuditLog();
+</script>
+}

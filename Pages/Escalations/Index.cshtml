@@ -1,0 +1,302 @@
+@page
+@model TelecallingCRM.Pages.Escalations.IndexModel
+@{
+    ViewData["Title"] = "Escalations";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Escalations</h5>
+        <small class="text-muted">Monitor and action flagged leads requiring attention</small>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#rulesModal">
+        <i class="bi bi-gear"></i> Manage Rules
+    </button>
+</div>
+
+<!-- Status filter tabs -->
+<ul class="nav nav-tabs mb-3" id="escTabs">
+    <li class="nav-item"><a class="nav-link active" href="javascript:void(0)" onclick="setEscTab(this,'')">All</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setEscTab(this,'Pending')"><span class="badge bg-danger me-1">•</span>Pending</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setEscTab(this,'Acknowledged')"><span class="badge bg-warning text-dark me-1">•</span>Acknowledged</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setEscTab(this,'Resolved')"><span class="badge bg-success me-1">•</span>Resolved</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:void(0)" onclick="setEscTab(this,'Dismissed')"><span class="badge bg-secondary me-1">•</span>Dismissed</a></li>
+</ul>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Lead</th>
+                    <th>Reason</th>
+                    <th>Assigned Agent</th>
+                    <th>Escalated To</th>
+                    <th>Rule</th>
+                    <th>Status</th>
+                    <th>Raised</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="esc-tbody">
+                <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+        <small class="text-muted" id="esc-page-info"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="esc-btn-prev" onclick="escChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="esc-btn-next" onclick="escChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Resolve Modal -->
+<div class="modal fade" id="resolveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-check-circle text-success me-2"></i>Resolve Escalation</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="resolve-id">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Resolution Note</label>
+                    <textarea id="resolve-note" class="form-control" rows="3" placeholder="Describe how this was resolved..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-success" onclick="submitResolve()"><i class="bi bi-check-lg"></i> Mark Resolved</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Escalation Rules Modal -->
+<div class="modal fade" id="rulesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-gear me-2"></i>Escalation Rules</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-end mb-3">
+                    <button class="btn btn-primary btn-sm" onclick="openRuleForm(null)"><i class="bi bi-plus-circle"></i> New Rule</button>
+                </div>
+                <div id="rules-list"><div class="text-center text-muted py-3">Loading...</div></div>
+                <!-- Rule form -->
+                <div id="rule-form-section" class="d-none border rounded p-3 mt-3 bg-light">
+                    <h6 id="rule-form-title" class="fw-bold mb-3">New Rule</h6>
+                    <input type="hidden" id="rule-edit-id">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Rule Name *</label>
+                            <input type="text" id="rule-name" class="form-control" placeholder="e.g. 3 Missed Follow-ups">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Trigger *</label>
+                            <select id="rule-trigger" class="form-select">
+                                <option value="0">Missed Follow-Up</option>
+                                <option value="1">Overdue Task</option>
+                                <option value="2">Negative Sentiment</option>
+                                <option value="3">No Contact (days)</option>
+                                <option value="4">Hot Lead Ignored</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Threshold Value</label>
+                            <input type="number" id="rule-threshold" class="form-control" value="3" min="1">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Escalate To (Manager/Admin) *</label>
+                            <select id="rule-escalate-to" class="form-select"></select>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button class="btn btn-primary btn-sm" onclick="saveRule()"><i class="bi bi-floppy"></i> Save Rule</button>
+                        <button class="btn btn-secondary btn-sm" onclick="cancelRuleForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let escPage = 1;
+const escPageSize = 25;
+let escStatus = '';
+let managersList = [];
+
+const statusBadge = s => ({
+    Pending:      '<span class="badge bg-danger">Pending</span>',
+    Acknowledged: '<span class="badge bg-warning text-dark">Acknowledged</span>',
+    Resolved:     '<span class="badge bg-success">Resolved</span>',
+    Dismissed:    '<span class="badge bg-secondary">Dismissed</span>'
+}[s] ?? `<span class="badge bg-secondary">${s}</span>`);
+
+function setEscTab(el, status) {
+    document.querySelectorAll('#escTabs .nav-link').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    escStatus = status;
+    escPage = 1;
+    loadEscalations();
+}
+
+async function loadEscalations() {
+    let url = `/api/escalations?page=${escPage}&pageSize=${escPageSize}`;
+    if (escStatus) url += `&status=${escStatus}`;
+    const res = await fetch(url);
+    if (!res.ok) { document.getElementById('esc-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load. Please login.</td></tr>'; return; }
+    const d = await res.json();
+    const items = d.items;
+
+    document.getElementById('esc-page-info').textContent = `Showing ${Math.min(1,(escPage-1)*escPageSize+1)}–${Math.min(escPage*escPageSize, d.total)} of ${d.total}`;
+    document.getElementById('esc-btn-prev').disabled = escPage <= 1;
+    document.getElementById('esc-btn-next').disabled = escPage * escPageSize >= d.total;
+
+    if (!items.length) { document.getElementById('esc-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No escalations found.</td></tr>'; return; }
+
+    document.getElementById('esc-tbody').innerHTML = items.map(e => `
+        <tr>
+            <td>
+                <a href="/Leads/Timeline/${e.leadId}" class="fw-semibold text-decoration-none">${e.leadName}</a>
+                <br><small class="text-muted">${e.leadPhone}</small>
+            </td>
+            <td><small>${e.reason}</small></td>
+            <td><small>${e.assignedAgent}</small></td>
+            <td><small>${e.escalatedTo}</small></td>
+            <td><small class="text-muted">${e.ruleName ?? '—'}</small></td>
+            <td>${statusBadge(e.status)}</td>
+            <td><small>${new Date(e.createdAt).toLocaleDateString()}</small></td>
+            <td class="text-end">
+                <div class="btn-group btn-group-sm">
+                    ${e.status === 'Pending' ? `<button class="btn btn-outline-warning" onclick="acknowledge('${e.id}')" title="Acknowledge"><i class="bi bi-eye"></i></button>` : ''}
+                    ${e.status !== 'Resolved' && e.status !== 'Dismissed' ? `<button class="btn btn-outline-success" onclick="openResolve('${e.id}')" title="Resolve"><i class="bi bi-check-lg"></i></button>` : ''}
+                    ${e.status === 'Pending' ? `<button class="btn btn-outline-secondary" onclick="dismiss('${e.id}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>` : ''}
+                </div>
+            </td>
+        </tr>`).join('');
+}
+
+function escChangePage(dir) { escPage += dir; loadEscalations(); }
+
+async function acknowledge(id) {
+    const res = await fetch(`/api/escalations/${id}/acknowledge`, { method: 'POST' });
+    if (res.ok) loadEscalations();
+}
+
+function openResolve(id) {
+    document.getElementById('resolve-id').value = id;
+    document.getElementById('resolve-note').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('resolveModal')).show();
+}
+
+async function submitResolve() {
+    const id = document.getElementById('resolve-id').value;
+    const note = document.getElementById('resolve-note').value;
+    const res = await fetch(`/api/escalations/${id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note })
+    });
+    if (!res.ok) { alert('Error resolving escalation.'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('resolveModal')).hide();
+    loadEscalations();
+}
+
+async function dismiss(id) {
+    if (!confirm('Dismiss this escalation?')) return;
+    const res = await fetch(`/api/escalations/${id}/dismiss`, { method: 'POST' });
+    if (res.ok) loadEscalations();
+}
+
+// ?? Rules ?????????????????????????????????????????????
+async function loadManagers() {
+    const res = await fetch('/api/admin/users');
+    if (!res.ok) return;
+    const users = await res.json();
+    managersList = users.filter(u => u.role === 'manager' || u.role === 'admin');
+}
+
+async function loadRules() {
+    const res = await fetch('/api/escalation-rules');
+    if (!res.ok) return;
+    const rules = await res.json();
+    const el = document.getElementById('rules-list');
+    if (!rules.length) { el.innerHTML = '<div class="text-muted small text-center py-2">No rules yet.</div>'; return; }
+    const triggers = ['Missed Follow-Up','Overdue Task','Negative Sentiment','No Contact (days)','Hot Lead Ignored'];
+    el.innerHTML = `<table class="table table-sm mb-0">
+        <thead class="table-light"><tr><th>Name</th><th>Trigger</th><th>Threshold</th><th>Escalate To</th><th>Active</th><th></th></tr></thead>
+        <tbody>` +
+        rules.map(r => `<tr>
+            <td>${r.name}</td>
+            <td><small>${triggers[r.trigger] ?? r.trigger}</small></td>
+            <td>${r.thresholdValue}</td>
+            <td><small>${r.escalateTo}</small></td>
+            <td><span class="badge ${r.isActive ? 'bg-success' : 'bg-secondary'}">${r.isActive ? 'On' : 'Off'}</span></td>
+            <td class="text-end">
+                <button class="btn btn-xs btn-outline-secondary btn-sm" onclick="toggleRule('${r.id}')"><i class="bi bi-toggle-${r.isActive?'on':'off'}"></i></button>
+                <button class="btn btn-xs btn-outline-primary btn-sm ms-1" onclick="openRuleForm(${JSON.stringify(r).replace(/"/g,'&quot;')})"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-xs btn-outline-danger btn-sm ms-1" onclick="deleteRule('${r.id}')"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`).join('') +
+        '</tbody></table>';
+}
+
+function openRuleForm(rule) {
+    document.getElementById('rule-form-section').classList.remove('d-none');
+    document.getElementById('rule-form-title').textContent = rule ? 'Edit Rule' : 'New Rule';
+    document.getElementById('rule-edit-id').value = rule?.id ?? '';
+    document.getElementById('rule-name').value = rule?.name ?? '';
+    document.getElementById('rule-trigger').value = rule?.trigger ?? 0;
+    document.getElementById('rule-threshold').value = rule?.thresholdValue ?? 3;
+    const sel = document.getElementById('rule-escalate-to');
+    sel.innerHTML = '<option value="">-- select --</option>';
+    managersList.forEach(u => { sel.innerHTML += `<option value="${u.id}" ${rule?.escalateToId === u.id ? 'selected' : ''}>${u.fullName}</option>`; });
+}
+
+function cancelRuleForm() { document.getElementById('rule-form-section').classList.add('d-none'); }
+
+async function saveRule() {
+    const id = document.getElementById('rule-edit-id').value;
+    const body = {
+        name: document.getElementById('rule-name').value,
+        trigger: parseInt(document.getElementById('rule-trigger').value),
+        thresholdValue: parseInt(document.getElementById('rule-threshold').value),
+        escalateToId: document.getElementById('rule-escalate-to').value
+    };
+    if (!body.name || !body.escalateToId) { alert('Name and escalate-to are required.'); return; }
+    const url = id ? `/api/escalation-rules/${id}` : '/api/escalation-rules';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { alert('Error saving rule.'); return; }
+    cancelRuleForm();
+    loadRules();
+}
+
+async function toggleRule(id) {
+    await fetch(`/api/escalation-rules/${id}/toggle`, { method: 'POST' });
+    loadRules();
+}
+
+async function deleteRule(id) {
+    if (!confirm('Delete this rule?')) return;
+    await fetch(`/api/escalation-rules/${id}`, { method: 'DELETE' });
+    loadRules();
+}
+
+document.getElementById('rulesModal').addEventListener('show.bs.modal', () => { loadManagers().then(loadRules); });
+
+loadEscalations();
+</script>
+}

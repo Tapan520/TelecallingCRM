@@ -1,0 +1,143 @@
+@page
+@model TelecallingCRM.Pages.Reports.LeaderboardModel
+@{
+    ViewData["Title"] = "Agent Leaderboard";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-trophy text-warning me-2"></i>Agent Leaderboard</h5>
+        <small class="text-muted">Real-time team performance ranking</small>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <label class="form-label mb-0 me-1 small fw-semibold">Period</label>
+        <select id="filter-days" class="form-select form-select-sm w-auto" onchange="loadLeaderboard()">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+        </select>
+        <a href="/api/export/agents/xlsx?days=30" class="btn btn-outline-success btn-sm" id="export-link" title="Export to Excel">
+            <i class="bi bi-file-earmark-excel"></i> Export
+        </a>
+    </div>
+</div>
+
+<!-- Top 3 podium -->
+<div class="row g-3 mb-4" id="podium-row"></div>
+
+<!-- Full ranking table -->
+<div class="card">
+    <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-list-ol me-2"></i>Full Ranking
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:50px;">#</th>
+                    <th>Agent</th>
+                    <th>Total Calls</th>
+                    <th>Connected</th>
+                    <th>Talk Time</th>
+                    <th>Conversions</th>
+                    <th>Conv. Rate</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard-tbody">
+                <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function fmtTime(seconds) {
+    if (!seconds) return '0m';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+async function loadLeaderboard() {
+    const days = document.getElementById('filter-days').value;
+    document.getElementById('export-link').href = `/api/export/agents/xlsx?days=${days}`;
+
+    const res = await fetch(`/api/reports/agent-performance?days=${days}`);
+    if (!res.ok) { document.getElementById('leaderboard-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load. Please login.</td></tr>'; return; }
+    const agents = await res.json();
+
+    if (!agents.length) {
+        document.getElementById('podium-row').innerHTML = '';
+        document.getElementById('leaderboard-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No call data for this period.</td></tr>';
+        return;
+    }
+
+    // ?? Podium (top 3) ????????????????????????????????????
+    const medals = ['??','??','??'];
+    const podiumColors = ['warning','secondary','danger'];
+    const podiumBg = ['#fff9e6','#f8f8f8','#fff1f1'];
+    const podium = agents.slice(0, 3);
+    document.getElementById('podium-row').innerHTML = podium.map((a, i) => {
+        const rate = a.totalCalls > 0 ? Math.round(a.converted / a.totalCalls * 100) : 0;
+        return `
+        <div class="col-md-4">
+            <div class="card text-center h-100" style="background:${podiumBg[i]};border-top:4px solid var(--bs-${podiumColors[i]});">
+                <div class="card-body py-4">
+                    <div class="display-4 mb-2">${medals[i]}</div>
+                    <div class="fw-bold fs-5">${a.fullName}</div>
+                    <div class="text-muted small mb-3">Rank #${i+1}</div>
+                    <div class="row g-2 text-center">
+                        <div class="col-6"><div class="fw-bold text-primary">${a.totalCalls}</div><div class="small text-muted">Calls</div></div>
+                        <div class="col-6"><div class="fw-bold text-success">${a.converted}</div><div class="small text-muted">Converted</div></div>
+                        <div class="col-6"><div class="fw-bold text-info">${fmtTime(a.totalTalkSeconds)}</div><div class="small text-muted">Talk Time</div></div>
+                        <div class="col-6"><div class="fw-bold text-warning">${rate}%</div><div class="small text-muted">Conv. Rate</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // ?? Full table ?????????????????????????????????????????
+    document.getElementById('leaderboard-tbody').innerHTML = agents.map((a, i) => {
+        const rate = a.totalCalls > 0 ? Math.round(a.converted / a.totalCalls * 100) : 0;
+        // Simple score: calls*1 + converted*10 + talkMin*0.1
+        const score = Math.round(a.totalCalls + a.converted * 10 + (a.totalTalkSeconds / 60) * 0.1);
+        const rankBadge = i === 0 ? '<span class="badge bg-warning text-dark">?? 1</span>'
+                        : i === 1 ? '<span class="badge bg-secondary">?? 2</span>'
+                        : i === 2 ? '<span class="badge bg-danger">?? 3</span>'
+                        : `<span class="text-muted fw-semibold">${i+1}</span>`;
+        // Score bar (max 100 relative to top scorer)
+        const maxScore = Math.round(agents[0].totalCalls + agents[0].converted * 10 + (agents[0].totalTalkSeconds / 60) * 0.1);
+        const pct = maxScore > 0 ? Math.round(score / maxScore * 100) : 0;
+        return `<tr>
+            <td>${rankBadge}</td>
+            <td class="fw-semibold">${a.fullName}</td>
+            <td>${a.totalCalls}</td>
+            <td>${a.connected} <small class="text-muted">(${a.totalCalls > 0 ? Math.round(a.connected/a.totalCalls*100) : 0}%)</small></td>
+            <td>${fmtTime(a.totalTalkSeconds)}</td>
+            <td class="text-success fw-semibold">${a.converted}</td>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-fill" style="height:8px;min-width:60px;">
+                        <div class="progress-bar bg-success" style="width:${rate}%"></div>
+                    </div>
+                    <small>${rate}%</small>
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center gap-1">
+                    <div class="progress flex-fill" style="height:8px;min-width:60px;">
+                        <div class="progress-bar bg-warning" style="width:${pct}%"></div>
+                    </div>
+                    <small class="text-muted">${score}</small>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+loadLeaderboard();
+</script>
+}
