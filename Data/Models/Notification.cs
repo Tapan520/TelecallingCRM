@@ -8,6 +8,7 @@ public enum NotificationType
     NewLeadAssigned,
     CallMissed,
     LeadConverted,
+    MeetingDue,
     SystemAlert
 }
 

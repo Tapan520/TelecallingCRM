@@ -78,6 +78,16 @@ public static class LeadsEndpoints
             if (currentLeadCount >= tc.Tenant!.MaxLeads)
                 return Results.BadRequest($"Lead limit reached. Your plan allows up to {tc.Tenant.MaxLeads} leads. Please upgrade.");
 
+            // ?? DNC guard ????????????????????????????????????????????????????
+            var normPhone = DncEndpoints.NormalisePhone(dto.Phone);
+            var isDnc = await db.DncEntries
+                .AnyAsync(d => d.TenantId == tc.TenantId && d.Phone == normPhone);
+            if (isDnc)
+                return Results.BadRequest(new {
+                    error = "DNC",
+                    message = $"Cannot create lead for {dto.Phone} — this number is on the Do-Not-Call list."
+                });
+
             var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
             var lead = new Lead
             {

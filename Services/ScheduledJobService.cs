@@ -229,5 +229,75 @@ public class ScheduledJobService
             "process-due-items",
             s => s.ProcessDueItemsAsync(),
             "*/5 * * * *"); // every 5 minutes
+
+        RecurringJob.AddOrUpdate<ScheduledJobService>(
+            "process-meeting-reminders",
+            s => s.ProcessMeetingRemindersAsync(),
+            "*/5 * * * *"); // every 5 minutes
+    }
+
+    /// <summary>
+    /// Runs every 5 minutes. Sends reminder notifications to the organiser and
+    /// all attendees 30 minutes before a scheduled meeting starts.
+    /// </summary>
+    [AutomaticRetry(Attempts = 2)]
+    public async Task ProcessMeetingRemindersAsync()
+    {
+        var now = DateTime.UtcNow;
+        var windowStart = now;
+        var windowEnd   = now.AddMinutes(30);
+
+        // Meetings that start within the next 30 minutes and are still Scheduled
+        var upcomingMeetings = await _db.Meetings
+            .Include(m => m.Attendees)
+            .Include(m => m.Lead)
+            .Where(m => m.Status == MeetingStatus.Scheduled
+                     && m.ScheduledAt >= windowStart
+                     && m.ScheduledAt <= windowEnd)
+            .ToListAsync();
+
+        var notifCount = 0;
+
+        foreach (var meeting in upcomingMeetings)
+        {
+            var minutesAway = (int)(meeting.ScheduledAt - now).TotalMinutes;
+            // Collect every user that should be notified: organiser + all attendees
+            var userIds = meeting.Attendees.Select(a => a.UserId).ToHashSet();
+            userIds.Add(meeting.OrganisedById);
+
+            foreach (var userId in userIds)
+            {
+                // De-duplicate: don't send a second reminder if one was sent in the last 31 min
+                var alreadyNotified = await _db.Notifications.AnyAsync(n =>
+                    n.UserId == userId &&
+                    n.Type == NotificationType.MeetingDue &&
+                    n.Link != null && n.Link.Contains(meeting.Id.ToString()) &&
+                    n.CreatedAt >= now.AddMinutes(-31));
+
+                if (alreadyNotified) continue;
+
+                var leadName = meeting.Lead?.Name ?? "a lead";
+                _db.Notifications.Add(new Notification
+                {
+                    TenantId   = meeting.TenantId,
+                    UserId     = userId,
+                    Type       = NotificationType.MeetingDue,
+                    Title      = "Meeting Starting Soon",
+                    Body       = $"\"{meeting.Title}\" with {leadName} starts in {minutesAway} minutes." +
+                                 (string.IsNullOrEmpty(meeting.MeetingLink)
+                                     ? string.Empty
+                                     : $" Link: {meeting.MeetingLink}"),
+                    Link       = $"/Leads/Timeline/{meeting.LeadId}"
+                });
+                notifCount++;
+            }
+        }
+
+        if (notifCount > 0)
+            await _db.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "ScheduledJobService.ProcessMeetingRemindersAsync: {Count} reminder(s) sent for {Meetings} upcoming meeting(s).",
+            notifCount, upcomingMeetings.Count);
     }
 }

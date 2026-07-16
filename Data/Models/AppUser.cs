@@ -32,4 +32,7 @@ public class AppUser : IdentityUser<Guid>
     public ICollection<EscalationRule> EscalationRules { get; set; } = new List<EscalationRule>();
     public ICollection<Payment> RecordedPayments { get; set; } = new List<Payment>();
     public ICollection<CallControlEvent> CallControlEvents { get; set; } = new List<CallControlEvent>();
+    public ICollection<DncEntry> DncEntries { get; set; } = new List<DncEntry>();
+    public ICollection<AgentGoal> AgentGoals { get; set; } = new List<AgentGoal>();
+    public ICollection<AgentGoal> CreatedGoals { get; set; } = new List<AgentGoal>();
 }

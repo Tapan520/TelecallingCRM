@@ -44,6 +44,21 @@ public static class CallsEndpoints
             AppDbContext db, IHubContext<CrmHub> hub) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
+
+            // ?? DNC guard ????????????????????????????????????????????????????
+            var lead = await db.Leads.FindAsync(dto.LeadId);
+            if (lead != null)
+            {
+                var normPhone = DncEndpoints.NormalisePhone(lead.Phone);
+                var isDnc = await db.DncEntries
+                    .AnyAsync(d => d.TenantId == tc.TenantId && d.Phone == normPhone);
+                if (isDnc)
+                    return Results.BadRequest(new {
+                        error = "DNC",
+                        message = $"Cannot call {lead.Phone} — this number is on the Do-Not-Call list."
+                    });
+            }
+
             var call = new Call
             {
                 TenantId = tc.TenantId,
@@ -54,7 +69,6 @@ public static class CallsEndpoints
             db.Calls.Add(call);
 
             // Update lead status to Contacted and record last contact time
-            var lead = await db.Leads.FindAsync(dto.LeadId);
             if (lead != null)
             {
                 if (lead.Status == LeadStatus.New)

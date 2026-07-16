@@ -35,4 +35,8 @@ public class Tenant
     public ICollection<Escalation> Escalations { get; set; } = new List<Escalation>();
     public ICollection<EscalationRule> EscalationRules { get; set; } = new List<EscalationRule>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public ICollection<DncEntry> DncEntries { get; set; } = new List<DncEntry>();
+    public ICollection<SmsTemplate> SmsTemplates { get; set; } = new List<SmsTemplate>();
+    public ICollection<WhatsAppTemplate> WhatsAppTemplates { get; set; } = new List<WhatsAppTemplate>();
+    public ICollection<AgentGoal> AgentGoals { get; set; } = new List<AgentGoal>();
 }

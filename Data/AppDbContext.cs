@@ -33,6 +33,10 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<EscalationRule> EscalationRules => Set<EscalationRule>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<CallControlEvent> CallControlEvents => Set<CallControlEvent>();
+    public DbSet<DncEntry> DncEntries => Set<DncEntry>();
+    public DbSet<SmsTemplate> SmsTemplates => Set<SmsTemplate>();
+    public DbSet<WhatsAppTemplate> WhatsAppTemplates => Set<WhatsAppTemplate>();
+    public DbSet<AgentGoal> AgentGoals => Set<AgentGoal>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -280,6 +284,40 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.HasOne(c => c.Agent).WithMany(u => u.CallControlEvents)
              .HasForeignKey(c => c.AgentId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(c => c.CallId);
+        });
+
+        builder.Entity<DncEntry>(e =>
+        {
+            e.HasOne(d => d.Tenant).WithMany(t => t.DncEntries)
+             .HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(d => d.AddedBy).WithMany(u => u.DncEntries)
+             .HasForeignKey(d => d.AddedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(d => new { d.TenantId, d.Phone }).IsUnique();
+        });
+
+        builder.Entity<SmsTemplate>(e =>
+        {
+            e.HasOne(t => t.Tenant).WithMany(tn => tn.SmsTemplates)
+             .HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(t => t.TenantId);
+        });
+
+        builder.Entity<WhatsAppTemplate>(e =>
+        {
+            e.HasOne(t => t.Tenant).WithMany(tn => tn.WhatsAppTemplates)
+             .HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(t => t.TenantId);
+        });
+
+        builder.Entity<AgentGoal>(e =>
+        {
+            e.HasOne(g => g.Tenant).WithMany(t => t.AgentGoals)
+             .HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(g => g.Agent).WithMany(u => u.AgentGoals)
+             .HasForeignKey(g => g.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(g => g.CreatedBy).WithMany(u => u.CreatedGoals)
+             .HasForeignKey(g => g.CreatedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(g => new { g.TenantId, g.AgentId });
         });
     }
 }

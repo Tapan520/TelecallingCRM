@@ -7,6 +7,14 @@
     <UserSecretsId>6567d14a-64e4-4456-9d70-76327928af24</UserSecretsId>
   </PropertyGroup>
 
+  <!-- Exclude the nested test project from the main project's compile glob -->
+  <ItemGroup>
+    <Compile Remove="TelecallingCRM.Tests\**" />
+    <Content Remove="TelecallingCRM.Tests\**" />
+    <EmbeddedResource Remove="TelecallingCRM.Tests\**" />
+    <None Remove="TelecallingCRM.Tests\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.3" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.14" />
