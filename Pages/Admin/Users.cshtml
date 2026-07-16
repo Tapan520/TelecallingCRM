@@ -4,7 +4,8 @@
     ViewData["Title"] = "Users";
 }
 
-<div class="d-flex justify-content-end mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <input type="text" id="users-search" class="form-control form-control-sm" placeholder="Search name or email..." style="width:220px;" oninput="onUsersSearch()">
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#userModal" onclick="openNew()">
         <i class="bi bi-person-plus"></i> Invite User
     </button>
@@ -20,6 +21,17 @@
                 <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
             </tbody>
         </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="users-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="users-btn-prev" onclick="usersChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="users-btn-next" onclick="usersChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -114,10 +126,22 @@
 
 @section Scripts {
 <script>
+let usersPage = 1;
+const usersPageSize = 25;
+let usersSearchTimer;
+
+function onUsersSearch() {
+    clearTimeout(usersSearchTimer);
+    usersSearchTimer = setTimeout(() => { usersPage = 1; loadUsers(); }, 350);
+}
+
 async function loadUsers() {
+    const q = document.getElementById('users-search').value;
+    let url = `/api/admin/users?page=${usersPage}&pageSize=${usersPageSize}`;
+    if (q) url += `&q=${encodeURIComponent(q)}`;
     let res;
     try {
-        res = await fetch('/api/admin/users');
+        res = await fetch(url);
     } catch (e) {
         document.getElementById('users-tbody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Network error: ${e.message}</td></tr>`;
         return;
@@ -133,14 +157,19 @@ async function loadUsers() {
         document.getElementById('users-tbody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Unexpected server response. Please refresh the page.</td></tr>`;
         return;
     }
-    if (!Array.isArray(data) || data.length === 0) {
+
+    document.getElementById('users-count').textContent = `${data.total} user(s)`;
+    document.getElementById('users-btn-prev').disabled = usersPage <= 1;
+    document.getElementById('users-btn-next').disabled = usersPage * usersPageSize >= data.total;
+
+    if (!Array.isArray(data.users) || data.users.length === 0) {
         document.getElementById('users-tbody').innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No users found. Invite someone to get started.</td></tr>`;
         return;
     }
     const roleColors = { admin:'danger', manager:'warning', agent:'primary', superadmin:'dark' };
     const dash = '\u2014';
     try {
-        document.getElementById('users-tbody').innerHTML = data.map(u => {
+        document.getElementById('users-tbody').innerHTML = data.users.map(u => {
             const safeName = (u.fullName ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             return `
             <tr>
@@ -162,6 +191,8 @@ async function loadUsers() {
         document.getElementById('users-tbody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Render error: ${renderErr.message}</td></tr>`;
     }
 }
+
+function usersChangePage(dir) { usersPage += dir; loadUsers(); }
 
 function openNew() {
     document.getElementById('user-name').value = '';

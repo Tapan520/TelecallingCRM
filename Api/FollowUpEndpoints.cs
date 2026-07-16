@@ -13,7 +13,8 @@ public static class FollowUpEndpoints
         var group = app.MapGroup("/api/followups").WithTags("FollowUps").RequireAuthorization().RequireRateLimiting("api");
 
         group.MapGet("/", async (TenantContext tc, AppDbContext db,
-            [FromQuery] string? status, [FromQuery] string? date) =>
+            [FromQuery] string? status, [FromQuery] string? date,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 25) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var query = db.FollowUps
@@ -28,15 +29,17 @@ public static class FollowUpEndpoints
             if (DateOnly.TryParse(date, out var d))
                 query = query.Where(f => f.ScheduledAt.Date == d.ToDateTime(TimeOnly.MinValue).Date);
 
+            var total = await query.CountAsync();
             var results = await query
                 .OrderBy(f => f.ScheduledAt)
+                .Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(f => new {
                     f.Id, f.ScheduledAt, f.Channel, f.Status, f.Notes, f.IsRecurring,
                     LeadName = f.Lead.Name, LeadPhone = f.Lead.Phone, LeadId = f.LeadId,
                     AssignedTo = f.AssignedTo.FullName
                 })
                 .ToListAsync();
-            return Results.Ok(results);
+            return Results.Ok(new { total, page, pageSize, items = results });
         });
 
         group.MapGet("/today", async (TenantContext tc, AppDbContext db, HttpContext http) =>

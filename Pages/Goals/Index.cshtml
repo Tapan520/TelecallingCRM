@@ -113,9 +113,10 @@
 let agentsList = [];
 
 async function loadAgents() {
-    const res = await fetch('/api/admin/users');
+    const res = await fetch('/api/admin/users?pageSize=500');
     if (!res.ok) return;
-    agentsList = await res.json();
+    const data = await res.json();
+    agentsList = data.users ?? data;
     const sel = document.getElementById('filter-agent');
     const goalSel = document.getElementById('goal-agent-id');
     agentsList.forEach(u => {

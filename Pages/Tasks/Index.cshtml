@@ -37,6 +37,17 @@
             </tbody>
         </table>
     </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="tasks-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="tasks-btn-prev" onclick="tasksChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="tasks-btn-next" onclick="tasksChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- Task Modal -->
@@ -69,6 +80,8 @@
 @section Scripts {
 <script>
 let currentStatus = null;
+let tasksPage = 1;
+const tasksPageSize = 25;
 function setTab(el) {
     document.querySelectorAll('#taskTabs .nav-link').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
@@ -79,17 +92,23 @@ const statusColors = { Pending:'warning', InProgress:'info', Completed:'success'
 
 async function loadTasks(status) {
     currentStatus = status;
+    tasksPage = (status !== undefined) ? tasksPage : 1;
     const myOnly = document.getElementById('myTasksToggle').checked;
-    let url = `/api/tasks?myTasks=${myOnly}${status ? '&status='+status : ''}`;
+    let url = `/api/tasks?page=${tasksPage}&pageSize=${tasksPageSize}&myTasks=${myOnly}${status ? '&status='+status : ''}`;
     const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
-    document.getElementById('tasks-tbody').innerHTML = data.length === 0
+
+    document.getElementById('tasks-count').textContent = `${data.total} task(s)`;
+    document.getElementById('tasks-btn-prev').disabled = tasksPage <= 1;
+    document.getElementById('tasks-btn-next').disabled = tasksPage * tasksPageSize >= data.total;
+
+    document.getElementById('tasks-tbody').innerHTML = !data.tasks.length
         ? '<tr><td colspan="7" class="text-center text-muted py-4">No tasks found.</td></tr>'
-        : data.map(t => `
+        : data.tasks.map(t => `
         <tr>
             <td class="fw-semibold">${t.title}</td>
-            <td>${t.leadName ? `<small class="text-muted">${t.leadName}</small>` : '—'}</td>
+            <td>${t.leadName ? `<small class="text-muted">${t.leadName}</small>` : '\u2014'}</td>
             <td>${t.assignedTo}</td>
             <td><span class="badge bg-${priorityColors[t.priority]}">${priorityLabels[t.priority]}</span></td>
             <td><small>${new Date(t.dueAt).toLocaleString()}</small></td>
@@ -100,6 +119,8 @@ async function loadTasks(status) {
             </td>
         </tr>`).join('');
 }
+
+function tasksChangePage(dir) { tasksPage += dir; loadTasks(currentStatus); }
 
 async function createTask() {
     const body = {

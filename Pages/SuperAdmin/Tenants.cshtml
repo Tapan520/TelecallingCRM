@@ -9,9 +9,12 @@
         <h5 class="mb-0 fw-bold">All Tenants</h5>
         <small class="text-muted">Every organization on this platform</small>
     </div>
-    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tenantModal">
-        <i class="bi bi-building-add"></i> New Tenant
-    </button>
+    <div class="d-flex gap-2">
+        <input type="text" id="tenant-search" class="form-control form-control-sm" placeholder="Search name or slug..." style="width:200px;" oninput="onTenantSearch()">
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tenantModal">
+            <i class="bi bi-building-add"></i> New Tenant
+        </button>
+    </div>
 </div>
 
 <div class="card mb-4">
@@ -34,6 +37,17 @@
                 <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
             </tbody>
         </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="tenants-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="tenants-btn-prev" onclick="tenantsChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="tenants-btn-next" onclick="tenantsChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -140,14 +154,30 @@
 @section Scripts {
 <script>
 const planColors = { free:'secondary', starter:'info', pro:'primary', enterprise:'warning' };
+let tenantsPage = 1;
+const tenantsPageSize = 20;
+let tenantsSearchTimer;
+
+function onTenantSearch() {
+    clearTimeout(tenantsSearchTimer);
+    tenantsSearchTimer = setTimeout(() => { tenantsPage = 1; loadTenants(); }, 350);
+}
 
 async function loadTenants() {
-    const res = await fetch('/api/superadmin/tenants');
+    const q = document.getElementById('tenant-search').value;
+    let url = `/api/superadmin/tenants?page=${tenantsPage}&pageSize=${tenantsPageSize}`;
+    if (q) url += `&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
-    document.getElementById('tenants-tbody').innerHTML = data.length === 0
+
+    document.getElementById('tenants-count').textContent = `${data.total} tenant(s)`;
+    document.getElementById('tenants-btn-prev').disabled = tenantsPage <= 1;
+    document.getElementById('tenants-btn-next').disabled = tenantsPage * tenantsPageSize >= data.total;
+
+    document.getElementById('tenants-tbody').innerHTML = !data.tenants.length
         ? '<tr><td colspan="9" class="text-center text-muted py-4">No tenants yet.</td></tr>'
-        : data.map(t => `
+        : data.tenants.map(t => `
         <tr>
             <td class="fw-semibold">${t.name}</td>
             <td><code>${t.slug}</code></td>
@@ -174,6 +204,9 @@ async function loadTenants() {
                 </div>
             </td>
         </tr>`).join('');
+}
+
+function tenantsChangePage(dir) { tenantsPage += dir; loadTenants(); }
 }
 
 async function createTenant() {

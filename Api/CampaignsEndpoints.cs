@@ -13,12 +13,23 @@ public static class CampaignsEndpoints
     {
         var group = app.MapGroup("/api/campaigns").WithTags("Campaigns").RequireAuthorization().RequireRateLimiting("api");
 
-        group.MapGet("/", async (TenantContext tc, AppDbContext db) =>
+        group.MapGet("/", async (TenantContext tc, AppDbContext db,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? q = null, [FromQuery] int? type = null) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
-            var campaigns = await db.Campaigns
+            var query = db.Campaigns
                 .Where(c => c.TenantId == tc.TenantId)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(q))
+                query = query.Where(c => c.Name.Contains(q) || (c.Description != null && c.Description.Contains(q)));
+            if (type.HasValue)
+                query = query.Where(c => (int)c.Type == type.Value);
+
+            var total = await query.CountAsync();
+            var campaigns = await query
                 .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(c => new
                 {
                     c.Id, c.Name, c.Description, c.Status, c.Type,
@@ -26,7 +37,7 @@ public static class CampaignsEndpoints
                     c.TargetCallsPerDay, c.Script, c.CreatedAt,
                     LeadCount = c.Leads.Count
                 }).ToListAsync();
-            return Results.Ok(campaigns);
+            return Results.Ok(new { total, page, pageSize, campaigns });
         });
 
         group.MapPost("/", async ([FromBody] CampaignUpsertDto dto, TenantContext tc, AppDbContext db) =>

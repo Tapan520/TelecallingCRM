@@ -19,8 +19,9 @@ public static class EmailEndpoints
             if (!tc.HasTenant) return Results.Unauthorized();
             var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
             var trackingToken = Guid.NewGuid().ToString("N");
-            // Inject open-tracking pixel into HTML body
-            var trackedBody = dto.Body + $"<img src='{{}}/api/email/track/{trackingToken}' width='1' height='1' style='display:none' />";
+            // Inject open-tracking pixel — derive base URL from current request
+            var baseUrl = $"{http.Request.Scheme}://{http.Request.Host}";
+            var trackedBody = dto.Body + $"<img src='{baseUrl}/api/email/track/{trackingToken}' width='1' height='1' style='display:none' />";
 
             var msg = new EmailMessage
             {

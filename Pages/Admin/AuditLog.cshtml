@@ -109,9 +109,10 @@ const typeIcons = {
 };
 
 async function loadAgentsFilter() {
-    const res = await fetch('/api/admin/users');
+    const res = await fetch('/api/admin/users?pageSize=500');
     if (!res.ok) return;
-    const users = await res.json();
+    const data = await res.json();
+    const users = data.users ?? data;
     const sel = document.getElementById('filter-user');
     users.forEach(u => sel.innerHTML += `<option value="${u.id}">${u.fullName}</option>`);
 }

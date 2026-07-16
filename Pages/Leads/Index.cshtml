@@ -259,9 +259,10 @@ let allAgents = [];
 
 async function loadAgents() {
     try {
-        const res = await fetch('/api/admin/users');
+        const res = await fetch('/api/admin/users?pageSize=500');
         if (!res.ok) return;
-        allAgents = await res.json();
+        const data = await res.json();
+        allAgents = data.users ?? data;
     } catch { allAgents = []; }
 }
 

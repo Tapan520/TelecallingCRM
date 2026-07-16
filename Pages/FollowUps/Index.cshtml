@@ -11,7 +11,7 @@
     </div>
     <div class="d-flex gap-2">
         <input type="date" id="date-filter" class="form-control form-control-sm" style="width:180px;"
-               value="@DateTime.Today.ToString("yyyy-MM-dd")" onchange="loadFollowUps()">
+               value="@DateTime.Today.ToString("yyyy-MM-dd")">
         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#fuModal">
             <i class="bi bi-calendar-plus"></i> Schedule
         </button>
@@ -30,6 +30,17 @@
                 <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
             </tbody>
         </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="fu-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="fu-btn-prev" onclick="fuChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="fu-btn-next" onclick="fuChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -70,15 +81,22 @@
 const channelIcons = ['bi-telephone','bi-whatsapp','bi-chat-dots','bi-envelope','bi-people'];
 const channelNames = ['Call','WhatsApp','SMS','Email','Meeting'];
 const statusColors = { Pending:'warning', Done:'success', Missed:'danger', Cancelled:'secondary' };
+let fuPage = 1;
+const fuPageSize = 25;
 
 async function loadFollowUps() {
     const date = document.getElementById('date-filter').value;
-    const res = await fetch(`/api/followups?date=${date}`);
+    const res = await fetch(`/api/followups?date=${date}&page=${fuPage}&pageSize=${fuPageSize}`);
     if (!res.ok) return;
     const data = await res.json();
-    document.getElementById('fu-tbody').innerHTML = data.length === 0
+
+    document.getElementById('fu-count').textContent = `${data.total} follow-up(s)`;
+    document.getElementById('fu-btn-prev').disabled = fuPage <= 1;
+    document.getElementById('fu-btn-next').disabled = fuPage * fuPageSize >= data.total;
+
+    document.getElementById('fu-tbody').innerHTML = !data.items.length
         ? '<tr><td colspan="8" class="text-center text-muted py-4">No follow-ups for this date.</td></tr>'
-        : data.map(f => `
+        : data.items.map(f => `
         <tr>
             <td class="fw-semibold">${f.leadName}</td>
             <td>${f.leadPhone}</td>
@@ -91,6 +109,11 @@ async function loadFollowUps() {
                 ${f.status === 'Pending' ? `<button class="btn btn-sm btn-outline-success" onclick="complete('${f.id}')"><i class="bi bi-check-lg"></i></button>` : ''}
             </td>
         </tr>`).join('');
+}
+
+function fuChangePage(dir) {
+    fuPage += dir;
+    loadFollowUps();
 }
 
 async function scheduleFollowUp() {
@@ -112,6 +135,7 @@ async function complete(id) {
     loadFollowUps();
 }
 
+document.getElementById('date-filter').addEventListener('change', () => { fuPage = 1; loadFollowUps(); });
 loadFollowUps();
 </script>
 }

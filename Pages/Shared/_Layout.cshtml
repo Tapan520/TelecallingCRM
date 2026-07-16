@@ -138,6 +138,9 @@
                     <a class="@NavClass("/Leads/Index")" asp-page="/Leads/Index">
                         <i class="bi bi-person-lines-fill"></i> Leads
                     </a>
+                    <a class="@NavClass("/Leads/Pipeline")" asp-page="/Leads/Pipeline">
+                        <i class="bi bi-kanban"></i> Pipeline
+                    </a>
                     <a class="@NavClass("/Campaigns/Index")" asp-page="/Campaigns/Index">
                         <i class="bi bi-megaphone"></i> Campaigns
                     </a>
@@ -339,6 +342,28 @@
     }
     pollUnread();
     setInterval(pollUnread, 60000);
+    </script>
+    <script>
+    // Real-time notification push from SignalR (Hangfire jobs call INotificationSender)
+    (function() {
+        const conn = new signalR.HubConnectionBuilder().withUrl('/hubs/crm').withAutomaticReconnect().build();
+        conn.on('NewNotification', n => {
+            // Update badge immediately without waiting for next poll
+            pollUnread();
+            // Show a brief toast
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed bottom-0 end-0 p-3';
+            toast.style.zIndex = 9999;
+            toast.innerHTML = `<div class="toast show align-items-center text-bg-primary border-0" role="alert">
+                <div class="d-flex"><div class="toast-body fw-semibold">${n.title}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.position-fixed').remove()"></button></div>
+            </div>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        });
+        conn.on('DashboardUpdated', () => { /* page-specific handlers can listen for this */ });
+        conn.start().catch(() => {});
+    })();
     </script>
     <script>
     function toggleSidebar() {

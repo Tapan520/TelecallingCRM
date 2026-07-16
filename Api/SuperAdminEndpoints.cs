@@ -16,9 +16,15 @@ public static class SuperAdminEndpoints
             .RequireRateLimiting("api");
 
         // GET all tenants
-        group.MapGet("/tenants", async (AppDbContext db) =>
+        group.MapGet("/tenants", async (AppDbContext db,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? q = null) =>
         {
-            var tenants = await db.Tenants
+            var query = db.Tenants.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(q))
+                query = query.Where(t => t.Name.Contains(q) || t.Slug.Contains(q));
+
+            var total = await query.CountAsync();
+            var tenants = await query
                 .Select(t => new
                 {
                     t.Id, t.Name, t.Slug, t.Plan, t.IsActive,
@@ -27,8 +33,9 @@ public static class SuperAdminEndpoints
                     LeadCount = db.Leads.Count(l => l.TenantId == t.Id)
                 })
                 .OrderByDescending(t => t.CreatedAt)
+                .Skip((page - 1) * pageSize).Take(pageSize)
                 .ToListAsync();
-            return Results.Ok(tenants);
+            return Results.Ok(new { total, page, pageSize, tenants });
         });
 
         // POST create a new tenant + its first admin user
@@ -116,20 +123,26 @@ public static class SuperAdminEndpoints
         });
 
         // GET all users across all tenants
-        group.MapGet("/users", async (AppDbContext db) =>
+        group.MapGet("/users", async (AppDbContext db,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? q = null) =>
         {
-            var users = await db.Users
-                .Include(u => u.Tenant)
+            var query = db.Users.Include(u => u.Tenant).AsQueryable();
+            if (!string.IsNullOrWhiteSpace(q))
+                query = query.Where(u => u.FullName.Contains(q) || u.Email.Contains(q));
+
+            var total = await query.CountAsync();
+            var users = await query
                 .Select(u => new
                 {
                     u.Id, u.FullName, u.Email, u.PhoneNumber, u.Role, u.IsActive, u.CreatedAt, u.LastLoginAt,
-                    TenantName = u.Tenant != null ? u.Tenant.Name : "— Platform —",
+                    TenantName = u.Tenant != null ? u.Tenant.Name : "\u2014 Platform \u2014",
                     TenantSlug = u.Tenant != null ? u.Tenant.Slug : null,
                     TenantId = u.TenantId
                 })
                 .OrderBy(u => u.TenantName).ThenBy(u => u.FullName)
+                .Skip((page - 1) * pageSize).Take(pageSize)
                 .ToListAsync();
-            return Results.Ok(users);
+            return Results.Ok(new { total, page, pageSize, users });
         });
 
         // POST create a new user under any tenant

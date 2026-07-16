@@ -19,6 +19,11 @@ public static class WhatsAppEndpoints
             if (!tc.HasTenant) return Results.Unauthorized();
             var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
+            // DNC guard
+            var normPhone = DncEndpoints.NormalisePhone(dto.ToPhone);
+            if (await db.DncEntries.AnyAsync(d => d.TenantId == tc.TenantId && d.Phone == normPhone))
+                return Results.BadRequest(new { error = "DNC", message = $"Cannot send WhatsApp to {dto.ToPhone} - this number is on the Do-Not-Call list." });
+
             var msg = new WhatsAppMessage
             {
                 TenantId = tc.TenantId,
@@ -66,6 +71,41 @@ public static class WhatsAppEndpoints
                 })
                 .ToListAsync();
             return Results.Ok(msgs);
+        });
+
+        // Bulk WhatsApp broadcast to selected leads
+        group.MapPost("/bulk", async ([FromBody] BulkWhatsAppDto dto, TenantContext tc,
+            AppDbContext db, HttpContext http) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+            var leads = await db.Leads
+                .Where(l => l.TenantId == tc.TenantId && dto.LeadIds.Contains(l.Id))
+                .ToListAsync();
+
+            // Pre-load DNC set for fast lookup
+            var dncSet = (await db.DncEntries
+                .Where(d => d.TenantId == tc.TenantId)
+                .Select(d => d.Phone)
+                .ToListAsync()).ToHashSet();
+
+            var queued = 0; var skippedDnc = 0;
+            foreach (var lead in leads)
+            {
+                var norm = DncEndpoints.NormalisePhone(lead.Phone);
+                if (dncSet.Contains(norm)) { skippedDnc++; continue; }
+
+                db.WhatsAppMessages.Add(new WhatsAppMessage
+                {
+                    TenantId = tc.TenantId, LeadId = lead.Id, SentById = userId,
+                    ToPhone = lead.Phone, Body = dto.Body, TemplateId = dto.TemplateId,
+                    Status = WhatsAppMessageStatus.Queued
+                });
+                queued++;
+            }
+            await db.SaveChangesAsync();
+            return Results.Ok(new { queued, skippedDnc });
         });
 
         // Inbound webhook (WhatsApp Business API posts here)
@@ -120,4 +160,5 @@ public static class WhatsAppEndpoints
 }
 
 public record SendWhatsAppDto(Guid LeadId, string ToPhone, string Body, string? TemplateId, string? MediaUrl);
+public record BulkWhatsAppDto(string Body, List<Guid> LeadIds, string? TemplateId);
 public record WhatsAppInboundDto(string From, string Body, string? MessageId);

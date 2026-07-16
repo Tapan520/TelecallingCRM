@@ -1,0 +1,418 @@
+@page
+@model TelecallingCRM.Pages.Leads.PipelineModel
+@{
+    ViewData["Title"] = "Lead Pipeline";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        <input type="text" id="pipeline-search" class="form-control form-control-sm" placeholder="Search name / phone..." style="width:200px;" oninput="filterCards()">
+        <select id="pipeline-campaign" class="form-select form-select-sm" style="width:160px;" onchange="loadPipeline()">
+            <option value="">All Campaigns</option>
+        </select>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary btn-sm" onclick="openNewLead()"><i class="bi bi-plus-lg"></i> Add Lead</button>
+        <a class="btn btn-outline-secondary btn-sm" asp-page="/Leads/Index"><i class="bi bi-list-ul"></i> List View</a>
+    </div>
+</div>
+
+<!-- Kanban board -->
+<div class="d-flex gap-3 overflow-auto pb-3" id="kanban-board" style="min-height:70vh;">
+    @foreach (var col in new[] {
+        ("New","primary","bi-circle"),
+        ("Contacted","warning","bi-telephone"),
+        ("Interested","info","bi-star"),
+        ("FollowUp","purple","bi-calendar-check"),
+        ("Converted","success","bi-trophy"),
+        ("NotInterested","danger","bi-x-circle"),
+        ("Dead","secondary","bi-archive")
+    })
+    {
+        <div class="kanban-col flex-shrink-0 d-flex flex-column" data-status="@col.Item1"
+             style="width:230px; background:#f1f5f9; border-radius:0.75rem; padding:0.75rem;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="fw-semibold small text-@col.Item2">
+                    <i class="bi @col.Item3 me-1"></i>@(col.Item1 == "NotInterested" ? "Not Interested" : col.Item1 == "FollowUp" ? "Follow Up" : col.Item1)
+                </span>
+                <span class="badge bg-@col.Item2 rounded-pill col-count" data-col="@col.Item1">0</span>
+            </div>
+            <div class="kanban-cards flex-grow-1 d-flex flex-column gap-2" data-col="@col.Item1"
+                 style="min-height:100px;"
+                 ondragover="event.preventDefault()" ondrop="onDrop(event,'@col.Item1')">
+            </div>
+            <div class="kanban-pagination mt-2 d-none" data-col="@col.Item1">
+                <div class="d-flex align-items-center justify-content-between gap-1">
+                    <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:.72rem;" onclick="pageCol('@col.Item1',-1)"><i class="bi bi-chevron-left"></i></button>
+                    <span class="text-muted" style="font-size:.72rem;" id="page-info-@col.Item1"></span>
+                    <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:.72rem;" onclick="pageCol('@col.Item1',1)"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Lead Modal (reused from list view) -->
+<div class="modal fade" id="leadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="leadModalTitle">New Lead</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="lead-id">
+                <input type="hidden" id="lead-assigned-to-id">
+                <input type="hidden" id="lead-campaign-id">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label">Full Name *</label><input type="text" id="lead-name" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Phone *</label><input type="text" id="lead-phone" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Email</label><input type="email" id="lead-email" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Company</label><input type="text" id="lead-company" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Alternate Phone</label><input type="text" id="lead-alternate-phone" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Industry</label><input type="text" id="lead-industry" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">City</label><input type="text" id="lead-city" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">State</label><input type="text" id="lead-state" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Source</label><input type="text" id="lead-source" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Status</label>
+                        <select id="lead-status" class="form-select">
+                            <option value="0">New</option><option value="1">Contacted</option>
+                            <option value="2">Interested</option><option value="3">Not Interested</option>
+                            <option value="4">Follow Up</option><option value="5">Converted</option><option value="6">Dead</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4"><label class="form-label">Priority</label>
+                        <select id="lead-priority" class="form-select">
+                            <option value="0">Normal</option><option value="1">High</option><option value="2">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4"><label class="form-label">Assigned To</label>
+                        <select id="lead-assignee" class="form-select"><option value="">-- Unassigned --</option></select>
+                    </div>
+                    <div class="col-md-6"><label class="form-label">Next Follow-up</label><input type="datetime-local" id="lead-followup" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Tags</label><input type="text" id="lead-tags" class="form-control" placeholder="hot, VIP, callback"></div>
+                    <div class="col-12"><label class="form-label">Notes</label><textarea id="lead-notes" class="form-control" rows="2"></textarea></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveLead()"><i class="bi bi-check-lg me-1"></i>Save Lead</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.kanban-card {
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    cursor: grab;
+    border-left: 3px solid transparent;
+    font-size: 0.82rem;
+    user-select: none;
+}
+.kanban-card:active { cursor: grabbing; }
+.kanban-card.priority-1 { border-left-color: #f59e0b; }
+.kanban-card.priority-2 { border-left-color: #ef4444; }
+.kanban-card .card-name { font-weight: 600; color: #1e293b; }
+.kanban-card .card-phone { color: #64748b; }
+.kanban-card .card-ai { font-size: 0.72rem; color: #7c3aed; }
+.kanban-col .kanban-cards.drag-over { background: rgba(79,70,229,0.06); border-radius: 0.5rem; }
+</style>
+
+@section Scripts {
+<script>
+// Status label -> numeric value mapping (matches LeadStatus enum)
+const STATUS_VAL = { New:0, Contacted:1, Interested:2, NotInterested:3, FollowUp:4, Converted:5, Dead:6 };
+const STATUS_LABEL = Object.fromEntries(Object.entries(STATUS_VAL).map(([k,v])=>[v,k]));
+
+const PAGE_SIZE = 5;
+let allLeads = [];
+let allAgents = [];
+let draggedLeadId = null;
+// per-column current page (0-based)
+const colPage = { New:0, Contacted:0, Interested:0, NotInterested:0, FollowUp:0, Converted:0, Dead:0 };
+
+async function loadAgents() {
+    try {
+        const res = await fetch('/api/admin/users?pageSize=500');
+        if (res.ok) { const d = await res.json(); allAgents = d.users ?? d; }
+    } catch { allAgents = []; }
+}
+
+async function loadCampaigns() {
+try {
+    const res = await fetch('/api/campaigns?pageSize=100');
+    if (!res.ok) return;
+    const data = await res.json();
+    const sel = document.getElementById('pipeline-campaign');
+    (data.campaigns ?? data).forEach(c => {
+            const o = document.createElement('option');
+            o.value = c.id; o.textContent = c.name;
+            sel.appendChild(o);
+        });
+    } catch {}
+}
+
+async function loadPipeline() {
+    const campaignId = document.getElementById('pipeline-campaign').value;
+    let url = '/api/leads?pageSize=500';
+    if (campaignId) url += '&campaignId=' + campaignId;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        allLeads = data.leads ?? [];
+        // Reset all column pages on fresh load
+        Object.keys(colPage).forEach(k => colPage[k] = 0);
+        renderBoard();
+    } catch {}
+}
+
+function filterCards() {
+    const q = document.getElementById('pipeline-search').value.toLowerCase();
+    // reset pages when searching
+    Object.keys(colPage).forEach(k => colPage[k] = 0);
+    renderBoard();
+    if (q) {
+        document.querySelectorAll('.kanban-card').forEach(card => {
+            const text = (card.dataset.name + ' ' + card.dataset.phone).toLowerCase();
+            card.style.display = text.includes(q) ? '' : 'none';
+        });
+        updateCounts();
+    }
+}
+
+function renderBoard() {
+    const q = document.getElementById('pipeline-search').value.toLowerCase();
+
+    // Group filtered leads by status label
+    const grouped = {};
+    Object.keys(STATUS_VAL).forEach(k => grouped[k] = []);
+    allLeads.forEach(lead => {
+        const statusLabel = STATUS_LABEL[lead.status] ?? 'New';
+        if (!grouped[statusLabel]) return;
+        if (!q || (lead.name + ' ' + lead.phone).toLowerCase().includes(q)) {
+            grouped[statusLabel].push(lead);
+        }
+    });
+
+    Object.keys(grouped).forEach(statusLabel => {
+        const col = document.querySelector(`.kanban-cards[data-col="${statusLabel}"]`);
+        const paginationEl = document.querySelector(`.kanban-pagination[data-col="${statusLabel}"]`);
+        const pageInfoEl = document.getElementById(`page-info-${statusLabel}`);
+        if (!col) return;
+
+        col.innerHTML = '';
+
+        const leads = grouped[statusLabel];
+        const totalPages = Math.max(1, Math.ceil(leads.length / PAGE_SIZE));
+        // clamp page
+        if (colPage[statusLabel] >= totalPages) colPage[statusLabel] = totalPages - 1;
+        if (colPage[statusLabel] < 0) colPage[statusLabel] = 0;
+
+        const page = colPage[statusLabel];
+        const start = page * PAGE_SIZE;
+        const pageLeads = leads.slice(start, start + PAGE_SIZE);
+
+        pageLeads.forEach(lead => {
+            const priorityClass = lead.priority === 2 ? 'priority-2' : lead.priority === 1 ? 'priority-1' : '';
+            const aiScore = lead.aiScore ?? 0;
+            const scoreColor = aiScore >= 70 ? 'success' : aiScore >= 40 ? 'warning' : 'secondary';
+
+            const card = document.createElement('div');
+            card.className = `kanban-card ${priorityClass}`;
+            card.draggable = true;
+            card.dataset.id = lead.id;
+            card.dataset.name = lead.name;
+            card.dataset.phone = lead.phone;
+            card.dataset.status = lead.status;
+            card.innerHTML = `
+                <div class="card-name">${lead.name}</div>
+                <div class="card-phone">${lead.phone}</div>
+                ${lead.company ? `<div class="text-muted" style="font-size:.72rem;">${lead.company}</div>` : ''}
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                    ${aiScore > 0 ? `<span class="badge bg-${scoreColor}" style="font-size:.65rem;">AI ${aiScore}%</span>` : '<span></span>'}
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-link btn-sm p-0 text-primary" style="font-size:.75rem;" onclick="editLead('${lead.id}')"><i class="bi bi-pencil"></i></button>
+                        <a href="/Leads/Timeline/${lead.id}" class="btn btn-link btn-sm p-0 text-secondary" style="font-size:.75rem;"><i class="bi bi-clock-history"></i></a>
+                    </div>
+                </div>`;
+
+            card.addEventListener('dragstart', e => {
+                draggedLeadId = lead.id;
+                e.dataTransfer.effectAllowed = 'move';
+                card.style.opacity = '0.5';
+            });
+            card.addEventListener('dragend', () => card.style.opacity = '');
+            col.appendChild(card);
+        });
+
+        // Show/hide pagination
+        if (leads.length > PAGE_SIZE) {
+            paginationEl.classList.remove('d-none');
+            pageInfoEl.textContent = `${page + 1} / ${totalPages}`;
+            // disable prev/next buttons as appropriate
+            const [prevBtn, nextBtn] = paginationEl.querySelectorAll('button');
+            prevBtn.disabled = page === 0;
+            nextBtn.disabled = page >= totalPages - 1;
+        } else {
+            paginationEl.classList.add('d-none');
+        }
+    });
+
+    // Re-attach drag-over highlight
+    document.querySelectorAll('.kanban-cards').forEach(col => {
+        col.addEventListener('dragover', () => col.classList.add('drag-over'));
+        col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+    });
+
+    updateCounts();
+}
+
+function pageCol(statusLabel, direction) {
+    colPage[statusLabel] = (colPage[statusLabel] ?? 0) + direction;
+    renderBoard();
+}
+
+function updateCounts() {
+    const q = document.getElementById('pipeline-search').value.toLowerCase();
+    Object.keys(STATUS_VAL).forEach(statusLabel => {
+        const count = allLeads.filter(l => {
+            const sl = STATUS_LABEL[l.status] ?? 'New';
+            return sl === statusLabel && (!q || (l.name + ' ' + l.phone).toLowerCase().includes(q));
+        }).length;
+        const badge = document.querySelector(`.col-count[data-col="${statusLabel}"]`);
+        if (badge) badge.textContent = count;
+    });
+}
+
+async function onDrop(event, newStatusLabel) {
+    event.preventDefault();
+    document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('drag-over'));
+    if (!draggedLeadId) return;
+
+    const lead = allLeads.find(l => l.id === draggedLeadId);
+    if (!lead) return;
+
+    const newStatusVal = STATUS_VAL[newStatusLabel];
+    if (lead.status === newStatusVal) return; // no change
+
+    // Optimistically move the card
+    lead.status = newStatusVal;
+    renderBoard();
+
+    try {
+        // Fetch full lead for update
+        const getRes = await fetch(`/api/leads/${draggedLeadId}`);
+        if (!getRes.ok) return;
+        const full = await getRes.json();
+        full.status = newStatusVal;
+        await fetch(`/api/leads/${draggedLeadId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(full)
+        });
+    } catch (e) {
+        console.error('Failed to update lead status', e);
+    }
+    draggedLeadId = null;
+}
+
+function populateAgentSelect(selectId, selectedId = '') {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">-- Unassigned --</option>';
+    allAgents.forEach(a => {
+        const o = document.createElement('option');
+        o.value = a.id; o.textContent = `${a.fullName} (${a.role})`;
+        if (a.id === selectedId) o.selected = true;
+        sel.appendChild(o);
+    });
+}
+
+function openNewLead() {
+    document.getElementById('leadModalTitle').textContent = 'New Lead';
+    ['id','assigned-to-id','campaign-id','name','phone','alternate-phone','email',
+     'company','industry','city','state','notes','source','tags'].forEach(f =>
+        document.getElementById('lead-' + f).value = '');
+    document.getElementById('lead-status').value = '0';
+    document.getElementById('lead-priority').value = '0';
+    document.getElementById('lead-followup').value = '';
+    populateAgentSelect('lead-assignee', '');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).show();
+}
+
+async function editLead(id) {
+    const res = await fetch(`/api/leads/${id}`);
+    if (!res.ok) { alert('Failed to load lead.'); return; }
+    const l = await res.json();
+    document.getElementById('leadModalTitle').textContent = 'Edit Lead';
+    document.getElementById('lead-id').value = l.id;
+    document.getElementById('lead-assigned-to-id').value = l.assignedToId ?? '';
+    document.getElementById('lead-campaign-id').value = l.campaignId ?? '';
+    document.getElementById('lead-name').value = l.name ?? '';
+    document.getElementById('lead-phone').value = l.phone ?? '';
+    document.getElementById('lead-alternate-phone').value = l.alternatePhone ?? '';
+    document.getElementById('lead-email').value = l.email ?? '';
+    document.getElementById('lead-company').value = l.company ?? '';
+    document.getElementById('lead-industry').value = l.industry ?? '';
+    document.getElementById('lead-city').value = l.city ?? '';
+    document.getElementById('lead-state').value = l.state ?? '';
+    document.getElementById('lead-notes').value = l.notes ?? '';
+    document.getElementById('lead-source').value = l.source ?? '';
+    document.getElementById('lead-tags').value = l.tags ?? '';
+    document.getElementById('lead-status').value = l.status;
+    document.getElementById('lead-priority').value = l.priority;
+    document.getElementById('lead-followup').value = l.nextFollowUpAt
+        ? new Date(l.nextFollowUpAt).toISOString().slice(0,16) : '';
+    populateAgentSelect('lead-assignee', l.assignedToId ?? '');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).show();
+}
+
+async function saveLead() {
+    const id = document.getElementById('lead-id').value;
+    const name = document.getElementById('lead-name').value.trim();
+    const phone = document.getElementById('lead-phone').value.trim();
+    if (!name) { alert('Name is required.'); return; }
+    if (!phone) { alert('Phone is required.'); return; }
+
+    const body = {
+        name, phone,
+        alternatePhone: document.getElementById('lead-alternate-phone').value || null,
+        email:          document.getElementById('lead-email').value || null,
+        company:        document.getElementById('lead-company').value || null,
+        industry:       document.getElementById('lead-industry').value || null,
+        city:           document.getElementById('lead-city').value || null,
+        state:          document.getElementById('lead-state').value || null,
+        notes:          document.getElementById('lead-notes').value || null,
+        source:         document.getElementById('lead-source').value || null,
+        tags:           document.getElementById('lead-tags').value || null,
+        status:         parseInt(document.getElementById('lead-status').value),
+        priority:       parseInt(document.getElementById('lead-priority').value),
+        nextFollowUpAt: document.getElementById('lead-followup').value || null,
+        assignedToId:   document.getElementById('lead-assignee').value || null,
+        campaignId:     document.getElementById('lead-campaign-id').value || null
+    };
+
+    const res = await fetch(id ? `/api/leads/${id}` : '/api/leads', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).hide();
+        loadPipeline();
+    } else {
+        alert('Error saving lead:\n' + await res.text());
+    }
+}
+
+// Initial load
+loadAgents();
+loadCampaigns();
+loadPipeline();
+</script>
+}

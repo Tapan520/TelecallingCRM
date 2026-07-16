@@ -49,6 +49,17 @@
             </tbody>
         </table>
     </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="meetings-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="meet-btn-prev" onclick="meetChangePage(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="meet-btn-next" onclick="meetChangePage(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- Meeting Modal -->
@@ -110,6 +121,8 @@
 @section Scripts {
 <script>
 let currentMeetingStatus = '';
+let meetPage = 1;
+const meetPageSize = 25;
 const typeLabels = ['Phone Call','Video Call','In Person','Online Demo'];
 const typeIcons  = ['bi-telephone','bi-camera-video','bi-person-walking','bi-laptop'];
 const statusColors = { Scheduled:'info', Completed:'success', Cancelled:'secondary', NoShow:'danger', Rescheduled:'warning' };
@@ -118,16 +131,23 @@ function setMeetingTab(el, status) {
     document.querySelectorAll('#meetingTabs .nav-link').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     currentMeetingStatus = status;
+    meetPage = 1;
     loadMeetings();
 }
 
 async function loadMeetings() {
     const myOnly = document.getElementById('myMeetingsToggle').checked;
-    let url = `/api/meetings?${currentMeetingStatus ? 'status='+currentMeetingStatus+'&' : ''}${myOnly ? 'myMeetings=true' : ''}`;
+    let url = `/api/meetings?page=${meetPage}&pageSize=${meetPageSize}${currentMeetingStatus ? '&status='+currentMeetingStatus : ''}${myOnly ? '&myMeetings=true' : ''}`;
     const res = await fetch(url);
     if (!res.ok) { document.getElementById('meetings-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load. Please login.</td></tr>'; return; }
     const data = await res.json();
     const items = data.items ?? data;
+    const total = data.total ?? items.length;
+
+    document.getElementById('meetings-count').textContent = `${total} meeting(s)`;
+    document.getElementById('meet-btn-prev').disabled = meetPage <= 1;
+    document.getElementById('meet-btn-next').disabled = meetPage * meetPageSize >= total;
+
     if (!items.length) {
         document.getElementById('meetings-tbody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No meetings found.</td></tr>';
         return;
@@ -160,6 +180,8 @@ async function loadMeetings() {
             </td>
         </tr>`).join('');
 }
+
+function meetChangePage(dir) { meetPage += dir; loadMeetings(); }
 
 function openMeetingModal(m) {
     document.getElementById('meeting-edit-id').value = m?.id ?? '';

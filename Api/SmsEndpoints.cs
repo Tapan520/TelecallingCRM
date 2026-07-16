@@ -18,6 +18,11 @@ public static class SmsEndpoints
             if (!tc.HasTenant) return Results.Unauthorized();
             var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
+            // DNC guard
+            var normPhone = DncEndpoints.NormalisePhone(dto.ToPhone);
+            if (await db.DncEntries.AnyAsync(d => d.TenantId == tc.TenantId && d.Phone == normPhone))
+                return Results.BadRequest(new { error = "DNC", message = $"Cannot send SMS to {dto.ToPhone} - this number is on the Do-Not-Call list." });
+
             var msg = new SmsMessage
             {
                 TenantId = tc.TenantId,

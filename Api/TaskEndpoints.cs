@@ -14,7 +14,8 @@ public static class TaskEndpoints
         var group = app.MapGroup("/api/tasks").WithTags("Tasks").RequireAuthorization().RequireRateLimiting("api");
 
         group.MapGet("/", async (TenantContext tc, AppDbContext db, HttpContext http,
-            [FromQuery] string? status, [FromQuery] bool myTasks = false) =>
+            [FromQuery] string? status, [FromQuery] bool myTasks = false,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 25) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
@@ -28,18 +29,24 @@ public static class TaskEndpoints
             if (Enum.TryParse<TelecallingCRM.Data.Models.TaskStatus>(status, true, out var ts))
                 query = query.Where(t => t.Status == ts);
 
-            // Auto-flag overdue tasks
+            // Auto-flag overdue tasks (on full set before paging)
             var now = DateTime.UtcNow;
-            var tasks = await query.OrderBy(t => t.DueAt).ToListAsync();
-            foreach (var t in tasks.Where(t => t.Status == TelecallingCRM.Data.Models.TaskStatus.Pending && t.DueAt < now))
+            var allMatchingTasks = await query.OrderBy(t => t.DueAt).ToListAsync();
+            foreach (var t in allMatchingTasks.Where(t => t.Status == TelecallingCRM.Data.Models.TaskStatus.Pending && t.DueAt < now))
                 t.Status = TelecallingCRM.Data.Models.TaskStatus.Overdue;
             await db.SaveChangesAsync();
 
-            return Results.Ok(tasks.Select(t => new {
-                t.Id, t.Title, t.Description, t.Priority, t.Status, t.DueAt, t.CompletedAt,
-                AssignedTo = t.AssignedTo.FullName,
-                LeadName = t.Lead?.Name
-            }));
+            var total = allMatchingTasks.Count;
+            var paged = allMatchingTasks.Skip((page - 1) * pageSize).Take(pageSize);
+
+            return Results.Ok(new {
+                total, page, pageSize,
+                tasks = paged.Select(t => new {
+                    t.Id, t.Title, t.Description, t.Priority, t.Status, t.DueAt, t.CompletedAt,
+                    AssignedTo = t.AssignedTo.FullName,
+                    LeadName = t.Lead?.Name
+                })
+            });
         });
 
         group.MapPost("/", async ([FromBody] TaskUpsertDto dto, TenantContext tc, AppDbContext db, HttpContext http) =>
