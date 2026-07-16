@@ -85,7 +85,7 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Lead <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="fu-lead-search" placeholder="Type lead name or phone…" autocomplete="off" oninput="searchLeads(this.value)" />
+                    <input type="text" class="form-control" id="fu-lead-search" placeholder="Type lead name or phoneâ€¦" autocomplete="off" oninput="searchLeads(this.value)" />
                     <input type="hidden" id="fu-lead-id" />
                     <div id="fu-lead-results" class="list-group mt-1" style="max-height:160px;overflow-y:auto;position:relative;z-index:10;"></div>
                 </div>
@@ -107,7 +107,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Notes</label>
-                    <textarea class="form-control" id="fu-notes" rows="2" placeholder="Optional notes…"></textarea>
+                    <textarea class="form-control" id="fu-notes" rows="2" placeholder="Optional notesâ€¦"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -197,7 +197,7 @@ function renderCalendar() {
                 const allForDay = allFollowUps[day] ?? [];
                 const badges    = fus.slice(0, 3).map(f => `
                     <div class="badge bg-${chColors[Number(f.channel)]} text-truncate w-100 mb-1"
-                         style="cursor:pointer;font-size:.65rem;max-width:100%;" title="${f.leadName} — ${chNames[Number(f.channel)]}">
+                         style="cursor:pointer;font-size:.65rem;max-width:100%;" title="${f.leadName} â€” ${chNames[Number(f.channel)]}">
                         <i class="bi ${chIcons[Number(f.channel)]} me-1"></i>${f.leadName.substring(0, 12)}
                     </div>`).join('');
                 const more = fus.length > 3 ? `<small class="text-muted" style="font-size:.65rem;">+${fus.length - 3} more</small>` : '';
@@ -256,7 +256,7 @@ function renderDayOffcanvas(fus) {
         const phone   = (f.leadPhone ?? '').replace(/\D/g, '');
         const leadUrl = `/Leads/Detail?id=${f.leadId}`;
 
-        // All action buttons — always shown regardless of channel
+        // All action buttons â€” always shown regardless of channel
         const actionBtns = `
             <a href="tel:${f.leadPhone}" class="btn btn-xs btn-outline-primary" title="Call">
                 <i class="bi bi-telephone"></i> Call
@@ -278,7 +278,7 @@ function renderDayOffcanvas(fus) {
                     <div class="flex-grow-1 me-2">
                         <a href="${leadUrl}" class="fw-semibold text-decoration-none small">${f.leadName}</a>
                         <div class="text-muted" style="font-size:.72rem;">
-                            <i class="bi bi-telephone me-1 opacity-50"></i>${f.leadPhone ?? '—'}
+                            <i class="bi bi-telephone me-1 opacity-50"></i>${f.leadPhone ?? 'â€”'}
                         </div>
                     </div>
                     <div class="text-end flex-shrink-0">
@@ -458,179 +458,3 @@ loadMonth();
 </style>
 }
 
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div><h5 class="mb-0 fw-bold"><i class="bi bi-calendar3 text-warning me-2"></i>Follow-up Calendar</h5></div>
-    <div class="d-flex gap-2 align-items-center">
-        <button class="btn btn-outline-secondary btn-sm" onclick="navigateMonth(-1)"><i class="bi bi-chevron-left"></i></button>
-        <span id="month-label" class="fw-semibold mx-2" style="min-width:160px;text-align:center;"></span>
-        <button class="btn btn-outline-secondary btn-sm" onclick="navigateMonth(1)"><i class="bi bi-chevron-right"></i></button>
-        <button class="btn btn-outline-primary btn-sm ms-2" onclick="goToday()">Today</button>
-    </div>
-</div>
-
-<!-- Legend -->
-<div class="d-flex gap-3 mb-3 small flex-wrap">
-    <span><span class="badge bg-primary me-1"></span>Call</span>
-    <span><span class="badge bg-success me-1"></span>WhatsApp</span>
-    <span><span class="badge bg-info me-1"></span>SMS</span>
-    <span><span class="badge bg-warning text-dark me-1"></span>Email</span>
-    <span><span class="badge bg-secondary me-1"></span>Meeting</span>
-</div>
-
-<!-- Calendar grid -->
-<div class="card">
-    <div class="card-body p-0">
-        <table class="table table-bordered mb-0" id="cal-table">
-            <thead class="table-dark text-center">
-                <tr>
-                    <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
-                </tr>
-            </thead>
-            <tbody id="cal-body"></tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Day Detail Offcanvas -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="dayOffcanvas" style="width:400px;">
-    <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="day-offcanvas-title">Follow-ups</h5>
-        <button class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-    <div class="offcanvas-body" id="day-offcanvas-body">Loading...</div>
-</div>
-
-@section Scripts {
-<script>
-let currentYear = new Date().getFullYear();
-let currentMonth = new Date().getMonth();
-let allFollowUps = {};
-
-const chColors = ['primary','success','info','warning','secondary'];
-const chNames = ['Call','WhatsApp','SMS','Email','Meeting'];
-const statusColors = { Pending:'warning', Done:'success', Missed:'danger', Cancelled:'secondary' };
-
-async function loadMonth() {
-    const monthLabel = new Date(currentYear, currentMonth, 1)
-        .toLocaleString('default', { month: 'long', year: 'numeric' });
-    document.getElementById('month-label').textContent = monthLabel;
-
-    // Load all follow-ups for the month
-    const start = new Date(currentYear, currentMonth, 1).toISOString().slice(0,10);
-    const end = new Date(currentYear, currentMonth + 1, 0).toISOString().slice(0,10);
-
-    const promises = [];
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
-
-    // Fetch day by day (or fetch all and filter)
-    const res = await fetch(`/api/followups?pageSize=500`);
-    allFollowUps = {};
-
-    if (res.ok) {
-        const d = await res.json();
-        (d.items ?? []).forEach(f => {
-            const dt = new Date(f.scheduledAt);
-            if (dt.getFullYear() === currentYear && dt.getMonth() === currentMonth) {
-                const key = dt.getDate();
-                if (!allFollowUps[key]) allFollowUps[key] = [];
-                allFollowUps[key].push(f);
-            }
-        });
-    }
-    renderCalendar();
-}
-
-function renderCalendar() {
-    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const today = new Date();
-    const tbody = document.getElementById('cal-body');
-    let html = '';
-    let day = 1;
-    for (let row = 0; row < 6; row++) {
-        html += '<tr>';
-        for (let col = 0; col < 7; col++) {
-            if ((row === 0 && col < firstDay) || day > daysInMonth) {
-                html += '<td class="bg-light" style="height:90px;vertical-align:top;"></td>';
-            } else {
-                const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
-                const fus = allFollowUps[day] ?? [];
-                const badges = fus.slice(0,3).map(f => `<div class="badge bg-${chColors[f.channel]} text-truncate w-100 mb-1" style="cursor:pointer;font-size:.65rem;" title="${f.leadName}">${f.leadName.substring(0,15)}</div>`).join('');
-                const more = fus.length > 3 ? `<small class="text-muted">+${fus.length - 3} more</small>` : '';
-                html += `<td style="height:90px;vertical-align:top;cursor:pointer;" class="${isToday?'table-primary':''}" onclick="showDay(${day})">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="${isToday?'badge bg-primary rounded-circle':'fw-semibold small'}">${day}</span>
-                        ${fus.length ? `<span class="badge bg-warning text-dark">${fus.length}</span>` : ''}
-                    </div>
-                    ${badges}${more}
-                </td>`;
-                day++;
-            }
-        }
-        html += '</tr>';
-        if (day > daysInMonth) break;
-    }
-    tbody.innerHTML = html;
-}
-
-function showDay(day) {
-    const fus = allFollowUps[day] ?? [];
-    const date = new Date(currentYear, currentMonth, day);
-    document.getElementById('day-offcanvas-title').textContent = date.toLocaleDateString('default', { weekday:'long', day:'numeric', month:'long' });
-
-    if (!fus.length) {
-        document.getElementById('day-offcanvas-body').innerHTML = '<div class="text-muted text-center py-4">No follow-ups scheduled for this day.</div>';
-    } else {
-        document.getElementById('day-offcanvas-body').innerHTML = fus.map(f => `
-            <div class="card mb-2">
-                <div class="card-body py-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <div class="fw-semibold small"><a href="/Leads/${f.leadId}/detail" class="text-decoration-none">${f.leadName}</a></div>
-                            <div class="text-muted" style="font-size:.75rem;">${f.leadPhone}</div>
-                        </div>
-                        <span class="badge bg-${statusColors[f.status]??'secondary'}">${f.status}</span>
-                    </div>
-                    <div class="d-flex gap-2 mt-1 align-items-center">
-                        <span class="badge bg-${chColors[f.channel]}">${chNames[f.channel]}</span>
-                        <small class="text-muted">${new Date(f.scheduledAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small>
-                    </div>
-                    ${f.notes ? `<div class="text-muted small mt-1">${f.notes}</div>` : ''}
-                    <div class="d-flex gap-1 mt-2 flex-wrap">
-                        ${f.channel === 0 ? `<a href="tel:${f.leadPhone}" class="btn btn-sm btn-outline-primary"><i class="bi bi-telephone"></i> Call</a>` : ''}
-                        ${f.channel === 1 ? `<a href="https://wa.me/${f.leadPhone.replace(/\D/g,'')}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-whatsapp"></i> WhatsApp</a>` : ''}
-                        ${f.channel === 2 ? `<a href="sms:${f.leadPhone}" class="btn btn-sm btn-outline-info"><i class="bi bi-chat-dots"></i> SMS</a>` : ''}
-                        ${f.channel === 3 ? `<a href="/Messaging/Email?leadId=${f.leadId}" class="btn btn-sm btn-outline-warning"><i class="bi bi-envelope"></i> Email</a>` : ''}
-                        ${f.channel === 4 ? `<a href="/Meetings?leadId=${f.leadId}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-people"></i> Meeting</a>` : ''}
-                        ${f.status === 'Pending' ? `<button class="btn btn-sm btn-outline-success" onclick="complete('${f.id}')"><i class="bi bi-check-lg"></i> Done</button>` : ''}
-                    </div>
-                </div>
-            </div>`).join('');
-    }
-    new bootstrap.Offcanvas(document.getElementById('dayOffcanvas')).show();
-}
-
-async function complete(id) {
-    await fetch(`/api/followups/${id}/complete`, { method: 'POST' });
-    loadMonth();
-    bootstrap.Offcanvas.getInstance(document.getElementById('dayOffcanvas'))?.hide();
-}
-
-function navigateMonth(dir) {
-    currentMonth += dir;
-    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    loadMonth();
-}
-
-function goToday() {
-    currentYear = new Date().getFullYear();
-    currentMonth = new Date().getMonth();
-    loadMonth();
-}
-
-loadMonth();
-</script>
-}
