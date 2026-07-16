@@ -675,6 +675,656 @@ public static class DatabaseSeeder
         );
 
         await db.SaveChangesAsync();
+
+        // ?? CALL SCRIPTS ??????????????????????????????????????????????????????
+        var script1 = new CallScript
+        {
+            TenantId = apex.Id, CampaignId = c1.Id, IsActive = true,
+            Title = "Enterprise Cold Call Script",
+            Content = "Hi [Name], I'm [Agent] from Apex Sales. We help enterprise teams close 30% more deals with AI-assisted calling. Quick question — are your reps spending more time on admin than actually selling?\n\n[If YES] That's exactly what we solve. Can I show you a 5-minute demo?\n[If NO] Great! Out of curiosity, how are you currently tracking your lead pipeline?\n\nWrap-up: I'll send a quick overview and schedule a demo. What's the best time?",
+            CreatedAt = DateTime.UtcNow.AddDays(-55), UpdatedAt = DateTime.UtcNow.AddDays(-10)
+        };
+        var script2 = new CallScript
+        {
+            TenantId = apex.Id, CampaignId = c2.Id, IsActive = true,
+            Title = "SMB Upsell Script",
+            Content = "Hi [Name], this is [Agent] from Apex. You've been on our starter plan for a while — I wanted to personally reach out.\n\nWe've just launched some powerful features on the premium plan, including AI lead scoring and automated follow-ups. I think it could save your team 2 hours every day.\n\nWould you be open to a quick 15-minute walkthrough?",
+            CreatedAt = DateTime.UtcNow.AddDays(-18), UpdatedAt = DateTime.UtcNow.AddDays(-5)
+        };
+        var script3 = new CallScript
+        {
+            TenantId = nova.Id, CampaignId = c4.Id, IsActive = true,
+            Title = "Broadband Intro Script",
+            Content = "Hello [Name], I'm calling from Nova Telecom. We've just launched a blazing-fast 1 Gbps broadband plan in your area at just ?1499/month — that's half the price of most providers.\n\nAre you happy with your current internet speed?\n\n[If NO] Perfect — let me tell you about our Home Ultra plan.\n[If YES] That's great! With Nova you'd get the same speed plus unlimited data and free installation.",
+            CreatedAt = DateTime.UtcNow.AddDays(-14), UpdatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        db.CallScripts.AddRange(script1, script2, script3);
+        await db.SaveChangesAsync();
+
+        // ?? DEAL PIPELINE ?????????????????????????????????????????????????????
+        var deal1 = new Deal
+        {
+            TenantId = apex.Id, LeadId = apexLeads[0].Id, AssignedToId = apexAlice.Id,
+            Title = "TechCorp India — Enterprise Licence",
+            Value = 48000m, Currency = "USD", Stage = DealStage.Proposal, Probability = 60,
+            ExpectedCloseDate = DateTime.UtcNow.AddDays(15),
+            Notes = "Rajesh is keen. Waiting for legal to review the MSA.",
+            CreatedAt = DateTime.UtcNow.AddDays(-12), UpdatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        var deal2 = new Deal
+        {
+            TenantId = apex.Id, LeadId = apexLeads[4].Id, AssignedToId = apexAlice.Id,
+            Title = "Startup42 — Annual Pro Plan",
+            Value = 14988m, Currency = "USD", Stage = DealStage.ClosedWon, Probability = 100,
+            ExpectedCloseDate = DateTime.UtcNow.AddDays(-2),
+            Notes = "Closed. Contract signed. Onboarding in progress.",
+            CreatedAt = DateTime.UtcNow.AddDays(-20), UpdatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        var deal3 = new Deal
+        {
+            TenantId = apex.Id, LeadId = apexLeads[9].Id, AssignedToId = apexManager.Id,
+            Title = "Tokyo Ventures — APAC Expansion Deal",
+            Value = 120000m, Currency = "USD", Stage = DealStage.Negotiation, Probability = 45,
+            ExpectedCloseDate = DateTime.UtcNow.AddDays(30),
+            Notes = "High value. CFO involved. Multiple stakeholders.",
+            CreatedAt = DateTime.UtcNow.AddDays(-8), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var deal4 = new Deal
+        {
+            TenantId = apex.Id, LeadId = apexLeads[6].Id, AssignedToId = apexBob.Id,
+            Title = "CloudVision — Premium Upgrade",
+            Value = 7200m, Currency = "USD", Stage = DealStage.Qualification, Probability = 30,
+            ExpectedCloseDate = DateTime.UtcNow.AddDays(20),
+            Notes = "Demo done. Awaiting board approval.",
+            CreatedAt = DateTime.UtcNow.AddDays(-5), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var deal5 = new Deal
+        {
+            TenantId = apex.Id, LeadId = apexLeads[12].Id, AssignedToId = apexAlice.Id,
+            Title = "SG Labs — 1 Year Enterprise",
+            Value = 17880m, Currency = "USD", Stage = DealStage.ClosedWon, Probability = 100,
+            ExpectedCloseDate = DateTime.UtcNow.AddDays(-5),
+            Notes = "Closed. 1-year contract. RCPT-002 issued.",
+            CreatedAt = DateTime.UtcNow.AddDays(-15), UpdatedAt = DateTime.UtcNow.AddDays(-5)
+        };
+        var deal6 = new Deal
+        {
+            TenantId = apex.Id, LeadId = apexLeads[5].Id, AssignedToId = apexBob.Id,
+            Title = "Fabricate GmbH — Starter Pilot",
+            Value = 1788m, Currency = "EUR", Stage = DealStage.ClosedLost, Probability = 0,
+            Notes = "Budget constraints. May revisit Q1 next year.",
+            CreatedAt = DateTime.UtcNow.AddDays(-18), UpdatedAt = DateTime.UtcNow.AddDays(-3)
+        };
+        var deal7 = new Deal
+        {
+            TenantId = apex.Id, LeadId = apexLeads[2].Id, AssignedToId = apexBob.Id,
+            Title = "Atlantic Digital — Starter Plan",
+            Value = 1788m, Currency = "EUR", Stage = DealStage.Prospecting, Probability = 20,
+            Notes = "Initial interest. Needs ROI calculation.",
+            CreatedAt = DateTime.UtcNow.AddDays(-3), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var deal8 = new Deal
+        {
+            TenantId = nova.Id, LeadId = novaLeads[0].Id, AssignedToId = novaRaj.Id,
+            Title = "Arun Pillai — Home Ultra Annual",
+            Value = 17988m, Currency = "INR", Stage = DealStage.Proposal, Probability = 65,
+            Notes = "Very interested. Sending confirmation today.",
+            CreatedAt = DateTime.UtcNow.AddDays(-4), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var deal9 = new Deal
+        {
+            TenantId = nova.Id, LeadId = novaLeads[1].Id, AssignedToId = novaRaj.Id,
+            Title = "Deepa Nair — Annual Home Ultra",
+            Value = 17988m, Currency = "INR", Stage = DealStage.ClosedWon, Probability = 100,
+            Notes = "Signed annual plan. Payment received.",
+            CreatedAt = DateTime.UtcNow.AddDays(-10), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        db.Deals.AddRange(deal1, deal2, deal3, deal4, deal5, deal6, deal7, deal8, deal9);
+        await db.SaveChangesAsync();
+
+        // ?? QUOTATION MANAGEMENT ??????????????????????????????????????????????
+        var lineItems1 = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { description = "Enterprise Pro Licence (20 users)", qty = 1, unitPrice = 14988.0, amount = 14988.0 },
+            new { description = "Dedicated Onboarding & Training", qty = 1, unitPrice = 2000.0, amount = 2000.0 }
+        });
+        var quote1 = new Quote
+        {
+            TenantId = apex.Id, LeadId = apexLeads[0].Id, DealId = deal1.Id, CreatedById = apexAlice.Id,
+            QuoteNumber = "QT-APEX-001", Title = "Enterprise Licence — TechCorp India",
+            Status = QuoteStatus.Sent, LineItemsJson = lineItems1,
+            SubTotal = 16988m, DiscountAmount = 988m, TaxPercent = 18m,
+            TaxAmount = 2880m, Total = 18880m, Currency = "USD",
+            Notes = "10-day validity. GST included.", ExpiresAt = DateTime.UtcNow.AddDays(10),
+            SentAt = DateTime.UtcNow.AddDays(-2),
+            CreatedAt = DateTime.UtcNow.AddDays(-3), UpdatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        var lineItems2 = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { description = "Annual Pro Plan (5 users)", qty = 1, unitPrice = 14988.0, amount = 14988.0 }
+        });
+        var quote2 = new Quote
+        {
+            TenantId = apex.Id, LeadId = apexLeads[4].Id, DealId = deal2.Id, CreatedById = apexAlice.Id,
+            QuoteNumber = "QT-APEX-002", Title = "Annual Pro Plan — Startup42",
+            Status = QuoteStatus.Accepted, LineItemsJson = lineItems2,
+            SubTotal = 14988m, DiscountAmount = 0m, TaxPercent = 18m,
+            TaxAmount = 2697.84m, Total = 17685.84m, Currency = "USD",
+            SentAt = DateTime.UtcNow.AddDays(-10), AcceptedAt = DateTime.UtcNow.AddDays(-2),
+            CreatedAt = DateTime.UtcNow.AddDays(-12), UpdatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        var lineItems3 = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { description = "APAC Enterprise Licence (unlimited users)", qty = 1, unitPrice = 100000.0, amount = 100000.0 },
+            new { description = "Premium Support SLA", qty = 1, unitPrice = 20000.0, amount = 20000.0 }
+        });
+        var quote3 = new Quote
+        {
+            TenantId = apex.Id, LeadId = apexLeads[9].Id, DealId = deal3.Id, CreatedById = apexManager.Id,
+            QuoteNumber = "QT-APEX-003", Title = "APAC Expansion — Tokyo Ventures",
+            Status = QuoteStatus.Draft, LineItemsJson = lineItems3,
+            SubTotal = 120000m, DiscountAmount = 5000m, TaxPercent = 0m,
+            TaxAmount = 0m, Total = 115000m, Currency = "USD",
+            Notes = "Draft — pending legal review. Zero tax (export).",
+            ExpiresAt = DateTime.UtcNow.AddDays(30),
+            CreatedAt = DateTime.UtcNow.AddDays(-1), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var lineItems4 = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { description = "Nova Home Ultra — Annual (12 months)", qty = 1, unitPrice = 17988.0, amount = 17988.0 }
+        });
+        var quote4 = new Quote
+        {
+            TenantId = nova.Id, LeadId = novaLeads[0].Id, DealId = deal8.Id, CreatedById = novaRaj.Id,
+            QuoteNumber = "QT-NOVA-001", Title = "Home Ultra Annual — Arun Pillai",
+            Status = QuoteStatus.Sent, LineItemsJson = lineItems4,
+            SubTotal = 17988m, DiscountAmount = 0m, TaxPercent = 18m,
+            TaxAmount = 3237.84m, Total = 21225.84m, Currency = "INR",
+            ExpiresAt = DateTime.UtcNow.AddDays(7), SentAt = DateTime.UtcNow.AddDays(-1),
+            CreatedAt = DateTime.UtcNow.AddDays(-2), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        db.Quotes.AddRange(quote1, quote2, quote3, quote4);
+        await db.SaveChangesAsync();
+
+        // ?? INVOICES ??????????????????????????????????????????????????????????
+        var payments = await db.Payments.Where(p => p.TenantId == apex.Id).ToListAsync();
+        var inv1LineItems = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new { description = "Annual Pro Plan", qty = 1, unitPrice = 14988.0, amount = 14988.0 }
+        });
+        db.Invoices.AddRange(
+            new Invoice
+            {
+                TenantId = apex.Id, LeadId = apexLeads[4].Id, CreatedById = apexAlice.Id,
+                InvoiceNumber = "INV-APEX-001", Status = InvoiceStatus.Paid,
+                SubTotal = 14988m, TaxPercent = 18m, TaxAmount = 2697.84m, Total = 17685.84m,
+                Currency = "USD", Description = "Annual Pro Plan — Startup42",
+                LineItemsJson = inv1LineItems,
+                IssuedAt = DateTime.UtcNow.AddDays(-3), DueAt = DateTime.UtcNow.AddDays(27),
+                PaidAt = DateTime.UtcNow.AddDays(-2),
+                CreatedAt = DateTime.UtcNow.AddDays(-3), UpdatedAt = DateTime.UtcNow.AddDays(-2)
+            },
+            new Invoice
+            {
+                TenantId = apex.Id, LeadId = apexLeads[12].Id, CreatedById = apexAlice.Id,
+                InvoiceNumber = "INV-APEX-002", Status = InvoiceStatus.Paid,
+                SubTotal = 17880m, TaxPercent = 0m, TaxAmount = 0m, Total = 17880m,
+                Currency = "USD", Description = "1-Year Enterprise Contract — SG Labs",
+                LineItemsJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                {
+                    new { description = "Enterprise Annual Licence", qty = 1, unitPrice = 17880.0, amount = 17880.0 }
+                }),
+                IssuedAt = DateTime.UtcNow.AddDays(-6), DueAt = DateTime.UtcNow.AddDays(24),
+                PaidAt = DateTime.UtcNow.AddDays(-5),
+                CreatedAt = DateTime.UtcNow.AddDays(-6), UpdatedAt = DateTime.UtcNow.AddDays(-5)
+            },
+            new Invoice
+            {
+                TenantId = apex.Id, LeadId = apexLeads[2].Id, CreatedById = apexBob.Id,
+                InvoiceNumber = "INV-APEX-003", Status = InvoiceStatus.Sent,
+                SubTotal = 1788m, TaxPercent = 0m, TaxAmount = 0m, Total = 1788m,
+                Currency = "EUR", Description = "Starter Plan — Atlantic Digital",
+                LineItemsJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                {
+                    new { description = "Starter Plan (Annual)", qty = 1, unitPrice = 1788.0, amount = 1788.0 }
+                }),
+                IssuedAt = DateTime.UtcNow.AddDays(-1), DueAt = DateTime.UtcNow.AddDays(29),
+                CreatedAt = DateTime.UtcNow.AddDays(-1), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+            },
+            new Invoice
+            {
+                TenantId = nova.Id, LeadId = novaLeads[1].Id, CreatedById = novaRaj.Id,
+                InvoiceNumber = "INV-NOVA-001", Status = InvoiceStatus.Paid,
+                SubTotal = 17988m, TaxPercent = 18m, TaxAmount = 3237.84m, Total = 21225.84m,
+                Currency = "INR", Description = "Annual Home Ultra Plan — Deepa Nair",
+                LineItemsJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                {
+                    new { description = "Home Ultra 1Gbps Annual Plan", qty = 1, unitPrice = 17988.0, amount = 17988.0 }
+                }),
+                IssuedAt = DateTime.UtcNow.AddDays(-2), DueAt = DateTime.UtcNow.AddDays(28),
+                PaidAt = DateTime.UtcNow.AddDays(-1),
+                CreatedAt = DateTime.UtcNow.AddDays(-2), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+            }
+        );
+        await db.SaveChangesAsync();
+
+        // ?? COMMISSION TRACKER ????????????????????????????????????????????????
+        var crule1 = new CommissionRule
+        {
+            TenantId = apex.Id, Name = "10% of Enterprise Deals", Type = CommissionType.PercentOfPayment,
+            Value = 10m, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-60)
+        };
+        var crule2 = new CommissionRule
+        {
+            TenantId = apex.Id, Name = "Flat ?500 per Conversion", Type = CommissionType.FlatPerConversion,
+            Value = 500m, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-60)
+        };
+        var crule3 = new CommissionRule
+        {
+            TenantId = nova.Id, Name = "5% of Annual Plan Value", Type = CommissionType.PercentOfPayment,
+            Value = 5m, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-28)
+        };
+        db.CommissionRules.AddRange(crule1, crule2, crule3);
+        await db.SaveChangesAsync();
+
+        db.CommissionEntries.AddRange(
+            new CommissionEntry
+            {
+                TenantId = apex.Id, AgentId = apexAlice.Id, RuleId = crule1.Id,
+                LeadId = apexLeads[4].Id, Amount = 1498.8m,
+                Status = CommissionStatus.Paid, EarnedAt = DateTime.UtcNow.AddDays(-2),
+                PaidAt = DateTime.UtcNow.AddDays(-1), Note = "10% of $14,988 Annual Pro — Startup42"
+            },
+            new CommissionEntry
+            {
+                TenantId = apex.Id, AgentId = apexAlice.Id, RuleId = crule1.Id,
+                LeadId = apexLeads[12].Id, Amount = 1788m,
+                Status = CommissionStatus.Approved, EarnedAt = DateTime.UtcNow.AddDays(-5),
+                Note = "10% of $17,880 Enterprise — SG Labs. Pending payout."
+            },
+            new CommissionEntry
+            {
+                TenantId = apex.Id, AgentId = apexBob.Id, RuleId = crule2.Id,
+                LeadId = apexLeads[6].Id, Amount = 500m,
+                Status = CommissionStatus.Pending, EarnedAt = DateTime.UtcNow.AddDays(-1),
+                Note = "Flat bonus for qualified demo — CloudVision"
+            },
+            new CommissionEntry
+            {
+                TenantId = apex.Id, AgentId = apexBob.Id, RuleId = crule1.Id,
+                LeadId = apexLeads[2].Id, Amount = 178.8m,
+                Status = CommissionStatus.Pending, EarnedAt = DateTime.UtcNow,
+                Note = "10% of €1,788 Starter — Atlantic Digital (pending payment)"
+            },
+            new CommissionEntry
+            {
+                TenantId = nova.Id, AgentId = novaRaj.Id, RuleId = crule3.Id,
+                LeadId = novaLeads[1].Id, Amount = 899.4m,
+                Status = CommissionStatus.Paid, EarnedAt = DateTime.UtcNow.AddDays(-1),
+                PaidAt = DateTime.UtcNow, Note = "5% of ?17,988 Annual Ultra — Deepa Nair"
+            }
+        );
+        await db.SaveChangesAsync();
+
+        // ?? DRIP AUTOMATION ???????????????????????????????????????????????????
+        var seq1 = new DripSequence
+        {
+            TenantId = apex.Id, CampaignId = c1.Id, Name = "Enterprise Lead Nurture",
+            Trigger = AutomationTrigger.LeadCreated, IsActive = true,
+            CreatedAt = DateTime.UtcNow.AddDays(-50)
+        };
+        var seq2 = new DripSequence
+        {
+            TenantId = apex.Id, CampaignId = c2.Id, Name = "Upsell Follow-up Sequence",
+            Trigger = AutomationTrigger.CampaignEnrolled, IsActive = true,
+            CreatedAt = DateTime.UtcNow.AddDays(-18)
+        };
+        var seq3 = new DripSequence
+        {
+            TenantId = apex.Id, Name = "Post-Demo Drip",
+            Trigger = AutomationTrigger.LeadStatusChanged, IsActive = true,
+            CreatedAt = DateTime.UtcNow.AddDays(-10)
+        };
+        var seq4 = new DripSequence
+        {
+            TenantId = nova.Id, CampaignId = c4.Id, Name = "Broadband Interest Drip",
+            Trigger = AutomationTrigger.LeadCreated, IsActive = true,
+            CreatedAt = DateTime.UtcNow.AddDays(-14)
+        };
+        db.DripSequences.AddRange(seq1, seq2, seq3, seq4);
+        await db.SaveChangesAsync();
+
+        db.DripSteps.AddRange(
+            // Seq 1 — Enterprise Lead Nurture
+            new DripStep { SequenceId = seq1.Id, StepOrder = 1, StepType = AutomationStepType.SendEmail,    DelayDays = 0, Payload = "Welcome to Apex Sales! Here's your personalised overview.", CreatedAt = DateTime.UtcNow.AddDays(-50) },
+            new DripStep { SequenceId = seq1.Id, StepOrder = 2, StepType = AutomationStepType.Wait,           DelayDays = 2, Payload = "", CreatedAt = DateTime.UtcNow.AddDays(-50) },
+            new DripStep { SequenceId = seq1.Id, StepOrder = 3, StepType = AutomationStepType.SendWhatsApp,   DelayDays = 3, Payload = "Hi {{name}}, just checking in! Did you get a chance to review our overview?", CreatedAt = DateTime.UtcNow.AddDays(-50) },
+            new DripStep { SequenceId = seq1.Id, StepOrder = 4, StepType = AutomationStepType.AssignAgent,    DelayDays = 5, Payload = "Escalate to senior agent if no response.", CreatedAt = DateTime.UtcNow.AddDays(-50) },
+            new DripStep { SequenceId = seq1.Id, StepOrder = 5, StepType = AutomationStepType.SendSms,        DelayDays = 7, Payload = "Hi {{name}}, this is your last reminder! Reply YES to schedule a call.", CreatedAt = DateTime.UtcNow.AddDays(-50) },
+            // Seq 2 — Upsell Follow-up
+            new DripStep { SequenceId = seq2.Id, StepOrder = 1, StepType = AutomationStepType.SendEmail,    DelayDays = 0, Payload = "Exclusive: Unlock premium features with just a quick upgrade!", CreatedAt = DateTime.UtcNow.AddDays(-18) },
+            new DripStep { SequenceId = seq2.Id, StepOrder = 2, StepType = AutomationStepType.Wait,           DelayDays = 3, Payload = "", CreatedAt = DateTime.UtcNow.AddDays(-18) },
+            new DripStep { SequenceId = seq2.Id, StepOrder = 3, StepType = AutomationStepType.SendSms,        DelayDays = 4, Payload = "Hi {{name}}, your premium trial is waiting! Call us at 1800-APEX.", CreatedAt = DateTime.UtcNow.AddDays(-18) },
+            new DripStep { SequenceId = seq2.Id, StepOrder = 4, StepType = AutomationStepType.AddTag,         DelayDays = 7, Payload = "upsell-drip-complete", CreatedAt = DateTime.UtcNow.AddDays(-18) },
+            // Seq 3 — Post-Demo
+            new DripStep { SequenceId = seq3.Id, StepOrder = 1, StepType = AutomationStepType.SendEmail,    DelayDays = 0, Payload = "Thanks for attending the demo! Here's the recording + proposal.", CreatedAt = DateTime.UtcNow.AddDays(-10) },
+            new DripStep { SequenceId = seq3.Id, StepOrder = 2, StepType = AutomationStepType.SendWhatsApp,   DelayDays = 2, Payload = "Hi {{name}}, any questions about the demo? I'm here to help!", CreatedAt = DateTime.UtcNow.AddDays(-10) },
+            new DripStep { SequenceId = seq3.Id, StepOrder = 3, StepType = AutomationStepType.UpdateStatus,   DelayDays = 5, Payload = "FollowUp", CreatedAt = DateTime.UtcNow.AddDays(-10) },
+            // Seq 4 — Nova Broadband
+            new DripStep { SequenceId = seq4.Id, StepOrder = 1, StepType = AutomationStepType.SendSms,        DelayDays = 0, Payload = "Hi {{name}}, thanks for your interest in Nova Telecom! Check out our 1Gbps plan.", CreatedAt = DateTime.UtcNow.AddDays(-14) },
+            new DripStep { SequenceId = seq4.Id, StepOrder = 2, StepType = AutomationStepType.Wait,           DelayDays = 1, Payload = "", CreatedAt = DateTime.UtcNow.AddDays(-14) },
+            new DripStep { SequenceId = seq4.Id, StepOrder = 3, StepType = AutomationStepType.SendWhatsApp,   DelayDays = 2, Payload = "Get Nova's 1Gbps plan at ?1499/month. Limited slots! Reply NOW.", CreatedAt = DateTime.UtcNow.AddDays(-14) }
+        );
+
+        // Drip Enrollments
+        db.DripEnrollments.AddRange(
+            new DripEnrollment { SequenceId = seq1.Id, LeadId = apexLeads[0].Id, TenantId = apex.Id, Status = EnrollmentStatus.Active, CurrentStep = 3, EnrolledAt = DateTime.UtcNow.AddDays(-8), NextRunAt = DateTime.UtcNow.AddDays(1) },
+            new DripEnrollment { SequenceId = seq1.Id, LeadId = apexLeads[3].Id, TenantId = apex.Id, Status = EnrollmentStatus.Active, CurrentStep = 1, EnrolledAt = DateTime.UtcNow.AddDays(-2), NextRunAt = DateTime.UtcNow.AddDays(2) },
+            new DripEnrollment { SequenceId = seq2.Id, LeadId = apexLeads[1].Id, TenantId = apex.Id, Status = EnrollmentStatus.Completed, CurrentStep = 4, EnrolledAt = DateTime.UtcNow.AddDays(-15), NextRunAt = null },
+            new DripEnrollment { SequenceId = seq3.Id, LeadId = apexLeads[6].Id, TenantId = apex.Id, Status = EnrollmentStatus.Active, CurrentStep = 2, EnrolledAt = DateTime.UtcNow.AddDays(-3), NextRunAt = DateTime.UtcNow.AddDays(1) },
+            new DripEnrollment { SequenceId = seq4.Id, LeadId = novaLeads[0].Id, TenantId = nova.Id, Status = EnrollmentStatus.Active, CurrentStep = 2, EnrolledAt = DateTime.UtcNow.AddDays(-3), NextRunAt = DateTime.UtcNow.AddDays(1) },
+            new DripEnrollment { SequenceId = seq4.Id, LeadId = novaLeads[3].Id, TenantId = nova.Id, Status = EnrollmentStatus.Active, CurrentStep = 1, EnrolledAt = DateTime.UtcNow.AddDays(-1), NextRunAt = DateTime.UtcNow.AddDays(2) }
+        );
+        await db.SaveChangesAsync();
+
+        // ?? POST-CALL DISPOSITION FORMS ???????????????????????????????????????
+        var dispForm1 = new DispositionForm
+        {
+            TenantId = apex.Id, CampaignId = c1.Id, Name = "Enterprise Call Outcome",
+            IsDefault = true, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-45)
+        };
+        var dispForm2 = new DispositionForm
+        {
+            TenantId = apex.Id, CampaignId = c2.Id, Name = "Upsell Call Feedback",
+            IsDefault = false, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-15)
+        };
+        var dispForm3 = new DispositionForm
+        {
+            TenantId = nova.Id, CampaignId = c4.Id, Name = "Broadband Lead Disposition",
+            IsDefault = true, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-12)
+        };
+        db.DispositionForms.AddRange(dispForm1, dispForm2, dispForm3);
+        await db.SaveChangesAsync();
+
+        var df1f1 = new DispositionField { FormId = dispForm1.Id, Label = "Call Outcome",     FieldType = DispositionFieldType.Select,   Options = "Interested,Not Interested,Callback,Converted,Wrong Number", IsRequired = true,  SortOrder = 1 };
+        var df1f2 = new DispositionField { FormId = dispForm1.Id, Label = "Decision Maker Reached", FieldType = DispositionFieldType.Checkbox, IsRequired = false, SortOrder = 2 };
+        var df1f3 = new DispositionField { FormId = dispForm1.Id, Label = "Next Step",        FieldType = DispositionFieldType.Text,     IsRequired = false, SortOrder = 3 };
+        var df1f4 = new DispositionField { FormId = dispForm1.Id, Label = "Deal Size Estimate", FieldType = DispositionFieldType.Number, IsRequired = false, SortOrder = 4 };
+        var df1f5 = new DispositionField { FormId = dispForm1.Id, Label = "Sentiment Rating", FieldType = DispositionFieldType.Rating,   IsRequired = true,  SortOrder = 5 };
+
+        var df2f1 = new DispositionField { FormId = dispForm2.Id, Label = "Interested in Upgrade", FieldType = DispositionFieldType.Select, Options = "Yes,No,Maybe", IsRequired = true,  SortOrder = 1 };
+        var df2f2 = new DispositionField { FormId = dispForm2.Id, Label = "Objection Raised", FieldType = DispositionFieldType.Text,   IsRequired = false, SortOrder = 2 };
+        var df2f3 = new DispositionField { FormId = dispForm2.Id, Label = "Follow-up Date",  FieldType = DispositionFieldType.Date,   IsRequired = false, SortOrder = 3 };
+
+        var df3f1 = new DispositionField { FormId = dispForm3.Id, Label = "Plan Interest",   FieldType = DispositionFieldType.Select, Options = "Home Basic,Home Plus,Home Ultra,Not Interested", IsRequired = true, SortOrder = 1 };
+        var df3f2 = new DispositionField { FormId = dispForm3.Id, Label = "Installation Slot Confirmed", FieldType = DispositionFieldType.Checkbox, IsRequired = false, SortOrder = 2 };
+        var df3f3 = new DispositionField { FormId = dispForm3.Id, Label = "Agent Notes",     FieldType = DispositionFieldType.Text,   IsRequired = false, SortOrder = 3 };
+        var df3f4 = new DispositionField { FormId = dispForm3.Id, Label = "Customer Rating", FieldType = DispositionFieldType.Rating, IsRequired = false, SortOrder = 4 };
+
+        db.DispositionFields.AddRange(df1f1, df1f2, df1f3, df1f4, df1f5, df2f1, df2f2, df2f3, df3f1, df3f2, df3f3, df3f4);
+        await db.SaveChangesAsync();
+
+        // Disposition Responses (linked to seeded calls)
+        var seedCalls = await db.Calls.Where(c => c.TenantId == apex.Id).Take(4).ToListAsync();
+        var novaCalls = await db.Calls.Where(c => c.TenantId == nova.Id).Take(2).ToListAsync();
+        if (seedCalls.Count >= 4)
+        {
+            db.DispositionResponses.AddRange(
+                new DispositionResponse
+                {
+                    TenantId = apex.Id, FormId = dispForm1.Id,
+                    CallId = seedCalls[0].Id, AgentId = apexAlice.Id, LeadId = seedCalls[0].LeadId,
+                    AnswersJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+                    {
+                        { "Call Outcome", "Interested" }, { "Decision Maker Reached", "true" },
+                        { "Next Step", "Schedule product demo" }, { "Deal Size Estimate", "48000" }, { "Sentiment Rating", "4" }
+                    }),
+                    SubmittedAt = DateTime.UtcNow.AddDays(-6)
+                },
+                new DispositionResponse
+                {
+                    TenantId = apex.Id, FormId = dispForm1.Id,
+                    CallId = seedCalls[1].Id, AgentId = apexAlice.Id, LeadId = seedCalls[1].LeadId,
+                    AnswersJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+                    {
+                        { "Call Outcome", "Callback" }, { "Decision Maker Reached", "false" },
+                        { "Next Step", "Call back Monday 3pm" }, { "Sentiment Rating", "3" }
+                    }),
+                    SubmittedAt = DateTime.UtcNow.AddDays(-5)
+                },
+                new DispositionResponse
+                {
+                    TenantId = apex.Id, FormId = dispForm2.Id,
+                    CallId = seedCalls[2].Id, AgentId = apexBob.Id, LeadId = seedCalls[2].LeadId,
+                    AnswersJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+                    {
+                        { "Interested in Upgrade", "Maybe" }, { "Objection Raised", "Needs board approval" },
+                        { "Follow-up Date", DateTime.UtcNow.AddDays(5).ToString("yyyy-MM-dd") }
+                    }),
+                    SubmittedAt = DateTime.UtcNow.AddDays(-3)
+                },
+                new DispositionResponse
+                {
+                    TenantId = apex.Id, FormId = dispForm1.Id,
+                    CallId = seedCalls[3].Id, AgentId = apexBob.Id, LeadId = seedCalls[3].LeadId,
+                    AnswersJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+                    {
+                        { "Call Outcome", "Converted" }, { "Decision Maker Reached", "true" },
+                        { "Next Step", "Send contract" }, { "Deal Size Estimate", "17880" }, { "Sentiment Rating", "5" }
+                    }),
+                    SubmittedAt = DateTime.UtcNow.AddDays(-2)
+                }
+            );
+        }
+        if (novaCalls.Count >= 2)
+        {
+            db.DispositionResponses.AddRange(
+                new DispositionResponse
+                {
+                    TenantId = nova.Id, FormId = dispForm3.Id,
+                    CallId = novaCalls[0].Id, AgentId = novaRaj.Id, LeadId = novaCalls[0].LeadId,
+                    AnswersJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+                    {
+                        { "Plan Interest", "Home Ultra" }, { "Installation Slot Confirmed", "true" },
+                        { "Agent Notes", "Customer very excited. Installation tomorrow." }, { "Customer Rating", "5" }
+                    }),
+                    SubmittedAt = DateTime.UtcNow.AddDays(-2)
+                },
+                new DispositionResponse
+                {
+                    TenantId = nova.Id, FormId = dispForm3.Id,
+                    CallId = novaCalls[1].Id, AgentId = novaRaj.Id, LeadId = novaCalls[1].LeadId,
+                    AnswersJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+                    {
+                        { "Plan Interest", "Not Interested" }, { "Installation Slot Confirmed", "false" },
+                        { "Agent Notes", "Already on competitor. Will follow up in 3 months." }, { "Customer Rating", "2" }
+                    }),
+                    SubmittedAt = DateTime.UtcNow.AddDays(-1)
+                }
+            );
+        }
+        await db.SaveChangesAsync();
+
+        // ?? NPS SURVEYS ???????????????????????????????????????????????????????
+        var survey1 = new NpsSurvey
+        {
+            TenantId = apex.Id, CampaignId = c1.Id, Name = "Post-Call NPS — Enterprise",
+            IntroText = "On a scale of 0–10, how likely are you to recommend Apex Sales to a colleague?",
+            Trigger = SurveyTrigger.AfterCall, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-40)
+        };
+        var survey2 = new NpsSurvey
+        {
+            TenantId = apex.Id, Name = "Post-Conversion Satisfaction",
+            IntroText = "You recently converted to our platform. How would you rate your experience (0–10)?",
+            Trigger = SurveyTrigger.AfterConversion, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-20)
+        };
+        var survey3 = new NpsSurvey
+        {
+            TenantId = nova.Id, CampaignId = c4.Id, Name = "Broadband Signup NPS",
+            IntroText = "How likely are you to recommend Nova Telecom to friends or family?",
+            Trigger = SurveyTrigger.AfterConversion, IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-12)
+        };
+        db.NpsSurveys.AddRange(survey1, survey2, survey3);
+        await db.SaveChangesAsync();
+
+        var npsCallsApex = await db.Calls.Where(c => c.TenantId == apex.Id).Take(6).ToListAsync();
+        var npsCallsNova = await db.Calls.Where(c => c.TenantId == nova.Id).Take(3).ToListAsync();
+
+        var npsResponses = new List<NpsSurveyResponse>();
+        var npsScores = new[] { 9, 8, 10, 7, 6, 9 };
+        var npsFeedback = new[]
+        {
+            "Really smooth process. Agent was very helpful.", "Good experience overall.",
+            "Excellent! Closed the deal quickly.", "Took a while but resolved.",
+            "A bit pushy but knowledgeable.", "Very professional agent."
+        };
+        for (int i = 0; i < Math.Min(npsCallsApex.Count, 6); i++)
+        {
+            var c = npsCallsApex[i];
+            npsResponses.Add(new NpsSurveyResponse
+            {
+                SurveyId = i < 3 ? survey1.Id : survey2.Id,
+                LeadId = c.LeadId, AgentId = c.AgentId, CallId = c.Id,
+                Score = npsScores[i], Feedback = npsFeedback[i],
+                RespondedAt = c.StartedAt.AddHours(2)
+            });
+        }
+        var novaScores = new[] { 10, 9, 4 };
+        var novaFeedback = new[] { "Super fast and friendly!", "Great value for money.", "Sales call was too long." };
+        for (int i = 0; i < Math.Min(npsCallsNova.Count, 3); i++)
+        {
+            var c = npsCallsNova[i];
+            npsResponses.Add(new NpsSurveyResponse
+            {
+                SurveyId = survey3.Id,
+                LeadId = c.LeadId, AgentId = c.AgentId, CallId = c.Id,
+                Score = novaScores[i], Feedback = novaFeedback[i],
+                RespondedAt = c.StartedAt.AddHours(1)
+            });
+        }
+        db.NpsSurveyResponses.AddRange(npsResponses);
+        await db.SaveChangesAsync();
+
+        // ?? CALENDAR SYNC ?????????????????????????????????????????????????????
+        db.CalendarSyncConfigs.AddRange(
+            new CalendarSyncConfig
+            {
+                UserId = apexAlice.Id, Provider = CalendarProvider.Google,
+                Status = CalendarSyncStatus.Connected,
+                AccessToken = "demo_google_access_token_alice",
+                RefreshToken = "demo_google_refresh_token_alice",
+                TokenExpiresAt = DateTime.UtcNow.AddDays(30),
+                CalendarId = "alice@apexsales.com",
+                SyncFollowUps = true, SyncMeetings = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-10), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+            },
+            new CalendarSyncConfig
+            {
+                UserId = apexManager.Id, Provider = CalendarProvider.Outlook,
+                Status = CalendarSyncStatus.Connected,
+                AccessToken = "demo_outlook_access_token_manager",
+                RefreshToken = "demo_outlook_refresh_token_manager",
+                TokenExpiresAt = DateTime.UtcNow.AddDays(60),
+                CalendarId = "manager@apexsales.com",
+                SyncFollowUps = true, SyncMeetings = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-7), UpdatedAt = DateTime.UtcNow.AddDays(-1)
+            },
+            new CalendarSyncConfig
+            {
+                UserId = novaRaj.Id, Provider = CalendarProvider.Google,
+                Status = CalendarSyncStatus.Connected,
+                AccessToken = "demo_google_access_token_raj",
+                RefreshToken = "demo_google_refresh_token_raj",
+                TokenExpiresAt = DateTime.UtcNow.AddDays(45),
+                CalendarId = "raj@novatelecom.com",
+                SyncFollowUps = true, SyncMeetings = false,
+                CreatedAt = DateTime.UtcNow.AddDays(-5), UpdatedAt = DateTime.UtcNow
+            }
+        );
+
+        // ?? AGENT SHIFTS ??????????????????????????????????????????????????????
+        db.AgentShifts.AddRange(
+            new AgentShift
+            {
+                TenantId = apex.Id, AgentId = apexAlice.Id,
+                ShiftStartUtc = new TimeSpan(3, 30, 0), ShiftEndUtc = new TimeSpan(12, 30, 0),
+                WorkDays = 62, Timezone = "Asia/Kolkata", IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-30), UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            new AgentShift
+            {
+                TenantId = apex.Id, AgentId = apexBob.Id,
+                ShiftStartUtc = new TimeSpan(4, 0, 0), ShiftEndUtc = new TimeSpan(13, 0, 0),
+                WorkDays = 62, Timezone = "Asia/Kolkata", IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-30), UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            new AgentShift
+            {
+                TenantId = nova.Id, AgentId = novaRaj.Id,
+                ShiftStartUtc = new TimeSpan(3, 30, 0), ShiftEndUtc = new TimeSpan(12, 30, 0),
+                WorkDays = 126, Timezone = "Asia/Kolkata", IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-15), UpdatedAt = DateTime.UtcNow.AddDays(-15)
+            }
+        );
+
+        // ?? API KEYS ??????????????????????????????????????????????????????????
+        db.ApiKeys.AddRange(
+            new ApiKey
+            {
+                TenantId = apex.Id, CreatedById = apexAdmin.Id,
+                Name = "HubSpot Integration Key", KeyPrefix = "ak_apex",
+                KeyHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("demo-apex-api-key-001"))),
+                Scopes = "leads:read leads:write calls:read", IsActive = true,
+                LastUsedAt = DateTime.UtcNow.AddHours(-2),
+                CreatedAt = DateTime.UtcNow.AddDays(-20)
+            },
+            new ApiKey
+            {
+                TenantId = nova.Id, CreatedById = novaAdmin.Id,
+                Name = "Internal CRM Webhook Key", KeyPrefix = "ak_nova",
+                KeyHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("demo-nova-api-key-001"))),
+                Scopes = "leads:read calls:read payments:read", IsActive = true,
+                LastUsedAt = DateTime.UtcNow.AddDays(-1),
+                CreatedAt = DateTime.UtcNow.AddDays(-10)
+            }
+        );
+
+        // ?? CUSTOM LEAD FIELDS ????????????????????????????????????????????????
+        db.CustomLeadFields.AddRange(
+            new CustomLeadField { TenantId = apex.Id, Name = "company_size", Label = "Company Size", FieldType = "select", Options = "1-10,11-50,51-200,201-1000,1000+", IsRequired = false, IsActive = true, SortOrder = 1 },
+            new CustomLeadField { TenantId = apex.Id, Name = "budget_usd", Label = "Annual Budget (USD)", FieldType = "number", IsRequired = false, IsActive = true, SortOrder = 2 },
+            new CustomLeadField { TenantId = apex.Id, Name = "decision_timeline", Label = "Decision Timeline", FieldType = "select", Options = "Immediate,1-3 months,3-6 months,6+ months", IsRequired = false, IsActive = true, SortOrder = 3 },
+            new CustomLeadField { TenantId = nova.Id, Name = "current_provider", Label = "Current ISP", FieldType = "text", IsRequired = false, IsActive = true, SortOrder = 1 },
+            new CustomLeadField { TenantId = nova.Id, Name = "current_speed", Label = "Current Speed (Mbps)", FieldType = "number", IsRequired = false, IsActive = true, SortOrder = 2 }
+        );
+
+        // ?? LEAD TAGS ?????????????????????????????????????????????????????????
+        db.LeadTags.AddRange(
+            new LeadTag { TenantId = apex.Id, Name = "hot-lead",       Color = "#ef4444" },
+            new LeadTag { TenantId = apex.Id, Name = "enterprise",     Color = "#8b5cf6" },
+            new LeadTag { TenantId = apex.Id, Name = "demo-done",      Color = "#3b82f6" },
+            new LeadTag { TenantId = apex.Id, Name = "upsell-target",  Color = "#f59e0b" },
+            new LeadTag { TenantId = apex.Id, Name = "upsell-drip-complete", Color = "#10b981" },
+            new LeadTag { TenantId = nova.Id, Name = "fiber-ready",    Color = "#06b6d4" },
+            new LeadTag { TenantId = nova.Id, Name = "annual-plan",    Color = "#22c55e" }
+        );
+
+        // ?? CRM SYNC CONFIGS ??????????????????????????????????????????????????
+        db.CrmSyncConfigs.AddRange(
+            new CrmSyncConfig
+            {
+                TenantId = apex.Id, Provider = "hubspot", IsActive = true,
+                PortalId = "demo-hubspot-portal-123",
+                AccessToken = "demo_hubspot_access_token",
+                RefreshToken = "demo_hubspot_refresh_token",
+                TokenExpiresAt = DateTime.UtcNow.AddDays(30),
+                LastSyncedAt = DateTime.UtcNow.AddHours(-6),
+                LastSyncStatus = "Success — 12 leads synced.",
+                CreatedAt = DateTime.UtcNow.AddDays(-25), UpdatedAt = DateTime.UtcNow.AddHours(-6)
+            }
+        );
+
+        await db.SaveChangesAsync();
     }
 
     // ?? Helpers ???????????????????????????????????????????????????????????????
