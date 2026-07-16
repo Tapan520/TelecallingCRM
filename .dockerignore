@@ -1,0 +1,25 @@
+# ?? Byte-order marks / temp files ?????????????????????????????????????????????
+**/.vs/
+**/.vscode/
+**/.idea/
+
+# Build output
+**/bin/
+**/obj/
+
+# User secrets & local config overrides
+**/appsettings.Development.json
+**/Properties/launchSettings.json
+
+# Logs written at runtime (Railway uses stdout)
+logs/
+
+# Test project — not needed in the image
+TelecallingCRM.Tests/
+
+# Git metadata
+.git/
+.gitignore
+
+# Local Docker artefacts
+.dockerignore
