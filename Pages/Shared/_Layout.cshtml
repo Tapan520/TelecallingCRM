@@ -158,7 +158,7 @@
                     var p = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
                     Func<string, string> NavClass = pg => p == pg || p.StartsWith(pg + "/") ? "nav-link active" : "nav-link";
 
-                    <!-- Overview -->
+                    @* Overview *@
                     <div class="nav-section-label" onclick="toggleSection('overview')">
                         Overview <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -171,7 +171,7 @@
                         </a>
                     </div>
 
-                    <!-- Sales -->
+                    @* Sales *@
                     <div class="nav-section-label" onclick="toggleSection('sales')">
                         Sales <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -208,7 +208,7 @@
                         </a>
                     </div>
 
-                    <!-- Messaging -->
+                    @* Messaging *@
                     <div class="nav-section-label" onclick="toggleSection('messaging')">
                         Messaging <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -230,7 +230,7 @@
                         </a>
                     </div>
 
-                    <!-- Sales Intelligence -->
+                    @* Sales Intelligence *@
                     <div class="nav-section-label" onclick="toggleSection('intelligence')">
                         Sales Intelligence <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -249,7 +249,7 @@
                         </a>
                     </div>
 
-                    <!-- Automation -->
+                    @* Automation *@
                     <div class="nav-section-label" onclick="toggleSection('automation')">
                         Automation <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -265,7 +265,7 @@
                         </a>
                     </div>
 
-                    <!-- Productivity -->
+                    @* Productivity *@
                     <div class="nav-section-label" onclick="toggleSection('productivity')">
                         Productivity <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -293,7 +293,7 @@
                         </a>
                     </div>
 
-                    <!-- Analytics -->
+                    @* Analytics *@
                     <div class="nav-section-label" onclick="toggleSection('analytics')">
                         Analytics <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -312,7 +312,7 @@
                         </a>
                     </div>
 
-                    <!-- AI Tools -->
+                    @* AI Tools *@
                     <div class="nav-section-label" onclick="toggleSection('ai')">
                         AI Tools <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
@@ -330,7 +330,7 @@
 
                     @if (User.IsInRole("admin") || User.IsInRole("manager"))
                     {
-                        <!-- Admin -->
+                        @* Admin *@
                         <div class="nav-section-label" onclick="toggleSection('admin')">
                             Admin <i class="bi bi-chevron-down section-arrow"></i>
                         </div>
@@ -379,7 +379,7 @@
                             }
                         </div>
 
-                        <!-- My Account -->
+                        @* My Account *@
                         <div class="nav-section-label" onclick="toggleSection('account')">
                             My Account <i class="bi bi-chevron-down section-arrow"></i>
                         </div>
@@ -394,7 +394,7 @@
                     }
                     else
                     {
-                        <!-- My Account (agent) -->
+                        @* My Account (agent) *@
                         <div class="nav-section-label" onclick="toggleSection('account')">
                             My Account <i class="bi bi-chevron-down section-arrow"></i>
                         </div>

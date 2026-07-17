@@ -223,6 +223,11 @@
     loadDashboard();
 
     // Refresh dashboard on SignalR DashboardUpdated event
+    // Refresh on SignalR DashboardUpdated
+    if (window.crmHubConnection) {
+        window.crmHubConnection.on('DashboardUpdated', loadDashboard);
+    }
+    // Also listen for the custom DOM event
     document.addEventListener('crm:dashboard-updated', loadDashboard);
     </script>
 }

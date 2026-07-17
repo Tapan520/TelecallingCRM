@@ -168,6 +168,7 @@ async function loadUsers() {
     }
     const roleColors = { admin:'danger', manager:'warning', agent:'primary', superadmin:'dark' };
     const dash = '\u2014';
+    _usersCache = data.users;
     try {
         document.getElementById('users-tbody').innerHTML = data.users.map(u => {
             const safeName = (u.fullName ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -181,7 +182,7 @@ async function loadUsers() {
                 <td>${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never'}</td>
                 <td>${u.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Suspended</span>'}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick='openEdit(${JSON.stringify(u)})'><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditById('${u.id}')"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-warning me-1" onclick="toggleUser('${u.id}', ${u.isActive})">${u.isActive ? 'Suspend' : 'Activate'}</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.id}', '${safeName}')"><i class="bi bi-trash"></i></button>
                 </td>
@@ -193,6 +194,15 @@ async function loadUsers() {
 }
 
 function usersChangePage(dir) { usersPage += dir; loadUsers(); }
+
+// Store users array for safe id-based edit lookup
+let _usersCache = [];
+
+function openEditById(id) {
+    const u = _usersCache.find(x => x.id === id);
+    if (!u) { alert('User not found. Please refresh.'); return; }
+    openEdit(u);
+}
 
 function openNew() {
     document.getElementById('user-name').value = '';

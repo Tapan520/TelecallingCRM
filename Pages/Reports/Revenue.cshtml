@@ -154,7 +154,7 @@ async function loadRevenue() {
     const statusBadge = s => ({Captured:'<span class="badge bg-success">Captured</span>',Pending:'<span class="badge bg-warning text-dark">Pending</span>',Refunded:'<span class="badge bg-secondary">Refunded</span>'}[s] ?? `<span class="badge bg-secondary">${s}</span>`);
     document.getElementById('recent-pay-tbody').innerHTML = recent.map(p => `
         <tr>
-            <td><a href="/Leads/${p.leadId}/detail" class="text-decoration-none fw-semibold">${p.leadName}</a></td>
+            <td><a href="/Leads/Timeline/${p.leadId}" class="text-decoration-none fw-semibold">${p.leadName}</a></td>
             <td class="${p.status==='Captured'?'text-success fw-bold':''}">${p.currency} ${Number(p.amount).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
             <td>${statusBadge(p.status)}</td>
             <td><small>${p.recordedBy}</small></td>

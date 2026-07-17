@@ -20,6 +20,7 @@ public static class PaymentEndpoints
         // GET — list payments for tenant (filterable by leadId)
         group.MapGet("/", async (TenantContext tc, AppDbContext db,
             [FromQuery] Guid? leadId, [FromQuery] string? status,
+            [FromQuery] string? from, [FromQuery] string? to,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 25) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
@@ -31,6 +32,10 @@ public static class PaymentEndpoints
             if (leadId.HasValue) query = query.Where(p => p.LeadId == leadId);
             if (Enum.TryParse<PaymentStatus>(status, true, out var ps))
                 query = query.Where(p => p.Status == ps);
+            if (DateTime.TryParse(from, out var fromDate))
+                query = query.Where(p => p.CreatedAt >= fromDate.ToUniversalTime());
+            if (DateTime.TryParse(to, out var toDate))
+                query = query.Where(p => p.CreatedAt <= toDate.AddDays(1).ToUniversalTime());
 
             var total = await query.CountAsync();
             var items = await query
