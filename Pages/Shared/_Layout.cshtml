@@ -600,7 +600,19 @@
             if (group) activeSectionId = group.id.replace('sec-', '');
         }
 
-        const collapsed = getCollapsed();
+        // Determine whether the user has ever saved a preference
+        const hasStoredPrefs = localStorage.getItem(STORAGE_KEY) !== null;
+        let collapsed = getCollapsed();
+
+        // On first visit (no stored prefs), collapse all sections by default
+        if (!hasStoredPrefs) {
+            const allSections = Array.from(document.querySelectorAll('.nav-section-group'))
+                .map(g => g.id.replace('sec-', ''))
+                .filter(id => id !== activeSectionId);
+            saveCollapsed(allSections);
+            collapsed = allSections;
+        }
+
         document.querySelectorAll('.nav-section-group').forEach(group => {
             const sectionId = group.id.replace('sec-', '');
             // Set initial max-height so CSS transition works
