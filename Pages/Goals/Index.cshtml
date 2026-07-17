@@ -134,9 +134,32 @@ async function loadGoals() {
     const goals = await res.json();
     const grid = document.getElementById('goals-grid');
     if (!goals.length) { grid.innerHTML = '<div class="col-12 text-center text-muted py-4">No goals found. Create the first one!</div>'; return; }
-    grid.innerHTML = goals.map(g => {
+
+    // Fetch progress for all goals in parallel
+    const progResults = await Promise.all(goals.map(g =>
+        fetch(`/api/goals/${g.id}/progress`).then(r => r.ok ? r.json() : null)
+    ));
+
+    grid.innerHTML = goals.map((g, idx) => {
         const start = new Date(g.periodStart).toLocaleDateString();
-        const end = new Date(g.periodEnd).toLocaleDateString();
+        const end   = new Date(g.periodEnd).toLocaleDateString();
+        const prog  = progResults[idx];
+        const pct   = prog?.progress ?? {};
+
+        const progressBar = (label, icon, colorClass, pctVal) => {
+            const val = pctVal ?? 0;
+            return `<div class="mb-2">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span><i class="bi ${icon} me-1 ${colorClass}"></i>${label}</span>
+                    <span class="fw-semibold">${val}%</span>
+                </div>
+                <div class="progress" style="height:7px;">
+                    <div class="progress-bar ${colorClass.replace('text-','bg-')}"
+                         style="width:${val}%;"></div>
+                </div>
+            </div>`;
+        };
+
         return `
         <div class="col-md-6 col-lg-4">
             <div class="card h-100 ${g.isActive ? 'border-warning border-opacity-50' : ''}">
@@ -153,28 +176,14 @@ async function loadGoals() {
                     <div class="small text-muted mb-3">
                         <i class="bi bi-calendar3 me-1"></i>${start} ? ${end}
                     </div>
-                    <div class="row g-2 text-center mb-2">
-                        <div class="col-3">
-                            <div class="fw-bold text-primary">${g.targetCalls}</div>
-                            <div class="small text-muted">Calls</div>
-                        </div>
-                        <div class="col-3">
-                            <div class="fw-bold text-success">${g.targetConversions}</div>
-                            <div class="small text-muted">Converts</div>
-                        </div>
-                        <div class="col-3">
-                            <div class="fw-bold text-info">${Math.round(g.targetTalkSeconds/60)}</div>
-                            <div class="small text-muted">Talk min</div>
-                        </div>
-                        <div class="col-3">
-                            <div class="fw-bold text-warning">${g.targetFollowUps}</div>
-                            <div class="small text-muted">Follow-ups</div>
-                        </div>
-                    </div>
+                    ${progressBar('Calls (target: '+g.targetCalls+')', 'bi-telephone-fill', 'text-primary', pct.callsPct)}
+                    ${progressBar('Conversions (target: '+g.targetConversions+')', 'bi-trophy-fill', 'text-success', pct.conversionsPct)}
+                    ${progressBar('Talk Time (target: '+Math.round(g.targetTalkSeconds/60)+'m)', 'bi-clock-fill', 'text-info', pct.talkPct)}
+                    ${progressBar('Follow-ups (target: '+g.targetFollowUps+')', 'bi-calendar-check-fill', 'text-warning', pct.followUpsPct)}
                 </div>
                 <div class="card-footer bg-white border-top-0 d-flex gap-1">
                     <button class="btn btn-sm btn-outline-info flex-fill" onclick="viewProgress('${g.id}')">
-                        <i class="bi bi-graph-up"></i> Progress
+                        <i class="bi bi-graph-up"></i> Details
                     </button>
                     <button class="btn btn-sm btn-outline-primary" onclick="openGoalModal(${JSON.stringify(g).replace(/"/g,'&quot;')})" data-bs-toggle="modal" data-bs-target="#goalModal">
                         <i class="bi bi-pencil"></i>

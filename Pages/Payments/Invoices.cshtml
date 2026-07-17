@@ -19,7 +19,13 @@
         <tbody id="invoiceTableBody"></tbody>
     </table>
 </div>
-<div id="paginationWrapper" class="mt-3 d-flex justify-content-end gap-2"></div>
+<div id="paginationWrapper" class="mt-3 d-flex justify-content-between align-items-center">
+    <small class="text-muted" id="inv-count"></small>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" id="inv-prev" onclick="loadInvoices(currentPage-1)" disabled>&#8592; Prev</button>
+        <button class="btn btn-sm btn-outline-secondary" id="inv-next" onclick="loadInvoices(currentPage+1)">Next &#8594;</button>
+    </div>
+</div>
 
 <!-- Create Invoice Modal -->
 <div class="modal fade" id="createInvoiceModal" tabindex="-1">
@@ -68,12 +74,18 @@
 @section Scripts {
 <script>
 let currentPage = 1;
+const pageSize = 25;
+let invTotal = 0;
 const statusColors = {Draft:'secondary',Sent:'primary',Paid:'success',Void:'dark',Overdue:'danger'};
 
 async function loadInvoices(page=1) {
     currentPage = page;
-    const r = await fetch(`/api/invoices?page=${page}&pageSize=25`);
+    const r = await fetch(`/api/invoices?page=${page}&pageSize=${pageSize}`);
     const data = await r.json();
+    invTotal = data.total ?? 0;
+    document.getElementById('inv-count').textContent = `${invTotal} invoice(s)`;
+    document.getElementById('inv-prev').disabled = page <= 1;
+    document.getElementById('inv-next').disabled = page * pageSize >= invTotal;
     document.getElementById('invoiceTableBody').innerHTML = (data.items||[]).map(i =>
         `<tr>
             <td><strong>${i.invoiceNumber}</strong></td>
@@ -84,13 +96,14 @@ async function loadInvoices(page=1) {
             <td>${i.dueAt ? new Date(i.dueAt).toLocaleDateString() : '—'}</td>
             <td>
                 <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary" href="/api/invoices/${i.id}/pdf" target="_blank" title="Download PDF"><i class="bi bi-file-earmark-pdf text-danger"></i></a>
                     ${i.status==='Draft'?`<button class="btn btn-outline-primary" onclick="sendInvoice('${i.id}')">Send</button>`:''}
                     ${i.status==='Sent'?`<button class="btn btn-outline-success" onclick="markPaid('${i.id}')">Mark Paid</button>`:''}
                     ${i.status!=='Void'&&i.status!=='Paid'?`<button class="btn btn-outline-secondary" onclick="voidInvoice('${i.id}')">Void</button>`:''}
                 </div>
             </td>
         </tr>`
-    ).join('');
+    ).join('') || '<tr><td colspan="7" class="text-center text-muted py-4">No invoices yet.</td></tr>';
 }
 
 async function loadLeads() {

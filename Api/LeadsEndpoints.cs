@@ -307,8 +307,13 @@ public static class LeadsEndpoints
                     continue;
                 }
 
-                // Skip duplicates (same phone in this tenant)
+                // Skip DNC numbers
                 var phone = cols[1].Trim();
+                var normPhoneImport = DncEndpoints.NormalisePhone(phone);
+                var isDncImport = await db.DncEntries.AnyAsync(d => d.TenantId == tc.TenantId && d.Phone == normPhoneImport);
+                if (isDncImport) { skipped++; continue; }
+
+                // Skip duplicates (same phone in this tenant)
                 if (await db.Leads.AnyAsync(l => l.TenantId == tc.TenantId && l.Phone == phone))
                 {
                     skipped++;

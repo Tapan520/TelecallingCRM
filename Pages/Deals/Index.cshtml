@@ -37,7 +37,14 @@
             <div class="modal-body">
                 <input type="hidden" id="dealId" />
                 <div class="mb-3"><label class="form-label">Title *</label><input type="text" class="form-control" id="dealTitle" /></div>
-                <div class="mb-3"><label class="form-label">Lead ID *</label><input type="text" class="form-control" id="dealLeadId" placeholder="Paste Lead GUID" /></div>
+                <div class="mb-3">
+                    <label class="form-label">Lead *</label>
+                    <div class="position-relative">
+                        <input type="text" class="form-control" id="dealLeadSearch" placeholder="Search lead name or phone..." autocomplete="off" oninput="searchLeadForDeal(this.value)">
+                        <input type="hidden" id="dealLeadId">
+                        <div id="dealLeadSuggestions" class="list-group position-absolute w-100" style="z-index:1050;max-height:180px;overflow-y:auto;display:none;"></div>
+                    </div>
+                </div>
                 <div class="row g-2 mb-3">
                     <div class="col-6"><label class="form-label">Value (&#8377;)</label><input type="number" class="form-control" id="dealValue" value="0" /></div>
                     <div class="col-6"><label class="form-label">Stage</label>
@@ -64,6 +71,32 @@
 @section Scripts {
 <script>
 let deals = [];
+let dealLeadTimer;
+
+function searchLeadForDeal(q) {
+    clearTimeout(dealLeadTimer);
+    const box = document.getElementById('dealLeadSuggestions');
+    if (q.length < 2) { box.style.display = 'none'; return; }
+    dealLeadTimer = setTimeout(async () => {
+        const res = await fetch(`/api/leads?q=${encodeURIComponent(q)}&pageSize=8`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const leads = d.leads ?? [];
+        if (!leads.length) { box.style.display = 'none'; return; }
+        box.innerHTML = leads.map(l =>
+            `<a href="javascript:void(0)" class="list-group-item list-group-item-action small"
+               onclick="selectLeadForDeal('${l.id}','${l.name}','${l.phone}')">
+               ${l.name} <span class="text-muted">${l.phone}</span>
+             </a>`).join('');
+        box.style.display = 'block';
+    }, 280);
+}
+
+function selectLeadForDeal(id, name, phone) {
+    document.getElementById('dealLeadId').value = id;
+    document.getElementById('dealLeadSearch').value = `${name} — ${phone}`;
+    document.getElementById('dealLeadSuggestions').style.display = 'none';
+}
 
 async function loadDeals() {
     const res = await fetch('/api/deals?pageSize=200');
@@ -114,6 +147,8 @@ function openDealModal() {
     document.getElementById('dealId').value = '';
     document.getElementById('dealTitle').value = '';
     document.getElementById('dealLeadId').value = '';
+    document.getElementById('dealLeadSearch').value = '';
+    document.getElementById('dealLeadSuggestions').style.display = 'none';
     document.getElementById('dealValue').value = '0';
     document.getElementById('dealStage').value = 'Prospecting';
     document.getElementById('dealProb').value = '10';
@@ -129,6 +164,8 @@ function editDeal(id) {
     document.getElementById('dealId').value = d.id;
     document.getElementById('dealTitle').value = d.title;
     document.getElementById('dealLeadId').value = d.leadId;
+    document.getElementById('dealLeadSearch').value = d.leadName ?? d.leadId;
+    document.getElementById('dealLeadSuggestions').style.display = 'none';
     document.getElementById('dealValue').value = d.value;
     document.getElementById('dealStage').value = d.stage;
     document.getElementById('dealProb').value = d.probability;
@@ -139,17 +176,19 @@ function editDeal(id) {
 }
 
 async function saveDeal() {
-    const id = document.getElementById('dealId').value;
-    const body = {
-        title: document.getElementById('dealTitle').value,
-        leadId: document.getElementById('dealLeadId').value,
-        value: parseFloat(document.getElementById('dealValue').value),
-        stage: document.getElementById('dealStage').value,
-        probability: parseInt(document.getElementById('dealProb').value),
-        expectedCloseDate: document.getElementById('dealClose').value || null,
-        notes: document.getElementById('dealNotes').value,
-        currency: 'INR', assignedToId: null
-    };
+const id = document.getElementById('dealId').value;
+const leadId = document.getElementById('dealLeadId').value;
+if (!leadId) { alert('Please select a lead.'); return; }
+const body = {
+    title: document.getElementById('dealTitle').value,
+    leadId,
+    value: parseFloat(document.getElementById('dealValue').value),
+    stage: document.getElementById('dealStage').value,
+    probability: parseInt(document.getElementById('dealProb').value),
+    expectedCloseDate: document.getElementById('dealClose').value || null,
+    notes: document.getElementById('dealNotes').value,
+    currency: 'INR', assignedToId: null
+};
     const url = id ? `/api/deals/${id}` : '/api/deals';
     const method = id ? 'PUT' : 'POST';
     const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });

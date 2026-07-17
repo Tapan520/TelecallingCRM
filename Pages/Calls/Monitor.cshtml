@@ -74,7 +74,7 @@ async function refresh() {
         const info = agentCallMap[agent.id];
         const active = info?.active;
         const callCount = info?.calls.length ?? 0;
-        const converted = info?.calls.filter(c => c.outcome === 5).length ?? 0;
+        const converted = info?.calls.filter(c => c.outcome === 'Converted').length ?? 0;
 
         const status = !agent.isActive ? 'offline'
             : active ? 'in-call'

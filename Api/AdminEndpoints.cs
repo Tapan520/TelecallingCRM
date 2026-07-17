@@ -148,6 +148,7 @@ public static class AdminEndpoints
         // GET /api/admin/audit-log — activity log for the tenant
         group.MapGet("/audit-log", async (TenantContext tc, AppDbContext db,
             [FromQuery] Guid? leadId, [FromQuery] Guid? userId,
+            [FromQuery] string? type,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 50) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
@@ -157,6 +158,8 @@ public static class AdminEndpoints
 
             if (leadId.HasValue) query = query.Where(a => a.LeadId == leadId);
             if (userId.HasValue) query = query.Where(a => a.UserId == userId);
+            if (!string.IsNullOrWhiteSpace(type) && Enum.TryParse<ActivityType>(type, true, out var at))
+                query = query.Where(a => a.Type == at);
 
             var total = await query.CountAsync();
             var logs = await query

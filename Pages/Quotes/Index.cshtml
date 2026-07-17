@@ -38,7 +38,14 @@
                 <input type="hidden" id="quoteId" />
                 <div class="row g-3 mb-3">
                     <div class="col-md-6"><label class="form-label">Title</label><input type="text" class="form-control" id="qTitle" /></div>
-                    <div class="col-md-6"><label class="form-label">Lead ID *</label><input type="text" class="form-control" id="qLeadId" placeholder="Lead GUID" /></div>
+                    <div class="col-md-6">
+                        <label class="form-label">Lead *</label>
+                        <div class="position-relative">
+                            <input type="text" class="form-control" id="qLeadSearch" placeholder="Search lead name or phone..." autocomplete="off" oninput="searchLeadForQuote(this.value)">
+                            <input type="hidden" id="qLeadId">
+                            <div id="qLeadSuggestions" class="list-group position-absolute w-100" style="z-index:1050;max-height:180px;overflow-y:auto;display:none;"></div>
+                        </div>
+                    </div>
                 </div>
                 <div id="line-items">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -75,6 +82,32 @@ let currentPage = 1;
 const pageSize = 25;
 let lineItems = [];
 let currentUserId = '@Model.CurrentUserId';
+let qLeadTimer;
+
+function searchLeadForQuote(q) {
+    clearTimeout(qLeadTimer);
+    const box = document.getElementById('qLeadSuggestions');
+    if (q.length < 2) { box.style.display = 'none'; return; }
+    qLeadTimer = setTimeout(async () => {
+        const res = await fetch(`/api/leads?q=${encodeURIComponent(q)}&pageSize=8`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const leads = d.leads ?? [];
+        if (!leads.length) { box.style.display = 'none'; return; }
+        box.innerHTML = leads.map(l =>
+            `<a href="javascript:void(0)" class="list-group-item list-group-item-action small"
+               onclick="selectLeadForQuote('${l.id}','${l.name}','${l.phone}')">
+               ${l.name} <span class="text-muted">${l.phone}</span>
+             </a>`).join('');
+        box.style.display = 'block';
+    }, 280);
+}
+
+function selectLeadForQuote(id, name, phone) {
+    document.getElementById('qLeadId').value = id;
+    document.getElementById('qLeadSearch').value = `${name} — ${phone}`;
+    document.getElementById('qLeadSuggestions').style.display = 'none';
+}
 
 async function loadQuotes(page = 1) {
     currentPage = page;
@@ -147,6 +180,8 @@ function openQuoteModal() {
     document.getElementById('quoteId').value = '';
     document.getElementById('qTitle').value = '';
     document.getElementById('qLeadId').value = '';
+    document.getElementById('qLeadSearch').value = '';
+    document.getElementById('qLeadSuggestions').style.display = 'none';
     document.getElementById('qDiscount').value = '0';
     document.getElementById('qTax').value = '18';
     document.getElementById('qSubtotal').value = '0';
@@ -166,6 +201,11 @@ async function editQuote(id) {
     document.getElementById('quoteId').value = q.id;
     document.getElementById('qTitle').value = q.title || '';
     document.getElementById('qLeadId').value = q.leadId;
+    // Fetch lead name for display
+    const lRes = await fetch(`/api/leads/${q.leadId}`);
+    if (lRes.ok) { const l = await lRes.json(); document.getElementById('qLeadSearch').value = `${l.name} — ${l.phone}`; }
+    else { document.getElementById('qLeadSearch').value = q.leadId; }
+    document.getElementById('qLeadSuggestions').style.display = 'none';
     document.getElementById('qDiscount').value = q.discountAmount;
     document.getElementById('qTax').value = q.taxPercent;
     document.getElementById('qExpiry').value = q.expiresAt ? q.expiresAt.split('T')[0] : '';
