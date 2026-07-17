@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
 using TelecallingCRM.Services;
-using System.Security.Claims;
 
 namespace TelecallingCRM.Api;
 
@@ -205,6 +205,77 @@ public static class CampaignsEndpoints
 
             await db.SaveChangesAsync();
             return Results.Ok(new { queued, channel = dto.Channel });
+        });
+
+        // GET /api/campaigns/{id}/analytics
+        group.MapGet("/{id:guid}/analytics", async (Guid id, TenantContext tc, AppDbContext db) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var campaign = await db.Campaigns.FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tc.TenantId);
+            if (campaign == null) return Results.NotFound();
+
+            var leads = await db.Leads
+                .Where(l => l.TenantId == tc.TenantId && l.CampaignId == id)
+                .Select(l => new { l.Id, l.Status })
+                .ToListAsync();
+
+            var calls = await db.Calls
+                .Where(c => c.TenantId == tc.TenantId && leads.Select(l => l.Id).Contains(c.LeadId))
+                .Select(c => new { c.Outcome, c.DurationSeconds, c.StartedAt, c.AgentId,
+                    AgentName = c.Agent.FullName })
+                .ToListAsync();
+
+            // KPIs
+            var totalLeads    = leads.Count;
+            var totalCalls    = calls.Count;
+            var converted     = leads.Count(l => l.Status == LeadStatus.Converted);
+            var avgTalk       = calls.Count > 0 ? (int)calls.Average(c => c.DurationSeconds) : 0;
+
+            // Outcome breakdown (index = enum int value)
+            var outcomeBreakdown = Enumerable.Range(0, 11)
+                .Select(i => calls.Count(c => (int)c.Outcome == i))
+                .ToArray();
+
+            // Lead status breakdown
+            var leadsByStatus = leads
+                .GroupBy(l => l.Status.ToString())
+                .Select(g => new { status = g.Key, count = g.Count() })
+                .OrderBy(x => x.status)
+                .ToList();
+
+            // Daily calls (last 30 days)
+            var since = DateTime.UtcNow.Date.AddDays(-29);
+            var dailyCalls = calls
+                .Where(c => c.StartedAt >= since)
+                .GroupBy(c => c.StartedAt.Date.ToString("dd MMM"))
+                .Select(g => new {
+                    date = g.Key,
+                    total = g.Count(),
+                    converted = g.Count(c => c.Outcome == CallOutcome.Converted)
+                })
+                .OrderBy(x => x.date)
+                .ToList();
+
+            // Agent leaderboard
+            var agentBreakdown = calls
+                .GroupBy(c => new { c.AgentId, c.AgentName })
+                .Select(g => new {
+                    agentName = g.Key.AgentName,
+                    calls     = g.Count(),
+                    converted = g.Count(c => c.Outcome == CallOutcome.Converted),
+                    avgTalkSeconds = g.Count() > 0 ? (int)g.Average(c => c.DurationSeconds) : 0
+                })
+                .OrderByDescending(x => x.converted)
+                .ToList();
+
+            return Results.Ok(new {
+                id = campaign.Id,
+                name = campaign.Name,
+                status = campaign.Status.ToString(),
+                totalLeads, totalCalls, convertedLeads = converted,
+                avgTalkSeconds = avgTalk,
+                outcomeBreakdown, leadsByStatus, dailyCalls, agentBreakdown
+            });
         });
     }
 }

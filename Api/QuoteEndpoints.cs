@@ -103,6 +103,19 @@ public static class QuoteEndpoints
             return Results.Ok(new { quote.Id, quote.Status });
         });
 
+        // GET /api/quotes/{id}/pdf
+        group.MapGet("/{id:guid}/pdf", async (Guid id, TenantContext tc, AppDbContext db, IPdfService pdf) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var quote = await db.Quotes
+                .Include(q => q.Lead)
+                .FirstOrDefaultAsync(q => q.Id == id && q.TenantId == tc.TenantId);
+            if (quote == null) return Results.NotFound();
+            var tenant = await db.Tenants.FindAsync(tc.TenantId);
+            var pdfBytes = pdf.GenerateQuotePdf(quote, tenant?.Name ?? "TelecallingCRM", quote.Lead?.Name ?? "—");
+            return Results.File(pdfBytes, "application/pdf", $"{quote.QuoteNumber}.pdf");
+        });
+
         group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();

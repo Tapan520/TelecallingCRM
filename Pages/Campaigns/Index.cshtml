@@ -199,6 +199,7 @@ async function loadCampaigns() {
             <td>${c.targetCallsPerDay}</td>
             <td>
                 <button class="btn btn-sm btn-outline-primary" onclick="editCampaign('${c.id}')">Edit</button>
+                <a class="btn btn-sm btn-outline-info ms-1" href="/Campaigns/${c.id}/analytics" title="Analytics"><i class="bi bi-bar-chart-line"></i></a>
                 <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteCampaign('${c.id}')">Delete</button>
             </td>
         </tr>`).join('');

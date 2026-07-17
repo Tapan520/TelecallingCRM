@@ -28,6 +28,12 @@
         <button class="btn btn-outline-secondary btn-sm d-none" id="btn-bulk-assign" data-bs-toggle="modal" data-bs-target="#bulkAssignModal" onclick="openBulkAssignModal()">
             <i class="bi bi-person-check"></i> Assign Selected (<span id="selected-count">0</span>)
         </button>
+        <button class="btn btn-outline-warning btn-sm d-none" id="btn-bulk-status" data-bs-toggle="modal" data-bs-target="#bulkStatusModal" onclick="openBulkStatusModal()">
+            <i class="bi bi-tag"></i> Change Status (<span id="selected-count-2">0</span>)
+        </button>
+        <button class="btn btn-outline-danger btn-sm d-none" id="btn-bulk-delete" onclick="bulkDeleteSelected()">
+            <i class="bi bi-trash"></i> Delete (<span id="selected-count-3">0</span>)
+        </button>
         <button class="btn btn-primary btn-sm" onclick="openNewLead()">
             <i class="bi bi-plus-lg"></i> Add Lead
         </button>
@@ -125,6 +131,40 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-warning" onclick="reassignAgent()">
                     <i class="bi bi-arrow-left-right me-1"></i>Reassign All Leads
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Bulk Status Modal ===== -->
+<div class="modal fade" id="bulkStatusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-tag me-2"></i>Change Status for Selected Leads</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">Change status for <strong id="bulk-status-count">0</strong> selected lead(s).</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">New Status *</label>
+                    <select id="bulk-status-value" class="form-select">
+                        <option value="0">New</option>
+                        <option value="1">Contacted</option>
+                        <option value="2">Interested</option>
+                        <option value="3">Not Interested</option>
+                        <option value="4">Follow Up</option>
+                        <option value="5">Converted</option>
+                        <option value="6">Dead</option>
+                    </select>
+                </div>
+                <div id="bulk-status-result" class="d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="bulkChangeStatus()">
+                    <i class="bi bi-tag me-1"></i>Apply Status
                 </button>
             </div>
         </div>
@@ -341,7 +381,12 @@ document.getElementById('chk-all').addEventListener('change', function () {
 function updateBulkBar() {
     const count = selectedLeadIds.size;
     document.getElementById('selected-count').textContent = count;
-    document.getElementById('btn-bulk-assign').classList.toggle('d-none', count === 0);
+    document.getElementById('selected-count-2').textContent = count;
+    document.getElementById('selected-count-3').textContent = count;
+    const show = count > 0;
+    document.getElementById('btn-bulk-assign').classList.toggle('d-none', !show);
+    document.getElementById('btn-bulk-status').classList.toggle('d-none', !show);
+    document.getElementById('btn-bulk-delete').classList.toggle('d-none', !show);
 }
 
 function downloadSampleCsv() {
@@ -421,6 +466,58 @@ function openBulkAssignModal() {
     populateAgentSelect('bulk-assign-agent', '');
     document.getElementById('bulk-assign-count').textContent = selectedLeadIds.size;
     document.getElementById('bulk-assign-result').className = 'd-none';
+}
+
+function openBulkStatusModal() {
+    document.getElementById('bulk-status-count').textContent = selectedLeadIds.size;
+    document.getElementById('bulk-status-result').className = 'd-none';
+}
+
+async function bulkChangeStatus() {
+    const statusVal = parseInt(document.getElementById('bulk-status-value').value);
+    const resultDiv = document.getElementById('bulk-status-result');
+    try {
+        const res = await fetch('/api/leads/bulk-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadIds: Array.from(selectedLeadIds), status: statusVal })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            resultDiv.className = 'alert alert-success';
+            resultDiv.textContent = data.updated + ' lead(s) updated.';
+            selectedLeadIds.clear();
+            updateBulkBar();
+            loadLeads();
+        } else {
+            resultDiv.className = 'alert alert-danger';
+            resultDiv.textContent = 'Failed to update status.';
+        }
+    } catch {
+        resultDiv.className = 'alert alert-danger';
+        resultDiv.textContent = 'Network error.';
+    }
+}
+
+async function bulkDeleteSelected() {
+    if (!confirm(`Permanently delete ${selectedLeadIds.size} selected lead(s)? This cannot be undone.`)) return;
+    try {
+        const res = await fetch('/api/leads/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadIds: Array.from(selectedLeadIds) })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            selectedLeadIds.clear();
+            updateBulkBar();
+            loadLeads();
+        } else {
+            alert('Delete failed.');
+        }
+    } catch {
+        alert('Network error.');
+    }
 }
 
 async function bulkAssignSelected() {
@@ -540,6 +637,12 @@ async function saveLead() {
         if (res.ok) {
             bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).hide();
             loadLeads();
+        } else if (res.status === 409) {
+            const data = await res.json();
+            const msg = data.message + '\n\nExisting lead: ' + data.existingLeadName + ' (Status: ' + data.existingLeadStatus + ')\n\nDo you want to view the existing lead?';
+            if (confirm(msg)) {
+                window.open('/Leads/' + data.existingLeadId + '/detail', '_blank');
+            }
         } else {
             const msg = await res.text();
             alert('Error saving lead:\n' + msg);

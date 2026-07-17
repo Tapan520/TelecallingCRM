@@ -138,6 +138,8 @@ builder.Services.AddScoped<ScheduledJobService>();
 builder.Services.AddScoped<ILeadAssignmentService, LeadAssignmentService>();
 builder.Services.AddScoped<ICrmSyncService, CrmSyncService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<IPdfService, PdfService>();
+builder.Services.AddScoped<IS3StorageService, S3StorageService>();
 builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
 builder.Services.AddHttpContextAccessor();
 

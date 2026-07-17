@@ -86,6 +86,19 @@ public static class InvoiceEndpoints
             return Results.Ok(new { message = "Invoice voided." });
         });
 
+        // GET /api/invoices/{id}/pdf
+        group.MapGet("/{id:guid}/pdf", async (Guid id, TenantContext tc, AppDbContext db, IPdfService pdf) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var inv = await db.Invoices
+                .Include(i => i.Lead)
+                .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tc.TenantId);
+            if (inv == null) return Results.NotFound();
+            var tenant = await db.Tenants.FindAsync(tc.TenantId);
+            var pdfBytes = pdf.GenerateInvoicePdf(inv, tenant?.Name ?? "TelecallingCRM");
+            return Results.File(pdfBytes, "application/pdf", $"{inv.InvoiceNumber}.pdf");
+        });
+
         // DELETE /api/invoices/{id}
         group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
         {

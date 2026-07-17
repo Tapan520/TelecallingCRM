@@ -1,0 +1,160 @@
+@page "/Campaigns/{id:guid}/analytics"
+@model TelecallingCRM.Pages.Campaigns.AnalyticsModel
+@{
+    ViewData["Title"] = "Campaign Analytics";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-bar-chart-line text-primary me-2"></i>Campaign Analytics</h5>
+        <small class="text-muted" id="camp-name-label">Loading...</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/Campaigns" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back to Campaigns</a>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4" id="kpi-row">
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">Total Leads</div><div class="fw-bold fs-3" id="kpi-leads">—</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">Total Calls</div><div class="fw-bold fs-3" id="kpi-calls">—</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">Converted</div><div class="fw-bold fs-3 text-success" id="kpi-converted">—</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">Conversion Rate</div><div class="fw-bold fs-3 text-primary" id="kpi-rate">—</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">Avg Talk Time</div><div class="fw-bold fs-3" id="kpi-talk">—</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">No Answer</div><div class="fw-bold fs-3 text-warning" id="kpi-noanswer">—</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">Interested</div><div class="fw-bold fs-3 text-info" id="kpi-interested">—</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="text-muted small">Not Interested</div><div class="fw-bold fs-3 text-danger" id="kpi-notinterested">—</div></div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+    <!-- Daily calls chart -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold small">Daily Calls</div>
+            <div class="card-body"><canvas id="dailyChart" height="100"></canvas></div>
+        </div>
+    </div>
+    <!-- Outcome pie -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-2 fw-semibold small">Call Outcomes</div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <canvas id="outcomeChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Lead status breakdown -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header py-2 fw-semibold small">Lead Status Breakdown</div>
+            <div class="card-body"><canvas id="statusChart" height="160"></canvas></div>
+        </div>
+    </div>
+    <!-- Agent leaderboard -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header py-2 fw-semibold small">Agent Leaderboard</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Agent</th><th>Calls</th><th>Converted</th><th>Rate</th><th>Avg Talk</th></tr></thead>
+                    <tbody id="agent-tbody"><tr><td colspan="5" class="text-center text-muted py-3">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const campaignId = '@Model.CampaignId';
+let dailyChartInst, outcomeChartInst, statusChartInst;
+
+const outcomeLabels = ['No Answer','Busy','Callback','Interested','Not Interested','Converted','Wrong Number','Switch Off','Hot Lead','Call Later','Other'];
+const outcomeColors = ['#f59e0b','#6b7280','#3b82f6','#10b981','#ef4444','#22c55e','#a855f7','#ec4899','#f97316','#14b8a6','#94a3b8'];
+const statusColors  = { New:'#3b82f6',Contacted:'#f59e0b',Interested:'#10b981',NotInterested:'#ef4444',FollowUp:'#8b5cf6',Converted:'#22c55e',Dead:'#94a3b8' };
+
+async function loadAnalytics() {
+    const res = await fetch(`/api/campaigns/${campaignId}/analytics`);
+    if (!res.ok) { document.getElementById('camp-name-label').textContent = 'Campaign not found'; return; }
+    const d = await res.json();
+
+    document.getElementById('camp-name-label').textContent = d.name;
+    document.title = d.name + ' — Analytics';
+
+    // KPIs
+    document.getElementById('kpi-leads').textContent        = d.totalLeads;
+    document.getElementById('kpi-calls').textContent        = d.totalCalls;
+    document.getElementById('kpi-converted').textContent    = d.convertedLeads;
+    document.getElementById('kpi-rate').textContent         = d.totalLeads > 0 ? ((d.convertedLeads / d.totalLeads) * 100).toFixed(1) + '%' : '0%';
+    document.getElementById('kpi-talk').textContent         = fmtDuration(d.avgTalkSeconds);
+    document.getElementById('kpi-noanswer').textContent     = d.outcomeBreakdown?.[0] ?? 0;
+    document.getElementById('kpi-interested').textContent   = d.outcomeBreakdown?.[3] ?? 0;
+    document.getElementById('kpi-notinterested').textContent= d.outcomeBreakdown?.[4] ?? 0;
+
+    // Daily calls bar chart
+    if (dailyChartInst) dailyChartInst.destroy();
+    dailyChartInst = new Chart(document.getElementById('dailyChart'), {
+        type: 'bar',
+        data: {
+            labels: d.dailyCalls.map(x => x.date),
+            datasets: [
+                { label: 'Total Calls', data: d.dailyCalls.map(x => x.total), backgroundColor: '#818cf8', borderRadius: 4 },
+                { label: 'Converted',   data: d.dailyCalls.map(x => x.converted), backgroundColor: '#22c55e', borderRadius: 4 }
+            ]
+        },
+        options: { plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    // Outcome donut
+    const outcomeCounts = d.outcomeBreakdown ?? [];
+    if (outcomeChartInst) outcomeChartInst.destroy();
+    outcomeChartInst = new Chart(document.getElementById('outcomeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: outcomeLabels.filter((_, i) => outcomeCounts[i] > 0),
+            datasets: [{ data: outcomeCounts.filter(v => v > 0), backgroundColor: outcomeColors.filter((_, i) => outcomeCounts[i] > 0) }]
+        },
+        options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, cutout: '60%' }
+    });
+
+    // Lead status bar chart
+    const statusData = d.leadsByStatus ?? [];
+    if (statusChartInst) statusChartInst.destroy();
+    statusChartInst = new Chart(document.getElementById('statusChart'), {
+        type: 'bar',
+        data: {
+            labels: statusData.map(x => x.status),
+            datasets: [{ data: statusData.map(x => x.count), backgroundColor: statusData.map(x => statusColors[x.status] ?? '#94a3b8'), borderRadius: 4 }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    // Agent leaderboard
+    const agents = d.agentBreakdown ?? [];
+    document.getElementById('agent-tbody').innerHTML = agents.length === 0
+        ? '<tr><td colspan="5" class="text-center text-muted py-3">No calls yet.</td></tr>'
+        : agents.map(a => {
+            const rate = a.calls > 0 ? ((a.converted / a.calls) * 100).toFixed(1) + '%' : '0%';
+            return `<tr>
+                <td class="fw-semibold">${a.agentName}</td>
+                <td>${a.calls}</td>
+                <td><span class="badge bg-success">${a.converted}</span></td>
+                <td>${rate}</td>
+                <td>${fmtDuration(a.avgTalkSeconds)}</td>
+            </tr>`;
+        }).join('');
+}
+
+function fmtDuration(sec) {
+    if (!sec || sec === 0) return '0s';
+    const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+loadAnalytics();
+</script>
+}

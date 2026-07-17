@@ -88,6 +88,20 @@ public static class LeadsEndpoints
                     message = $"Cannot create lead for {dto.Phone} — this number is on the Do-Not-Call list."
                 });
 
+            // Duplicate phone check
+            var existingLead = await db.Leads
+                .Where(l => l.TenantId == tc.TenantId && l.Phone == dto.Phone.Trim())
+                .Select(l => new { l.Id, l.Name, l.Status })
+                .FirstOrDefaultAsync();
+            if (existingLead != null)
+                return Results.Conflict(new {
+                    error = "DUPLICATE",
+                    message = $"A lead with phone {dto.Phone} already exists.",
+                    existingLeadId = existingLead.Id,
+                    existingLeadName = existingLead.Name,
+                    existingLeadStatus = existingLead.Status.ToString()
+                });
+
             var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
             var lead = new Lead
             {
@@ -174,7 +188,7 @@ public static class LeadsEndpoints
                     tc.TenantId, WebhookEvent.LeadConverted, new { leadId = id, lead.Name, lead.Phone }));
 
                 // Push SignalR dashboard update on conversion
-                var hub = http.RequestServices.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<TelecallingCRM.Hubs.CrmHub>>();
+                var hub = http.RequestServices.GetRequiredService<IHubContext<CrmHub>>();
                 await hub.Clients.Group($"tenant-{tc.TenantId}")
                     .SendAsync("DashboardUpdated", new { reason = "lead_converted" });
             }
@@ -325,6 +339,41 @@ public static class LeadsEndpoints
             return Results.Ok(new { imported, skipped, errors });
         }).DisableAntiforgery();
 
+        // POST /api/leads/bulk-status
+        group.MapPost("/bulk-status", async ([FromBody] BulkStatusDto dto, TenantContext tc, AppDbContext db, HttpContext http) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var leads = await db.Leads
+                .Where(l => l.TenantId == tc.TenantId && dto.LeadIds.Contains(l.Id))
+                .ToListAsync();
+            foreach (var lead in leads)
+            {
+                var oldStatus = lead.Status;
+                lead.Status = dto.Status;
+                lead.UpdatedAt = DateTime.UtcNow;
+                db.ActivityLogs.Add(new ActivityLog {
+                    TenantId = tc.TenantId, LeadId = lead.Id, UserId = userId,
+                    Type = ActivityType.StatusChanged,
+                    Summary = $"Bulk status change: {oldStatus} ? {dto.Status}"
+                });
+            }
+            await db.SaveChangesAsync();
+            return Results.Ok(new { updated = leads.Count });
+        });
+
+        // POST /api/leads/bulk-delete
+        group.MapPost("/bulk-delete", async ([FromBody] BulkDeleteDto dto, TenantContext tc, AppDbContext db) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var leads = await db.Leads
+                .Where(l => l.TenantId == tc.TenantId && dto.LeadIds.Contains(l.Id))
+                .ToListAsync();
+            db.Leads.RemoveRange(leads);
+            await db.SaveChangesAsync();
+            return Results.Ok(new { deleted = leads.Count });
+        });
+
         // POST /api/leads/bulk-reassign-agent - reassign ALL leads from one agent to another
         group.MapPost("/bulk-reassign-agent", async ([FromBody] BulkReassignAgentDto dto, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
@@ -376,3 +425,5 @@ DateTime? NextFollowUpAt = null);
 
 public record BulkAssignDto(List<Guid> LeadIds, Guid AssignedToId);
 public record BulkReassignAgentDto(Guid FromAgentId, Guid ToAgentId);
+public record BulkStatusDto(List<Guid> LeadIds, LeadStatus Status);
+public record BulkDeleteDto(List<Guid> LeadIds);
