@@ -87,6 +87,35 @@ public static class TaskEndpoints
             return Results.Created($"/api/tasks/{task.Id}", task);
         });
 
+        group.MapGet("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var task = await db.Tasks
+                .Include(t => t.AssignedTo).Include(t => t.Lead)
+                .FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tc.TenantId);
+            if (task == null) return Results.NotFound();
+            return Results.Ok(new {
+                task.Id, task.Title, task.Description, task.Priority, task.Status,
+                task.DueAt, task.CompletedAt, task.LeadId, task.AssignedToId,
+                AssignedTo = task.AssignedTo.FullName, LeadName = task.Lead?.Name
+            });
+        });
+
+        group.MapPut("/{id:guid}", async (Guid id, [FromBody] TaskUpsertDto dto, TenantContext tc, AppDbContext db) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tc.TenantId);
+            if (task == null) return Results.NotFound();
+            task.Title = dto.Title;
+            task.Description = dto.Description;
+            task.Priority = dto.Priority;
+            task.DueAt = dto.DueAt;
+            if (dto.LeadId.HasValue) task.LeadId = dto.LeadId;
+            if (dto.AssignedToId.HasValue) task.AssignedToId = dto.AssignedToId.Value;
+            await db.SaveChangesAsync();
+            return Results.Ok(new { task.Id, task.Title, task.Status });
+        });
+
         group.MapPost("/{id:guid}/complete", async (Guid id, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();

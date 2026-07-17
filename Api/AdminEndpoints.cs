@@ -71,14 +71,7 @@ public static class AdminEndpoints
             if (!result.Succeeded)
                 return Results.BadRequest(result.Errors);
 
-            // Audit log
-            db.ActivityLogs.Add(new ActivityLog {
-                TenantId = tc.TenantId, LeadId = Guid.Empty, UserId = user.Id,
-                Type = ActivityType.LeadCreated,
-                Summary = $"Admin action: user created — {user.Email} (role: {user.Role})"
-            });
             await db.SaveChangesAsync();
-
             return Results.Created($"/api/admin/users/{user.Id}", new { user.Id, user.FullName, user.Email, user.Role });
         });
 
@@ -88,11 +81,6 @@ public static class AdminEndpoints
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.TenantId == tc.TenantId);
             if (user == null) return Results.NotFound();
             user.IsActive = !user.IsActive;
-            db.ActivityLogs.Add(new ActivityLog {
-                TenantId = tc.TenantId, LeadId = Guid.Empty, UserId = user.Id,
-                Type = ActivityType.LeadUpdated,
-                Summary = $"Admin action: user {(user.IsActive ? "activated" : "deactivated")} — {user.Email}"
-            });
             await db.SaveChangesAsync();
             return Results.Ok(new { user.IsActive });
         });
@@ -133,13 +121,6 @@ public static class AdminEndpoints
             }
 
             await db.SaveChangesAsync();
-            // Audit log
-            db.ActivityLogs.Add(new ActivityLog {
-                TenantId = tc.TenantId, LeadId = Guid.Empty, UserId = user.Id,
-                Type = ActivityType.LeadUpdated,
-                Summary = $"Admin action: user updated — {user.Email} role={user.Role}"
-            });
-            await db.SaveChangesAsync();
             return Results.Ok(new { user.Id, user.FullName, user.Email, user.PhoneNumber, user.Role });
         });
 
@@ -158,14 +139,6 @@ public static class AdminEndpoints
             var callerRole = http.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
             if (callerRole == "admin" && user.Role == "admin")
                 return Results.BadRequest("Admins cannot delete other admin accounts.");
-
-            // Audit the deletion before removing the user
-            db.ActivityLogs.Add(new ActivityLog {
-                TenantId = tc.TenantId, LeadId = Guid.Empty, UserId = user.Id,
-                Type = ActivityType.LeadUpdated,
-                Summary = $"Admin action: user deleted — {user.Email} (role: {user.Role})"
-            });
-            await db.SaveChangesAsync();
 
             var result = await userManager.DeleteAsync(user);
             if (!result.Succeeded) return Results.BadRequest(result.Errors);

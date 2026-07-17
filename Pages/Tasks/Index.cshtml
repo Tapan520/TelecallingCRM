@@ -9,7 +9,7 @@
         <h5 class="mb-0 fw-bold">Task Manager</h5>
         <small class="text-muted">Today's tasks, pending, overdue and completed</small>
     </div>
-    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#taskModal">
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#taskModal" onclick="openNewTaskModal()">
         <i class="bi bi-plus-circle"></i> New Task
     </button>
 </div>
@@ -50,12 +50,16 @@
     </div>
 </div>
 
-<!-- Task Modal -->
+<!-- Task Create/Edit Modal -->
 <div class="modal fade" id="taskModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">New Task</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskModalTitle">New Task</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
             <div class="modal-body">
+                <input type="hidden" id="t-id">
                 <div class="mb-3"><label class="form-label">Title *</label><input type="text" id="t-title" class="form-control"></div>
                 <div class="mb-3"><label class="form-label">Description</label><textarea id="t-desc" class="form-control" rows="2"></textarea></div>
                 <div class="row g-2">
@@ -71,7 +75,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-primary" onclick="createTask()">Create</button>
+                <button class="btn btn-primary" onclick="saveTask()">Save</button>
             </div>
         </div>
     </div>
@@ -115,6 +119,7 @@ async function loadTasks(status) {
             <td><span class="badge bg-${statusColors[t.status] ?? 'secondary'}">${t.status}</span></td>
             <td>
                 ${t.status !== 'Completed' ? `<button class="btn btn-sm btn-outline-success" onclick="completeTask('${t.id}')"><i class="bi bi-check-lg"></i></button>` : ''}
+                <button class="btn btn-sm btn-outline-primary ms-1" onclick="editTask('${t.id}')"><i class="bi bi-pencil"></i></button>
                 <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteTask('${t.id}')"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`).join('');
@@ -122,17 +127,51 @@ async function loadTasks(status) {
 
 function tasksChangePage(dir) { tasksPage += dir; loadTasks(currentStatus); }
 
-async function createTask() {
+function openNewTaskModal() {
+    document.getElementById('t-id').value = '';
+    document.getElementById('t-title').value = '';
+    document.getElementById('t-desc').value = '';
+    document.getElementById('t-priority').value = '1';
+    document.getElementById('t-due').value = '';
+    document.getElementById('taskModalTitle').textContent = 'New Task';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('taskModal')).show();
+}
+
+async function editTask(id) {
+    const res = await fetch(`/api/tasks/${id}`);
+    if (!res.ok) { alert('Failed to load task.'); return; }
+    const t = await res.json();
+    document.getElementById('t-id').value = t.id;
+    document.getElementById('t-title').value = t.title ?? '';
+    document.getElementById('t-desc').value = t.description ?? '';
+    document.getElementById('t-priority').value = t.priority;
+    document.getElementById('t-due').value = t.dueAt ? new Date(t.dueAt).toISOString().slice(0,16) : '';
+    document.getElementById('taskModalTitle').textContent = 'Edit Task';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('taskModal')).show();
+}
+
+async function saveTask() {
+    const id = document.getElementById('t-id').value;
     const body = {
         title: document.getElementById('t-title').value,
-        description: document.getElementById('t-desc').value,
+        description: document.getElementById('t-desc').value || null,
         priority: parseInt(document.getElementById('t-priority').value),
         dueAt: document.getElementById('t-due').value,
-        leadId: null, assignedToId: null
+        leadId: null,
+        assignedToId: null
     };
-    const res = await fetch('/api/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide(); loadTasks(currentStatus); }
-    else alert('Error creating task');
+    if (!body.title) { alert('Title is required.'); return; }
+    if (!body.dueAt) { alert('Due date is required.'); return; }
+    const url = id ? `/api/tasks/${id}` : '/api/tasks';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
+        loadTasks(currentStatus);
+    } else {
+        const msg = await res.text();
+        alert('Error saving task: ' + msg);
+    }
 }
 
 async function completeTask(id) {

@@ -104,10 +104,10 @@ try {
     document.getElementById('allusers-tbody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Unexpected server response. Please refresh the page.</td></tr>`;
     return;
 }
-    if (data.length === 0) {
+    if (!data.users || data.users.length === 0) {
         document.getElementById('allusers-tbody').innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No users found.</td></tr>`;
     } else {
-        document.getElementById('allusers-tbody').innerHTML = data.map(u => {
+        document.getElementById('allusers-tbody').innerHTML = data.users.map(u => {
             const safeName = (u.fullName ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             return `
         <tr>
@@ -130,9 +130,10 @@ try {
 
 async function loadTenants() {
 try {
-    const res = await fetch('/api/superadmin/tenants');
+    const res = await fetch('/api/superadmin/tenants?pageSize=500');
     if (!res.ok) return;
-    allTenants = await res.json();
+    const data = await res.json();
+    allTenants = data.tenants ?? [];
 } catch (e) {
     return;
 }
