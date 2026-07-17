@@ -130,6 +130,8 @@ async function loadRules() {
     const res = await fetch('/api/commissions/rules');
     if (!res.ok) return;
     const rules = await res.json();
+    // Store globally so editRule() can look up by id safely
+    window._commissionRules = rules;
     document.getElementById('rules-list').innerHTML = rules.length === 0
         ? '<div class="text-center text-muted py-4">No rules defined.</div>'
         : `<div class="card"><div class="table-responsive"><table class="table mb-0">
@@ -139,7 +141,7 @@ async function loadRules() {
                 <td>${r.type==='PercentOfPayment'?r.value+'%':'&#8377;'+r.value}</td>
                 <td><span class="badge ${r.isActive?'bg-success':'bg-secondary'}">${r.isActive?'Yes':'No'}</span></td>
                 <td>
-                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="editRule(${JSON.stringify(r)})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="editRule('${r.id}')"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteRule('${r.id}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>`).join('')}</tbody>
@@ -150,12 +152,17 @@ function openRuleModal(r = null) {
     document.getElementById('ruleId').value = r?.id || '';
     document.getElementById('ruleName').value = r?.name || '';
     document.getElementById('ruleType').value = r?.type || 'PercentOfPayment';
-    document.getElementById('ruleValue').value = r?.value || '';
+    document.getElementById('ruleValue').value = r?.value ?? '';
     document.getElementById('ruleActive').checked = r?.isActive !== false;
+    document.querySelector('#ruleModal .modal-title').textContent = r ? 'Edit Commission Rule' : 'New Commission Rule';
     new bootstrap.Modal(document.getElementById('ruleModal')).show();
 }
 
-function editRule(r) { openRuleModal(r); }
+function editRule(id) {
+    const r = (window._commissionRules || []).find(x => x.id === id);
+    if (!r) { alert('Rule not found. Please refresh.'); return; }
+    openRuleModal(r);
+}
 
 async function saveRule() {
     const id = document.getElementById('ruleId').value;
