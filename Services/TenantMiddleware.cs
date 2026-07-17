@@ -28,13 +28,21 @@ public class TenantMiddleware
 
         if (!string.IsNullOrWhiteSpace(slug))
         {
-            tenantContext.Tenant = await db.Tenants
+            var slugTenant = await db.Tenants
                 .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Slug == slug && t.IsActive);
 
-            tenantContext.IsResolved = true;
-            await _next(context);
-            return;
+            // Only use slug-based tenant if a match was found.
+            // If not found (e.g. Railway deployment domain "telecallingcrm.up.railway.app"
+            // extracts "telecallingcrm" which isn't a real slug), fall through to
+            // claim-based resolution below so authenticated users still get their tenant.
+            if (slugTenant != null)
+            {
+                tenantContext.Tenant = slugTenant;
+                tenantContext.IsResolved = true;
+                await _next(context);
+                return;
+            }
         }
 
         // ?? 2. No slug — user must be authenticated for anything beyond static files ??
