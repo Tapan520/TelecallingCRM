@@ -37,7 +37,13 @@ public static class DripSequenceEndpoints
             var seq = await db.DripSequences
                 .Include(s => s.Steps.OrderBy(st => st.StepOrder))
                 .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tc.TenantId);
-            return seq is null ? Results.NotFound() : Results.Ok(seq);
+            if (seq is null) return Results.NotFound();
+            return Results.Ok(new {
+                seq.Id, seq.Name, seq.Trigger, seq.IsActive, seq.CampaignId, seq.CreatedAt,
+                steps = seq.Steps.Select(st => new {
+                    st.Id, st.StepOrder, st.StepType, st.DelayDays, st.Payload
+                }).ToList()
+            });
         });
 
         // POST /api/drip

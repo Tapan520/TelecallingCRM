@@ -34,7 +34,14 @@ public static class DispositionFormEndpoints
             var form = await db.DispositionForms
                 .Include(f => f.Fields.OrderBy(x => x.SortOrder))
                 .FirstOrDefaultAsync(f => f.Id == id && f.TenantId == tc.TenantId);
-            return form is null ? Results.NotFound() : Results.Ok(form);
+            if (form is null) return Results.NotFound();
+            return Results.Ok(new {
+                form.Id, form.Name, form.IsDefault, form.IsActive,
+                form.CampaignId, form.CreatedAt,
+                fields = form.Fields.Select(f => new {
+                    f.Id, f.Label, f.FieldType, f.Options, f.IsRequired, f.SortOrder
+                }).ToList()
+            });
         });
 
         group.MapPost("/", async ([FromBody] DispositionFormDto dto, TenantContext tc, AppDbContext db) =>
