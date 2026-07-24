@@ -11,7 +11,7 @@ public static class AdminEndpoints
 {
     public static void MapAdminEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/admin").WithTags("Admin").RequireAuthorization(p => p.RequireRole("admin", "superadmin")).RequireRateLimiting("api");
+        var group = app.MapGroup("/api/admin").WithTags("Admin").RequireAuthorization(p => p.RequireRole("admin", "manager", "superadmin")).RequireRateLimiting("api");
 
         group.MapGet("/users", async (TenantContext tc, AppDbContext db,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? q = null) =>
@@ -128,6 +128,11 @@ public static class AdminEndpoints
             AppDbContext db, UserManager<AppUser> userManager, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
+
+            var callerRole = http.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+            if (callerRole == "manager")
+                return Results.Forbid(); // managers cannot delete users
+
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.TenantId == tc.TenantId);
             if (user == null) return Results.NotFound();
 
@@ -136,7 +141,6 @@ public static class AdminEndpoints
             if (callerId != null && user.Id.ToString() == callerId)
                 return Results.BadRequest("You cannot delete your own account.");
 
-            var callerRole = http.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
             if (callerRole == "admin" && user.Role == "admin")
                 return Results.BadRequest("Admins cannot delete other admin accounts.");
 

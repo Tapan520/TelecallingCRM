@@ -127,15 +127,22 @@ const pageSize = 25;
 let allAgents = [];
 
 async function loadAgents() {
-    const res = await fetch('/api/admin/users?pageSize=500');
-    if (!res.ok) return;
-    const data = await res.json();
-    allAgents = data.users ?? data;
-    const filterSel = document.getElementById('filter-agent');
-    const entrySel  = document.getElementById('entry-agent');
-    const opts = allAgents.map(a => `<option value="${a.id}">${a.fullName} (${a.role})</option>`).join('');
-    filterSel.innerHTML = '<option value="">All Agents</option>' + opts;
-    entrySel.innerHTML  = '<option value="">-- Select Agent --</option>' + opts;
+    try {
+        const res = await fetch('/api/admin/users?pageSize=500');
+        if (!res.ok) {
+            console.error('loadAgents failed:', res.status, await res.text());
+            return;
+        }
+        const data = await res.json();
+        allAgents = data.users ?? data;
+        const filterSel = document.getElementById('filter-agent');
+        const entrySel  = document.getElementById('entry-agent');
+        const opts = allAgents.map(a => `<option value="${a.id}">${a.fullName} (${a.role})</option>`).join('');
+        filterSel.innerHTML = '<option value="">All Agents</option>' + opts;
+        entrySel.innerHTML  = '<option value="">-- Select Agent --</option>' + opts;
+    } catch(e) {
+        console.error('loadAgents exception:', e);
+    }
 }
 
 async function loadAttendance() {
@@ -178,7 +185,13 @@ async function loadAttendance() {
                     : '<span class="badge bg-light text-dark border">Self</span>'}</td>
                 <td><small class="text-muted">${a.punchedInBy}</small></td>
                 <td>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="editEntry('${a.id}','${a.agentId}','${a.agentName}','${new Date(a.punchIn).toISOString().slice(0,16)}','${pOut ? new Date(a.punchOut).toISOString().slice(0,16) : ''}','${(a.notes??'').replace(/'/g,"\\'")}')">
+                    <button class="btn btn-sm btn-outline-secondary edit-btn"
+                        data-id="${a.id}"
+                        data-agent-id="${a.agentId}"
+                        data-agent-name="${a.agentName.replace(/"/g,'&quot;')}"
+                        data-punch-in="${new Date(a.punchIn).toISOString().slice(0,16)}"
+                        data-punch-out="${pOut ? new Date(a.punchOut).toISOString().slice(0,16) : ''}"
+                        data-notes="${(a.notes??'').replace(/"/g,'&quot;')}">
                         <i class="bi bi-pencil"></i>
                     </button>
                 </td>
@@ -239,6 +252,20 @@ function openManualEntry() {
     new bootstrap.Modal(document.getElementById('entryModal')).show();
 }
 
+
+// Delegated click handler for edit buttons — avoids inline onclick string-escaping issues
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.edit-btn');
+    if (!btn) return;
+    editEntry(
+        btn.dataset.id,
+        btn.dataset.agentId,
+        btn.dataset.agentName,
+        btn.dataset.punchIn,
+        btn.dataset.punchOut,
+        btn.dataset.notes
+    );
+});
 
 function editEntry(id, agentId, agentName, punchIn, punchOut, notes) {
     document.getElementById('entryModalTitle').textContent = 'Edit Attendance Entry';
