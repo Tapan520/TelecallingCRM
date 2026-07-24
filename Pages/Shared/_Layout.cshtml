@@ -596,8 +596,8 @@
     }
 
     function initDesktopSidebar() {
-        // Default: collapsed unless user explicitly opened it
-        const isOpen = localStorage.getItem(DESKTOP_SIDEBAR_KEY) === 'true';
+        // Default: open unless user explicitly closed it
+        const isOpen = localStorage.getItem(DESKTOP_SIDEBAR_KEY) !== 'false';
         if (!isOpen) {
             document.querySelector('.sidebar')?.classList.add('sidebar-collapsed');
             document.querySelector('.main-content')?.classList.add('sidebar-collapsed');
