@@ -83,9 +83,16 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="entry-id">
-                <div class="mb-3">
+                <input type="hidden" id="entry-agent-id">
+                <!-- Shown only in New Entry mode -->
+                <div class="mb-3" id="agent-select-row">
                     <label class="form-label fw-semibold">Agent *</label>
                     <select id="entry-agent" class="form-select"></select>
+                </div>
+                <!-- Shown only in Edit mode -->
+                <div class="mb-3 d-none" id="agent-readonly-row">
+                    <label class="form-label fw-semibold">Agent</label>
+                    <input type="text" id="entry-agent-name" class="form-control" readonly>
                 </div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -171,7 +178,7 @@ async function loadAttendance() {
                     : '<span class="badge bg-light text-dark border">Self</span>'}</td>
                 <td><small class="text-muted">${a.punchedInBy}</small></td>
                 <td>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="editEntry('${a.id}','${a.agentId}','${new Date(a.punchIn).toISOString().slice(0,16)}','${pOut ? new Date(a.punchOut).toISOString().slice(0,16) : ''}','${(a.notes??'').replace(/'/g,"\\'")}')">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="editEntry('${a.id}','${a.agentId}','${a.agentName}','${new Date(a.punchIn).toISOString().slice(0,16)}','${pOut ? new Date(a.punchOut).toISOString().slice(0,16) : ''}','${(a.notes??'').replace(/'/g,"\\'")}')">
                         <i class="bi bi-pencil"></i>
                     </button>
                 </td>
@@ -218,29 +225,41 @@ function changePage(dir) { currentPage += dir; loadAttendance(); }
 
 function openManualEntry() {
     document.getElementById('entryModalTitle').textContent = 'Manual Attendance Entry';
-    document.getElementById('entry-id').value = '';
-    document.getElementById('entry-agent').value = '';
-    document.getElementById('entry-punch-in').value = '';
-    document.getElementById('entry-punch-out').value = '';
-    document.getElementById('entry-notes').value = '';
+    document.getElementById('entry-id').value         = '';
+    document.getElementById('entry-agent-id').value   = '';
+    document.getElementById('entry-agent').value      = '';
+    document.getElementById('entry-agent-name').value = '';
+    document.getElementById('entry-punch-in').value   = '';
+    document.getElementById('entry-punch-out').value  = '';
+    document.getElementById('entry-notes').value      = '';
     document.getElementById('entry-error').classList.add('d-none');
+    // New entry mode: show dropdown, hide readonly name
+    document.getElementById('agent-select-row').classList.remove('d-none');
+    document.getElementById('agent-readonly-row').classList.add('d-none');
     new bootstrap.Modal(document.getElementById('entryModal')).show();
 }
 
-function editEntry(id, agentId, punchIn, punchOut, notes) {
+
+function editEntry(id, agentId, agentName, punchIn, punchOut, notes) {
     document.getElementById('entryModalTitle').textContent = 'Edit Attendance Entry';
-    document.getElementById('entry-id').value = id;
-    document.getElementById('entry-agent').value = agentId;
-    document.getElementById('entry-punch-in').value = punchIn;
-    document.getElementById('entry-punch-out').value = punchOut;
-    document.getElementById('entry-notes').value = notes;
+    document.getElementById('entry-id').value         = id;
+    document.getElementById('entry-agent-id').value   = agentId;
+    document.getElementById('entry-agent-name').value = agentName;
+    document.getElementById('entry-punch-in').value   = punchIn;
+    document.getElementById('entry-punch-out').value  = punchOut;
+    document.getElementById('entry-notes').value      = notes;
     document.getElementById('entry-error').classList.add('d-none');
+    // Edit mode: show readonly name, hide dropdown
+    document.getElementById('agent-select-row').classList.add('d-none');
+    document.getElementById('agent-readonly-row').classList.remove('d-none');
     new bootstrap.Modal(document.getElementById('entryModal')).show();
 }
 
 async function saveEntry() {
     const id      = document.getElementById('entry-id').value;
-    const agentId = document.getElementById('entry-agent').value;
+    const agentId = id
+        ? document.getElementById('entry-agent-id').value
+        : document.getElementById('entry-agent').value;
     const punchIn = document.getElementById('entry-punch-in').value;
     const punchOut= document.getElementById('entry-punch-out').value;
     const notes   = document.getElementById('entry-notes').value;

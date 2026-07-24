@@ -63,26 +63,38 @@ public static class AttendanceEndpoints
                 isManual = true;
             }
 
-            // Check no open punch-in exists today
+            // Allow multiple punch-in/out entries per day.
+            // Auto-close any currently open punch-in for this agent first.
             var today = DateTime.UtcNow.Date;
-            var existing = await db.AttendanceLogs
+            var openEntry = await db.AttendanceLogs
                 .Where(a => a.TenantId == tc.TenantId && a.AgentId == targetId
                          && a.PunchIn >= today && a.PunchIn < today.AddDays(1)
                          && a.PunchOut == null)
+                .OrderByDescending(a => a.PunchIn)
                 .FirstOrDefaultAsync();
 
-            if (existing != null)
-                return Results.BadRequest("Agent is already punched in.");
+            // If there's an open entry, close it before creating a new one
+            if (openEntry != null)
+            {
+                var autoOut = dto.PunchTime ?? DateTime.UtcNow;
+                openEntry.PunchOut       = autoOut;
+                openEntry.WorkMinutes    = (int)(autoOut - openEntry.PunchIn).TotalMinutes;
+                openEntry.PunchedOutById = callerId;
+                openEntry.UpdatedAt      = DateTime.UtcNow;
+                openEntry.Status         = openEntry.WorkMinutes >= 240 ? AttendanceStatus.Present
+                                         : openEntry.WorkMinutes >= 60  ? AttendanceStatus.HalfDay
+                                         : AttendanceStatus.Present;
+            }
 
             var punchTime = dto.PunchTime ?? DateTime.UtcNow;
             var log = new AttendanceLog
             {
-                TenantId    = tc.TenantId,
-                AgentId     = targetId,
-                PunchIn     = punchTime,
+                TenantId      = tc.TenantId,
+                AgentId       = targetId,
+                PunchIn       = punchTime,
                 PunchedInById = callerId,
                 IsManualEntry = isManual,
-                Notes       = dto.Notes
+                Notes         = dto.Notes
             };
             db.AttendanceLogs.Add(log);
             await db.SaveChangesAsync();
