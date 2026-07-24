@@ -97,10 +97,14 @@
             font-size: 0.78rem;
             color: #818cf8;
         }
+        .sidebar { transition: width 0.25s ease; }
+        .sidebar.sidebar-collapsed { width: 0 !important; padding: 0 !important; overflow: hidden; }
         .main-content {
             margin-left: var(--sidebar-width);
             min-height: 100vh;
+            transition: margin-left 0.25s ease;
         }
+        .main-content.sidebar-collapsed { margin-left: 0; }
         .topbar {
             background: #fff;
             border-bottom: 1px solid #e2e8f0;
@@ -449,6 +453,10 @@
                 <button class="btn btn-sm btn-light d-md-none me-2" id="sidebar-toggle" onclick="toggleSidebar()">
                     <i class="bi bi-list fs-5"></i>
                 </button>
+                <!-- Desktop sidebar toggle -->
+                <button class="btn btn-sm btn-light d-none d-md-inline-flex align-items-center me-2" id="desktop-sidebar-toggle" onclick="toggleDesktopSidebar()" title="Toggle sidebar">
+                    <i class="bi bi-layout-sidebar fs-5"></i>
+                </button>
                 <span class="fw-semibold text-secondary" style="font-size:0.9rem;">@ViewData["Title"]</span>
                 <div class="d-flex align-items-center gap-2">
                     <!-- Notification Bell -->
@@ -568,6 +576,35 @@
         if (sidebar) sidebar.classList.toggle('sidebar-open');
         if (overlay) overlay.classList.toggle('show');
     }
+
+    // ── Desktop sidebar toggle ─────────────────────────────────────────────
+    const DESKTOP_SIDEBAR_KEY = 'crm_sidebar_open';
+
+    function toggleDesktopSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const main = document.querySelector('.main-content');
+        const isCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+        if (isCollapsed) {
+            sidebar?.classList.remove('sidebar-collapsed');
+            main?.classList.remove('sidebar-collapsed');
+            localStorage.setItem(DESKTOP_SIDEBAR_KEY, 'true');
+        } else {
+            sidebar?.classList.add('sidebar-collapsed');
+            main?.classList.add('sidebar-collapsed');
+            localStorage.setItem(DESKTOP_SIDEBAR_KEY, 'false');
+        }
+    }
+
+    function initDesktopSidebar() {
+        // Default: collapsed unless user explicitly opened it
+        const isOpen = localStorage.getItem(DESKTOP_SIDEBAR_KEY) === 'true';
+        if (!isOpen) {
+            document.querySelector('.sidebar')?.classList.add('sidebar-collapsed');
+            document.querySelector('.main-content')?.classList.add('sidebar-collapsed');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', initDesktopSidebar);
 
     // ── Collapsible sidebar sections ──────────────────────────────────────
     const STORAGE_KEY = 'crm_nav_collapsed';
