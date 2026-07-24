@@ -273,6 +273,7 @@ app.MapProfileEndpoints();
 app.MapInboxEndpoints();
 app.MapActivityFeedEndpoints();
 app.MapAgentShiftEndpoints();
+app.MapAttendanceEndpoints();
 app.MapCallScriptEndpoints();
 app.MapCrmSyncEndpoints();
 app.MapInvoiceEndpoints();

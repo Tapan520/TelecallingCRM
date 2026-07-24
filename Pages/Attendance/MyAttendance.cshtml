@@ -1,0 +1,218 @@
+@page
+@model TelecallingCRM.Pages.Attendance.MyAttendanceModel
+@{
+    ViewData["Title"] = "My Attendance";
+}
+
+<!-- Today's Punch Card -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <div class="mb-2 text-muted small fw-semibold text-uppercase">Today's Status</div>
+                <div id="today-status-icon" class="mb-2" style="font-size:3rem;">??</div>
+                <div id="today-status-text" class="fw-bold fs-5 mb-1">Loading...</div>
+                <div id="today-punch-in"  class="text-muted small"></div>
+                <div id="today-punch-out" class="text-muted small"></div>
+                <div id="today-hours"     class="text-success fw-semibold mt-1"></div>
+                <div class="d-flex gap-3 justify-content-center mt-3">
+                    <button id="btn-punch-in" class="btn btn-success px-4" onclick="punchIn()" disabled>
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Punch In
+                    </button>
+                    <button id="btn-punch-out" class="btn btn-danger px-4" onclick="punchOut()" disabled>
+                        <i class="bi bi-box-arrow-left me-1"></i>Punch Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="fw-semibold mb-3">This Month Summary</div>
+                <div class="row g-2" id="month-summary">
+                    <div class="text-center text-muted py-3">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance History -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">My Attendance History</span>
+        <div class="d-flex gap-2">
+            <input type="date" id="hist-from" class="form-control form-control-sm" style="width:140px;">
+            <input type="date" id="hist-to"   class="form-control form-control-sm" style="width:140px;">
+            <button class="btn btn-sm btn-primary" onclick="loadHistory()"><i class="bi bi-funnel"></i></button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Punch In</th>
+                    <th>Punch Out</th>
+                    <th>Hours</th>
+                    <th>Status</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody id="history-tbody">
+                <tr><td colspan="6" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="hist-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="hist-prev" onclick="histPage(-1)" disabled>&#8592; Prev</button>
+            <button class="btn btn-outline-secondary btn-sm" id="hist-next" onclick="histPage(1)">Next &#8594;</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let page = 1;
+const pageSize = 25;
+let todayLog = null;
+
+async function loadToday() {
+    const res = await fetch('/api/attendance/today');
+    if (!res.ok) return;
+    todayLog = await res.json();
+
+    const statusIcon = document.getElementById('today-status-icon');
+    const statusText = document.getElementById('today-status-text');
+    const punchInEl  = document.getElementById('today-punch-in');
+    const punchOutEl = document.getElementById('today-punch-out');
+    const hoursEl    = document.getElementById('today-hours');
+    const btnIn      = document.getElementById('btn-punch-in');
+    const btnOut     = document.getElementById('btn-punch-out');
+
+    if (!todayLog) {
+        statusIcon.textContent = '??';
+        statusText.textContent = 'Not Punched In';
+        punchInEl.textContent  = '';
+        punchOutEl.textContent = '';
+        hoursEl.textContent    = '';
+        btnIn.disabled  = false;
+        btnOut.disabled = true;
+    } else if (!todayLog.punchOut) {
+        statusIcon.textContent = '??';
+        statusText.textContent = 'Currently Punched In';
+        punchInEl.textContent  = 'In: ' + new Date(todayLog.punchIn).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        punchOutEl.textContent = '';
+        hoursEl.textContent    = '';
+        btnIn.disabled  = true;
+        btnOut.disabled = false;
+    } else {
+        const hrs = Math.floor(todayLog.workMinutes / 60);
+        const min = todayLog.workMinutes % 60;
+        statusIcon.textContent = '?';
+        statusText.textContent = todayLog.status;
+        punchInEl.textContent  = 'In: '  + new Date(todayLog.punchIn).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        punchOutEl.textContent = 'Out: ' + new Date(todayLog.punchOut).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        hoursEl.textContent    = `${hrs}h ${min}m worked today`;
+        btnIn.disabled  = true;
+        btnOut.disabled = true;
+    }
+}
+
+async function loadMonthSummary() {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    const to   = now.toISOString().slice(0,10);
+    const res = await fetch(`/api/attendance?from=${from}&to=${to}&pageSize=100`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const totalDays  = data.total;
+    const totalMins  = data.items.reduce((s, a) => s + a.workMinutes, 0);
+    const avgMins    = totalDays > 0 ? Math.round(totalMins / totalDays) : 0;
+
+    document.getElementById('month-summary').innerHTML = `
+        <div class="col-4 text-center"><div class="fs-4 fw-bold text-primary">${totalDays}</div><div class="text-muted small">Days Present</div></div>
+        <div class="col-4 text-center"><div class="fs-4 fw-bold text-success">${Math.floor(totalMins/60)}h</div><div class="text-muted small">Total Hours</div></div>
+        <div class="col-4 text-center"><div class="fs-4 fw-bold text-info">${Math.floor(avgMins/60)}h ${avgMins%60}m</div><div class="text-muted small">Avg / Day</div></div>`;
+}
+
+async function loadHistory() {
+    const from = document.getElementById('hist-from').value;
+    const to   = document.getElementById('hist-to').value;
+    let url = `/api/attendance?page=${page}&pageSize=${pageSize}`;
+    if (from) url += `&from=${from}`;
+    if (to)   url += `&to=${to}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    document.getElementById('hist-count').textContent = `${data.total} record(s)`;
+    document.getElementById('hist-prev').disabled = page <= 1;
+    document.getElementById('hist-next').disabled = page * pageSize >= data.total;
+
+    const statusBadge = s => ({
+        Present: 'bg-success', HalfDay: 'bg-warning text-dark',
+        Absent: 'bg-danger', Late: 'bg-info text-dark'
+    }[s] || 'bg-secondary');
+
+    document.getElementById('history-tbody').innerHTML = !data.items.length
+        ? '<tr><td colspan="6" class="text-center text-muted py-4">No records found.</td></tr>'
+        : data.items.map(a => {
+            const pIn  = new Date(a.punchIn);
+            const pOut = a.punchOut ? new Date(a.punchOut) : null;
+            const hrs  = a.workMinutes ? `${Math.floor(a.workMinutes/60)}h ${a.workMinutes%60}m` : '-';
+            return `<tr>
+                <td>${pIn.toLocaleDateString()}</td>
+                <td>${pIn.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td>
+                <td>${pOut ? pOut.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '<span class="text-warning small">Open</span>'}</td>
+                <td>${hrs}</td>
+                <td><span class="badge ${statusBadge(a.status)}">${a.status}</span>
+                    ${a.isManualEntry ? ' <span class="badge bg-warning text-dark" title="Admin/Manager entry"><i class="bi bi-pencil"></i></span>' : ''}</td>
+                <td><small class="text-muted">${a.notes ?? ''}</small></td>
+            </tr>`;
+        }).join('');
+}
+
+function histPage(dir) { page += dir; loadHistory(); }
+
+async function punchIn() {
+    const btn = document.getElementById('btn-punch-in');
+    btn.disabled = true;
+    const res = await fetch('/api/attendance/punch-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+    });
+    if (res.ok) { await loadToday(); loadHistory(); loadMonthSummary(); }
+    else { alert('Punch in failed: ' + await res.text()); btn.disabled = false; }
+}
+
+async function punchOut() {
+    const btn = document.getElementById('btn-punch-out');
+    btn.disabled = true;
+    const res = await fetch('/api/attendance/punch-out', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+    });
+    if (res.ok) { await loadToday(); loadHistory(); loadMonthSummary(); }
+    else { alert('Punch out failed: ' + await res.text()); btn.disabled = false; }
+}
+
+// Default history range = this month
+(function() {
+    const now = new Date();
+    document.getElementById('hist-from').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    document.getElementById('hist-to').value   = now.toISOString().slice(0,10);
+})();
+
+loadToday();
+loadMonthSummary();
+loadHistory();
+</script>
+}

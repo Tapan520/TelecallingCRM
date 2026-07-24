@@ -64,6 +64,7 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<NpsSurvey> NpsSurveys => Set<NpsSurvey>();
     public DbSet<NpsSurveyResponse> NpsSurveyResponses => Set<NpsSurveyResponse>();
     public DbSet<CalendarSyncConfig> CalendarSyncConfigs => Set<CalendarSyncConfig>();
+    public DbSet<AttendanceLog> AttendanceLogs => Set<AttendanceLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -600,6 +601,36 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
              .HasForeignKey(r => r.CallId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
             e.Ignore(r => r.TenantId);
             e.HasIndex(r => r.SurveyId);
+        });
+
+        // ?? Attendance / Punch In-Out ????????????????????????????????????????
+        builder.Entity<AttendanceLog>(e =>
+        {
+            e.HasOne(a => a.Tenant).WithMany()
+             .HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.Agent).WithMany()
+             .HasForeignKey(a => a.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.PunchedInBy).WithMany()
+             .HasForeignKey(a => a.PunchedInById).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.PunchedOutBy).WithMany()
+             .HasForeignKey(a => a.PunchedOutById).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(a => new { a.TenantId, a.AgentId });
+            e.HasIndex(a => new { a.AgentId, a.PunchIn });
+        });
+
+        // ?? Attendance / Punch In-Out ????????????????????????????????????????
+        builder.Entity<AttendanceLog>(e =>
+        {
+            e.HasOne(a => a.Tenant).WithMany()
+             .HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.Agent).WithMany()
+             .HasForeignKey(a => a.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.PunchedInBy).WithMany()
+             .HasForeignKey(a => a.PunchedInById).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(a => a.PunchedOutBy).WithMany()
+             .HasForeignKey(a => a.PunchedOutById).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(a => new { a.TenantId, a.AgentId });
+            e.HasIndex(a => new { a.AgentId, a.PunchIn });
         });
 
         // ?? Calendar Sync ?????????????????????????????????????????????????????

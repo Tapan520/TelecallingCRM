@@ -1,0 +1,297 @@
+@page
+@model TelecallingCRM.Pages.Attendance.IndexModel
+@{
+    ViewData["Title"] = "Attendance Management";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-person-check text-primary me-2"></i>Attendance Management</h5>
+        <small class="text-muted">View, manage and correct agent attendance records</small>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openManualEntry()">
+        <i class="bi bi-plus-lg me-1"></i>Manual Entry
+    </button>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2 d-flex gap-3 flex-wrap align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 small fw-semibold">From:</label>
+            <input type="date" id="filter-from" class="form-control form-control-sm" style="width:145px;">
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 small fw-semibold">To:</label>
+            <input type="date" id="filter-to" class="form-control form-control-sm" style="width:145px;">
+        </div>
+        <select id="filter-agent" class="form-select form-select-sm" style="width:200px;">
+            <option value="">All Agents</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="loadAttendance()">
+            <i class="bi bi-funnel me-1"></i>Apply
+        </button>
+        <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="loadSummary()">
+            <i class="bi bi-bar-chart-line me-1"></i>Summary View
+        </button>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div id="summary-section" class="d-none mb-3">
+    <div class="row g-3 mb-3" id="summary-cards"></div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Agent</th>
+                    <th>Date</th>
+                    <th>Punch In</th>
+                    <th>Punch Out</th>
+                    <th>Hours Worked</th>
+                    <th>Status</th>
+                    <th>Entry Type</th>
+                    <th>By</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="attendance-tbody">
+                <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="attendance-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="btn-prev" onclick="changePage(-1)" disabled>&#8592; Prev</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-next" onclick="changePage(1)">Next &#8594;</button>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Entry / Edit Modal -->
+<div class="modal fade" id="entryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="entryModalTitle">Manual Attendance Entry</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="entry-id">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Agent *</label>
+                    <select id="entry-agent" class="form-select"></select>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Punch In *</label>
+                        <input type="datetime-local" id="entry-punch-in" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Punch Out</label>
+                        <input type="datetime-local" id="entry-punch-out" class="form-control">
+                    </div>
+                </div>
+                <div class="mb-3 mt-3">
+                    <label class="form-label fw-semibold">Notes / Reason</label>
+                    <textarea id="entry-notes" class="form-control" rows="2" placeholder="e.g. Agent forgot to punch in, system issue..."></textarea>
+                </div>
+                <div id="entry-error" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEntry()">
+                    <i class="bi bi-check-lg me-1"></i>Save Entry
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentPage = 1;
+const pageSize = 25;
+let allAgents = [];
+
+async function loadAgents() {
+    const res = await fetch('/api/admin/users?pageSize=500');
+    if (!res.ok) return;
+    const data = await res.json();
+    allAgents = data.users ?? data;
+    const filterSel = document.getElementById('filter-agent');
+    const entrySel  = document.getElementById('entry-agent');
+    const opts = allAgents.map(a => `<option value="${a.id}">${a.fullName} (${a.role})</option>`).join('');
+    filterSel.innerHTML = '<option value="">All Agents</option>' + opts;
+    entrySel.innerHTML  = '<option value="">-- Select Agent --</option>' + opts;
+}
+
+async function loadAttendance() {
+    const from    = document.getElementById('filter-from').value;
+    const to      = document.getElementById('filter-to').value;
+    const agentId = document.getElementById('filter-agent').value;
+    let url = `/api/attendance?page=${currentPage}&pageSize=${pageSize}`;
+    if (from) url += `&from=${from}`;
+    if (to)   url += `&to=${to}`;
+    if (agentId) url += `&agentId=${agentId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    document.getElementById('attendance-count').textContent = `${data.total} record(s)`;
+    document.getElementById('btn-prev').disabled = currentPage <= 1;
+    document.getElementById('btn-next').disabled = currentPage * pageSize >= data.total;
+
+    const statusBadge = s => ({
+        Present: 'bg-success', HalfDay: 'bg-warning text-dark',
+        Absent: 'bg-danger', Late: 'bg-info text-dark'
+    }[s] || 'bg-secondary');
+
+    document.getElementById('attendance-tbody').innerHTML = !data.items.length
+        ? '<tr><td colspan="9" class="text-center text-muted py-4">No records found.</td></tr>'
+        : data.items.map(a => {
+            const pIn  = new Date(a.punchIn);
+            const pOut = a.punchOut ? new Date(a.punchOut) : null;
+            const hrs  = a.workMinutes ? `${Math.floor(a.workMinutes/60)}h ${a.workMinutes%60}m` : '-';
+            return `<tr>
+                <td class="fw-semibold">${a.agentName}</td>
+                <td>${pIn.toLocaleDateString()}</td>
+                <td>${pIn.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td>
+                <td>${pOut ? pOut.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '<span class="text-warning">Open</span>'}</td>
+                <td>${hrs}</td>
+                <td><span class="badge ${statusBadge(a.status)}">${a.status}</span></td>
+                <td>${a.isManualEntry
+                    ? '<span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>Manual</span>'
+                    : '<span class="badge bg-light text-dark border">Self</span>'}</td>
+                <td><small class="text-muted">${a.punchedInBy}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="editEntry('${a.id}','${a.agentId}','${new Date(a.punchIn).toISOString().slice(0,16)}','${pOut ? new Date(a.punchOut).toISOString().slice(0,16) : ''}','${(a.notes??'').replace(/'/g,"\\'")}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
+}
+
+async function loadSummary() {
+    const from = document.getElementById('filter-from').value;
+    const to   = document.getElementById('filter-to').value;
+    let url = '/api/attendance/summary';
+    if (from || to) url += `?from=${from}&to=${to}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const section = document.getElementById('summary-section');
+    section.classList.remove('d-none');
+    document.getElementById('summary-cards').innerHTML = data.map(a => `
+        <div class="col-sm-6 col-xl-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="fw-semibold">${a.agentName}</div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <div class="text-center">
+                            <div class="fs-5 fw-bold text-primary">${a.totalDays}</div>
+                            <div class="text-muted small">Days</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="fs-5 fw-bold text-success">${Math.floor(a.totalMinutes/60)}h</div>
+                            <div class="text-muted small">Total Hours</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="fs-5 fw-bold ${a.manualEntries > 0 ? 'text-warning' : 'text-secondary'}">${a.manualEntries}</div>
+                            <div class="text-muted small">Manual</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`).join('') || '<div class="col-12 text-center text-muted py-3">No data for selected range.</div>';
+}
+
+function changePage(dir) { currentPage += dir; loadAttendance(); }
+
+function openManualEntry() {
+    document.getElementById('entryModalTitle').textContent = 'Manual Attendance Entry';
+    document.getElementById('entry-id').value = '';
+    document.getElementById('entry-agent').value = '';
+    document.getElementById('entry-punch-in').value = '';
+    document.getElementById('entry-punch-out').value = '';
+    document.getElementById('entry-notes').value = '';
+    document.getElementById('entry-error').classList.add('d-none');
+    new bootstrap.Modal(document.getElementById('entryModal')).show();
+}
+
+function editEntry(id, agentId, punchIn, punchOut, notes) {
+    document.getElementById('entryModalTitle').textContent = 'Edit Attendance Entry';
+    document.getElementById('entry-id').value = id;
+    document.getElementById('entry-agent').value = agentId;
+    document.getElementById('entry-punch-in').value = punchIn;
+    document.getElementById('entry-punch-out').value = punchOut;
+    document.getElementById('entry-notes').value = notes;
+    document.getElementById('entry-error').classList.add('d-none');
+    new bootstrap.Modal(document.getElementById('entryModal')).show();
+}
+
+async function saveEntry() {
+    const id      = document.getElementById('entry-id').value;
+    const agentId = document.getElementById('entry-agent').value;
+    const punchIn = document.getElementById('entry-punch-in').value;
+    const punchOut= document.getElementById('entry-punch-out').value;
+    const notes   = document.getElementById('entry-notes').value;
+    const errEl   = document.getElementById('entry-error');
+
+    if (!punchIn) { errEl.textContent = 'Punch In time is required.'; errEl.classList.remove('d-none'); return; }
+
+    let res;
+    if (id) {
+        // Edit existing
+        res = await fetch(`/api/attendance/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ punchIn, punchOut: punchOut || null, notes })
+        });
+    } else {
+        // New manual punch-in
+        if (!agentId) { errEl.textContent = 'Please select an agent.'; errEl.classList.remove('d-none'); return; }
+        res = await fetch('/api/attendance/punch-in', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId, punchTime: punchIn, notes })
+        });
+        // If punch-out is also provided, punch-out too
+        if (res.ok && punchOut) {
+            const d = await res.json();
+            res = await fetch('/api/attendance/punch-out', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId, punchTime: punchOut, notes })
+            });
+        }
+    }
+
+    if (res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('entryModal')).hide();
+        loadAttendance();
+    } else {
+        const msg = await res.text();
+        errEl.textContent = msg || 'Failed to save entry.';
+        errEl.classList.remove('d-none');
+    }
+}
+
+// Initialise default date range to this month
+(function() {
+    const now = new Date();
+    document.getElementById('filter-from').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    document.getElementById('filter-to').value   = now.toISOString().slice(0,10);
+})();
+
+loadAgents().then(loadAttendance);
+</script>
+}
