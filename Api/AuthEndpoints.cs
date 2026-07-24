@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
 using TelecallingCRM.Services;
+using System.Security.Claims;
 
 namespace TelecallingCRM.Api;
 
@@ -57,7 +58,8 @@ public static class AuthEndpoints
             [FromBody] LoginRequest req,
             AppDbContext db,
             UserManager<AppUser> userManager,
-            ITokenService tokenService) =>
+            ITokenService tokenService,
+            HttpContext http) =>
         {
             var user = await userManager.FindByEmailAsync(req.Email);
             if (user == null || !user.IsActive)
@@ -72,6 +74,12 @@ public static class AuthEndpoints
             user.RefreshToken = refreshToken;
             user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
             await db.SaveChangesAsync();
+
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(user.TenantId.GetValueOrDefault(), user.Id, "UserLogin", "Auth",
+                $"{user.FullName} logged in", null,
+                http.Connection.RemoteIpAddress?.ToString(),
+                http.Request.Headers.UserAgent.ToString());
 
             var token = tokenService.GenerateToken(user);
             return Results.Ok(new { token, refreshToken, role = user.Role, tenantId = user.TenantId, userId = user.Id, fullName = user.FullName });
@@ -108,6 +116,11 @@ public static class AuthEndpoints
             user.RefreshToken = null;
             user.RefreshTokenExpiry = null;
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(user.TenantId.GetValueOrDefault(), user.Id, "UserLogout", "Auth",
+                $"{user.FullName} logged out", null,
+                http.Connection.RemoteIpAddress?.ToString(),
+                http.Request.Headers.UserAgent.ToString());
             return Results.Ok();
         }).RequireAuthorization();
     }

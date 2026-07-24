@@ -128,6 +128,11 @@ public static class LeadsEndpoints
             });
             await db.SaveChangesAsync();
 
+            var ualCreate = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ualCreate.LogAsync(tc.TenantId, userId, "LeadCreated", "Leads",
+                $"Lead created: {lead.Name} ({lead.Phone})", lead.Id,
+                http.Connection.RemoteIpAddress?.ToString());
+
             // Fire LeadCreated webhook
             var dispatcher = http.RequestServices.GetRequiredService<IWebhookDispatcher>();
             Hangfire.BackgroundJob.Enqueue(() => dispatcher.FireAsync(
@@ -194,6 +199,10 @@ public static class LeadsEndpoints
             }
 
             await db.SaveChangesAsync();
+            var ualUpdate = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ualUpdate.LogAsync(tc.TenantId, userId, "LeadUpdated", "Leads",
+                $"Lead updated: {lead.Name} (Status: {lead.Status})", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Ok(new {
                 lead.Id, lead.Name, lead.Phone, lead.AlternatePhone,
                 lead.Email, lead.Company, lead.Industry,
@@ -204,13 +213,18 @@ public static class LeadsEndpoints
             });
         });
 
-        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var lead = await db.Leads.FirstOrDefaultAsync(l => l.Id == id && l.TenantId == tc.TenantId);
             if (lead == null) return Results.NotFound();
+            var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
             db.Leads.Remove(lead);
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "LeadDeleted", "Leads",
+                $"Lead deleted: {lead.Name} ({lead.Phone})", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.NoContent();
         });
 
@@ -368,14 +382,19 @@ public static class LeadsEndpoints
         });
 
         // POST /api/leads/bulk-delete
-        group.MapPost("/bulk-delete", async ([FromBody] BulkDeleteDto dto, TenantContext tc, AppDbContext db) =>
+        group.MapPost("/bulk-delete", async ([FromBody] BulkDeleteDto dto, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
+            var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
             var leads = await db.Leads
                 .Where(l => l.TenantId == tc.TenantId && dto.LeadIds.Contains(l.Id))
                 .ToListAsync();
             db.Leads.RemoveRange(leads);
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "LeadBulkDeleted", "Leads",
+                $"{leads.Count} lead(s) bulk deleted", null,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Ok(new { deleted = leads.Count });
         });
 

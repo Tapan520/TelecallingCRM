@@ -72,16 +72,28 @@ public static class AdminEndpoints
                 return Results.BadRequest(result.Errors);
 
             await db.SaveChangesAsync();
+
+            var callerId2 = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var ualCreate = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ualCreate.LogAsync(tc.TenantId, callerId2, "UserCreated", "Admin",
+                $"User created: {user.FullName} ({user.Email}, Role: {user.Role})", user.Id,
+                http.Connection.RemoteIpAddress?.ToString());
+
             return Results.Created($"/api/admin/users/{user.Id}", new { user.Id, user.FullName, user.Email, user.Role });
         });
 
-        group.MapPost("/users/{id:guid}/toggle", async (Guid id, TenantContext tc, AppDbContext db) =>
+        group.MapPost("/users/{id:guid}/toggle", async (Guid id, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.TenantId == tc.TenantId);
             if (user == null) return Results.NotFound();
             user.IsActive = !user.IsActive;
             await db.SaveChangesAsync();
+            var callerId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, callerId, "UserToggled", "Admin",
+                $"User {user.FullName} ({user.Email}) {(user.IsActive ? "activated" : "deactivated")}", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Ok(new { user.IsActive });
         });
 
@@ -121,6 +133,11 @@ public static class AdminEndpoints
             }
 
             await db.SaveChangesAsync();
+            var callerIdUpd = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var ualUpd = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ualUpd.LogAsync(tc.TenantId, callerIdUpd, "UserUpdated", "Admin",
+                $"User updated: {user.FullName} ({user.Email}, Role: {user.Role})", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Ok(new { user.Id, user.FullName, user.Email, user.PhoneNumber, user.Role });
         });
 
@@ -146,6 +163,11 @@ public static class AdminEndpoints
 
             var result = await userManager.DeleteAsync(user);
             if (!result.Succeeded) return Results.BadRequest(result.Errors);
+            var callerIdDel = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var ualDel = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ualDel.LogAsync(tc.TenantId, callerIdDel, "UserDeleted", "Admin",
+                $"User deleted: {user.FullName} ({user.Email})", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.NoContent();
         });
 

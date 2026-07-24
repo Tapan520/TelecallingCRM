@@ -23,14 +23,44 @@
         <select id="filter-module" class="form-select form-select-sm" style="width:150px;" onchange="loadLogs()">
             <option value="">All Modules</option>
         </select>
-        <select id="filter-action" class="form-select form-select-sm" style="width:160px;" onchange="loadLogs()">
+        <select id="filter-action" class="form-select form-select-sm" style="width:200px;" onchange="loadLogs()">
             <option value="">All Actions</option>
-            <option value="Login">Login</option>
-            <option value="Logout">Logout</option>
-            <option value="PunchIn">Punch In</option>
-            <option value="PunchOut">Punch Out</option>
-            <option value="PunchInOnBehalf">Punch In (on behalf)</option>
-            <option value="PunchOutOnBehalf">Punch Out (on behalf)</option>
+            <optgroup label="Auth">
+                <option value="UserLogin">Login</option>
+                <option value="UserLogout">Logout</option>
+            </optgroup>
+            <optgroup label="Attendance">
+                <option value="PunchIn">Punch In</option>
+                <option value="PunchOut">Punch Out</option>
+                <option value="PunchInOnBehalf">Punch In (on behalf)</option>
+                <option value="PunchOutOnBehalf">Punch Out (on behalf)</option>
+            </optgroup>
+            <optgroup label="Leads">
+                <option value="LeadCreated">Lead Created</option>
+                <option value="LeadUpdated">Lead Updated</option>
+                <option value="LeadDeleted">Lead Deleted</option>
+                <option value="LeadBulkDeleted">Lead Bulk Deleted</option>
+            </optgroup>
+            <optgroup label="Tasks">
+                <option value="TaskCreated">Task Created</option>
+                <option value="TaskUpdated">Task Updated</option>
+                <option value="TaskDeleted">Task Deleted</option>
+            </optgroup>
+            <optgroup label="Follow-Ups">
+                <option value="FollowUpCreated">Follow-Up Created</option>
+                <option value="FollowUpDeleted">Follow-Up Deleted</option>
+            </optgroup>
+            <optgroup label="Deals">
+                <option value="DealCreated">Deal Created</option>
+                <option value="DealUpdated">Deal Updated</option>
+                <option value="DealDeleted">Deal Deleted</option>
+            </optgroup>
+            <optgroup label="Admin">
+                <option value="UserCreated">User Created</option>
+                <option value="UserUpdated">User Updated</option>
+                <option value="UserDeleted">User Deleted</option>
+                <option value="UserToggled">User Activated/Deactivated</option>
+            </optgroup>
         </select>
         <select id="filter-user" class="form-select form-select-sm" style="width:180px;" onchange="loadLogs()">
             <option value="">All Users</option>

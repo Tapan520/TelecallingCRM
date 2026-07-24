@@ -89,6 +89,10 @@ public static class FollowUpEndpoints
             });
 
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "FollowUpCreated", "FollowUps",
+                $"Follow-up scheduled via {dto.Channel} on {dto.ScheduledAt:dd MMM yyyy HH:mm}", followup.Id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Created($"/api/followups/{followup.Id}", followup);
         });
 
@@ -111,13 +115,18 @@ public static class FollowUpEndpoints
             return Results.Ok(new { f.Status, f.CompletedAt });
         });
 
-        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var f = await db.FollowUps.FirstOrDefaultAsync(f => f.Id == id && f.TenantId == tc.TenantId);
             if (f == null) return Results.NotFound();
+            var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
             db.FollowUps.Remove(f);
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "FollowUpDeleted", "FollowUps",
+                $"Follow-up deleted (was scheduled {f.ScheduledAt:dd MMM yyyy})", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.NoContent();
         });
     }

@@ -59,6 +59,7 @@ public static class DealEndpoints
         group.MapPost("/", async ([FromBody] DealUpsertDto dto, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
+            var userId = Guid.Parse(http.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
             var deal = new Deal
             {
                 TenantId = tc.TenantId,
@@ -74,11 +75,15 @@ public static class DealEndpoints
             };
             db.Deals.Add(deal);
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "DealCreated", "Deals",
+                $"Deal created: {deal.Title} ({deal.Stage}, {deal.Currency} {deal.Value})", deal.Id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Created($"/api/deals/{deal.Id}", new { deal.Id, deal.Title, deal.Stage, deal.Value });
         });
 
         // PUT /api/deals/{id}
-        group.MapPut("/{id:guid}", async (Guid id, [FromBody] DealUpsertDto dto, TenantContext tc, AppDbContext db) =>
+        group.MapPut("/{id:guid}", async (Guid id, [FromBody] DealUpsertDto dto, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tc.TenantId);
@@ -94,17 +99,27 @@ public static class DealEndpoints
             deal.Notes = dto.Notes;
             deal.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
+            var userId = Guid.Parse(http.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "DealUpdated", "Deals",
+                $"Deal updated: {deal.Title} (Stage: {deal.Stage})", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Ok(new { deal.Id, deal.Title, deal.Stage, deal.Value, deal.UpdatedAt });
         });
 
         // DELETE /api/deals/{id}
-        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tc.TenantId);
             if (deal is null) return Results.NotFound();
+            var userId = Guid.Parse(http.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
             db.Deals.Remove(deal);
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "DealDeleted", "Deals",
+                $"Deal deleted: {deal.Title}", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.NoContent();
         });
 

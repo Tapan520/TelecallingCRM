@@ -4,6 +4,7 @@ using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
 using TelecallingCRM.Services;
 using System.Security.Claims;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace TelecallingCRM.Api;
 
@@ -72,9 +73,16 @@ public static class TaskEndpoints
                     Type = ActivityType.TaskCreated, Summary = $"Task created: {dto.Title}"
                 });
 
+            await db.SaveChangesAsync();
+            var ualTask = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ualTask.LogAsync(tc.TenantId, userId, "TaskCreated", "Tasks",
+                $"Task created: {dto.Title}", task.Id,
+                http.Connection.RemoteIpAddress?.ToString());
+
             // Notify assignee (if different from creator)
             var assigneeId = dto.AssignedToId ?? userId;
             if (assigneeId != userId)
+            {
                 db.Notifications.Add(new Notification {
                     TenantId = tc.TenantId, UserId = assigneeId,
                     Type = NotificationType.NewLeadAssigned,
@@ -82,8 +90,9 @@ public static class TaskEndpoints
                     Body = $"You have been assigned: \"{dto.Title}\" due {dto.DueAt:dd MMM HH:mm}.",
                     Link = "/Tasks"
                 });
+                await db.SaveChangesAsync();
+            }
 
-            await db.SaveChangesAsync();
             return Results.Created($"/api/tasks/{task.Id}", task);
         });
 
@@ -101,7 +110,7 @@ public static class TaskEndpoints
             });
         });
 
-        group.MapPut("/{id:guid}", async (Guid id, [FromBody] TaskUpsertDto dto, TenantContext tc, AppDbContext db) =>
+        group.MapPut("/{id:guid}", async (Guid id, [FromBody] TaskUpsertDto dto, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tc.TenantId);
@@ -113,6 +122,11 @@ public static class TaskEndpoints
             if (dto.LeadId.HasValue) task.LeadId = dto.LeadId;
             if (dto.AssignedToId.HasValue) task.AssignedToId = dto.AssignedToId.Value;
             await db.SaveChangesAsync();
+            var userId = Guid.Parse(http.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "TaskUpdated", "Tasks",
+                $"Task updated: {task.Title}", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.Ok(new { task.Id, task.Title, task.Status });
         });
 
@@ -141,13 +155,18 @@ public static class TaskEndpoints
             return Results.Ok(new { task.Status, task.CompletedAt });
         });
 
-        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tc.TenantId);
             if (task == null) return Results.NotFound();
+            var userId = Guid.Parse(http.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
             db.Tasks.Remove(task);
             await db.SaveChangesAsync();
+            var ual = http.RequestServices.GetRequiredService<IUserActivityLogger>();
+            await ual.LogAsync(tc.TenantId, userId, "TaskDeleted", "Tasks",
+                $"Task deleted: {task.Title}", id,
+                http.Connection.RemoteIpAddress?.ToString());
             return Results.NoContent();
         });
 
