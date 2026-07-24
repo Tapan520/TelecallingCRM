@@ -1,0 +1,220 @@
+@page
+@model TelecallingCRM.Pages.Admin.UserLogsModel
+@{
+    ViewData["Title"] = "User Activity Logs";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text text-primary me-2"></i>User Activity Logs</h5>
+        <small class="text-muted">Every action performed by admins, managers and agents</small>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-danger btn-sm" onclick="confirmBulkDelete()" id="btn-bulk-delete">
+            <i class="bi bi-trash me-1"></i>Clear Old Logs
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+        <input type="text" id="filter-q" class="form-control form-control-sm" placeholder="Search name, action, description..." style="width:240px;" oninput="debounceLoad()">
+        <select id="filter-module" class="form-select form-select-sm" style="width:150px;" onchange="loadLogs()">
+            <option value="">All Modules</option>
+        </select>
+        <select id="filter-action" class="form-select form-select-sm" style="width:160px;" onchange="loadLogs()">
+            <option value="">All Actions</option>
+            <option value="Login">Login</option>
+            <option value="Logout">Logout</option>
+            <option value="PunchIn">Punch In</option>
+            <option value="PunchOut">Punch Out</option>
+            <option value="PunchInOnBehalf">Punch In (on behalf)</option>
+            <option value="PunchOutOnBehalf">Punch Out (on behalf)</option>
+        </select>
+        <select id="filter-user" class="form-select form-select-sm" style="width:180px;" onchange="loadLogs()">
+            <option value="">All Users</option>
+        </select>
+        <input type="date" id="filter-from" class="form-control form-control-sm" style="width:140px;" onchange="loadLogs()">
+        <input type="date" id="filter-to"   class="form-control form-control-sm" style="width:140px;" onchange="loadLogs()">
+        <button class="btn btn-primary btn-sm" onclick="loadLogs()"><i class="bi bi-funnel me-1"></i>Apply</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()"><i class="bi bi-x-circle"></i> Clear</button>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-3" id="log-stats"></div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>When</th>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Module</th>
+                    <th>Action</th>
+                    <th>Description</th>
+                    <th>IP</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="logs-tbody">
+                <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="logs-count"></small>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="btn-prev" onclick="changePage(-1)" disabled>&#8592; Prev</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-next" onclick="changePage(1)">Next &#8594;</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let currentPage = 1;
+const pageSize = 50;
+let debounceTimer;
+
+const moduleColors = {
+    Auth: 'text-bg-dark', Attendance: 'text-bg-success',
+    Leads: 'text-bg-primary', Calls: 'text-bg-info',
+    Tasks: 'text-bg-warning', Payments: 'text-bg-success',
+    Admin: 'text-bg-danger', default: 'text-bg-secondary'
+};
+
+const actionIcons = {
+    Login: 'bi-box-arrow-in-right text-success',
+    Logout: 'bi-box-arrow-left text-danger',
+    PunchIn: 'bi-clock text-success',
+    PunchOut: 'bi-clock-history text-danger',
+    PunchInOnBehalf: 'bi-person-fill-lock text-warning',
+    PunchOutOnBehalf: 'bi-person-fill-lock text-warning',
+    default: 'bi-activity text-muted'
+};
+
+function debounceLoad() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => { currentPage = 1; loadLogs(); }, 400);
+}
+
+async function loadUsers() {
+    const res = await fetch('/api/admin/users?pageSize=500');
+    if (!res.ok) return;
+    const d = await res.json();
+    const sel = document.getElementById('filter-user');
+    (d.users ?? d).forEach(u =>
+        sel.innerHTML += `<option value="${u.id}">${u.fullName} (${u.role})</option>`);
+}
+
+async function loadModules() {
+    const res = await fetch('/api/user-logs/modules');
+    if (!res.ok) return;
+    const modules = await res.json();
+    const sel = document.getElementById('filter-module');
+    modules.forEach(m => sel.innerHTML += `<option value="${m}">${m}</option>`);
+}
+
+async function loadLogs() {
+    const q      = document.getElementById('filter-q').value;
+    const module = document.getElementById('filter-module').value;
+    const action = document.getElementById('filter-action').value;
+    const userId = document.getElementById('filter-user').value;
+    const from   = document.getElementById('filter-from').value;
+    const to     = document.getElementById('filter-to').value;
+
+    let url = `/api/user-logs?page=${currentPage}&pageSize=${pageSize}`;
+    if (q)      url += `&q=${encodeURIComponent(q)}`;
+    if (module) url += `&module=${encodeURIComponent(module)}`;
+    if (action) url += `&action=${encodeURIComponent(action)}`;
+    if (userId) url += `&userId=${userId}`;
+    if (from)   url += `&from=${from}`;
+    if (to)     url += `&to=${to}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    document.getElementById('logs-count').textContent = `${data.total} log(s)  •  Page ${currentPage}`;
+    document.getElementById('btn-prev').disabled = currentPage <= 1;
+    document.getElementById('btn-next').disabled = currentPage * pageSize >= data.total;
+
+    document.getElementById('logs-tbody').innerHTML = !data.items.length
+        ? '<tr><td colspan="8" class="text-center text-muted py-4">No logs found.</td></tr>'
+        : data.items.map(l => {
+            const dt = new Date(l.createdAt);
+            const modColor = moduleColors[l.module] ?? moduleColors.default;
+            const icon = actionIcons[l.action] ?? actionIcons.default;
+            const roleBadge = {admin:'danger', manager:'warning', agent:'primary'}[l.userRole] ?? 'secondary';
+            return `<tr>
+                <td style="white-space:nowrap">
+                    <div class="small fw-semibold">${dt.toLocaleDateString()}</div>
+                    <div class="text-muted" style="font-size:.75rem">${dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                </td>
+                <td>
+                    <div class="fw-semibold small">${l.userName}</div>
+                    <div class="text-muted" style="font-size:.72rem">${l.userEmail}</div>
+                </td>
+                <td><span class="badge bg-${roleBadge}">${l.userRole}</span></td>
+                <td><span class="badge ${modColor}" style="font-size:.7rem">${l.module}</span></td>
+                <td><i class="bi ${icon} me-1"></i><span class="small">${l.action}</span></td>
+                <td class="small text-muted">${l.description}</td>
+                <td><small class="text-muted">${l.ipAddress ?? '-'}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteLog('${l.id}')" title="Delete this log">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
+}
+
+function changePage(dir) { currentPage += dir; loadLogs(); }
+
+function clearFilters() {
+    document.getElementById('filter-q').value      = '';
+    document.getElementById('filter-module').value = '';
+    document.getElementById('filter-action').value = '';
+    document.getElementById('filter-user').value   = '';
+    document.getElementById('filter-from').value   = '';
+    document.getElementById('filter-to').value     = '';
+    currentPage = 1;
+    loadLogs();
+}
+
+async function deleteLog(id) {
+    if (!confirm('Delete this log entry?')) return;
+    const res = await fetch(`/api/user-logs/${id}`, { method: 'DELETE' });
+    if (res.ok) loadLogs();
+    else alert('Failed to delete log.');
+}
+
+async function confirmBulkDelete() {
+    const days = prompt('Delete logs older than how many days?', '90');
+    if (!days || isNaN(days)) return;
+    if (!confirm(`This will permanently delete all logs older than ${days} days. Continue?`)) return;
+    const res = await fetch(`/api/user-logs/bulk?olderThanDays=${days}`, { method: 'DELETE' });
+    if (res.ok) {
+        const d = await res.json();
+        alert(`Deleted ${d.deleted} log entries.`);
+        loadLogs();
+    } else {
+        alert('Failed to delete logs. Only admins can bulk delete.');
+    }
+}
+
+// Initialise
+(function() {
+    const now = new Date();
+    document.getElementById('filter-from').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    document.getElementById('filter-to').value   = now.toISOString().slice(0,10);
+})();
+
+Promise.all([loadUsers(), loadModules()]).then(loadLogs);
+</script>
+}

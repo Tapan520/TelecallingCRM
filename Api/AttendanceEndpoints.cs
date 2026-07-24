@@ -99,6 +99,16 @@ public static class AttendanceEndpoints
             db.AttendanceLogs.Add(log);
             await db.SaveChangesAsync();
 
+            // Log the punch-in activity
+            await app.Services.GetRequiredService<IServiceScopeFactory>()
+                .CreateScope().ServiceProvider
+                .GetRequiredService<IUserActivityLogger>()
+                .LogAsync(tc.TenantId, callerId, isManual ? "PunchInOnBehalf" : "PunchIn", "Attendance",
+                    isManual
+                        ? $"Manual punch-in recorded for agent by {callerId} at {log.PunchIn:HH:mm UTC}"
+                        : $"Punched in at {log.PunchIn:HH:mm UTC}",
+                    entityId: log.Id);
+
             return Results.Created($"/api/attendance/{log.Id}", new { log.Id, log.PunchIn, log.IsManualEntry });
         });
 
@@ -147,6 +157,17 @@ public static class AttendanceEndpoints
                        : AttendanceStatus.Present;
 
             await db.SaveChangesAsync();
+
+            // Log the punch-out activity
+            await app.Services.GetRequiredService<IServiceScopeFactory>()
+                .CreateScope().ServiceProvider
+                .GetRequiredService<IUserActivityLogger>()
+                .LogAsync(tc.TenantId, callerId, isManual ? "PunchOutOnBehalf" : "PunchOut", "Attendance",
+                    isManual
+                        ? $"Manual punch-out recorded for agent, worked {log.WorkMinutes} min"
+                        : $"Punched out — worked {log.WorkMinutes} min",
+                    entityId: log.Id);
+
             return Results.Ok(new { log.Id, log.PunchIn, log.PunchOut, log.WorkMinutes, log.Status });
         });
 

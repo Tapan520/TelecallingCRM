@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
+using TelecallingCRM.Services;
 
 namespace TelecallingCRM.Pages;
 
@@ -12,16 +13,17 @@ public class LogoutModel : PageModel
 {
     private readonly SignInManager<AppUser> _signInManager;
     private readonly AppDbContext _db;
+    private readonly IUserActivityLogger _activityLogger;
 
-    public LogoutModel(SignInManager<AppUser> signInManager, AppDbContext db)
+    public LogoutModel(SignInManager<AppUser> signInManager, AppDbContext db, IUserActivityLogger activityLogger)
     {
         _signInManager = signInManager;
         _db = db;
+        _activityLogger = activityLogger;
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
-        // Auto punch-out if user has an open attendance entry
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (Guid.TryParse(userIdClaim, out var userId))
         {
@@ -49,10 +51,17 @@ public class LogoutModel : PageModel
                                          : AttendanceStatus.Present;
                 await _db.SaveChangesAsync();
             }
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user?.TenantId != null)
+                await _activityLogger.LogAsync(user.TenantId.Value, userId, "Logout", "Auth",
+                    $"{user.FullName} ({user.Role}) logged out",
+                    ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString());
         }
 
         await _signInManager.SignOutAsync();
         return RedirectToPage("/Login");
     }
 }
+
 

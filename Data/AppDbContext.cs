@@ -65,6 +65,7 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<NpsSurveyResponse> NpsSurveyResponses => Set<NpsSurveyResponse>();
     public DbSet<CalendarSyncConfig> CalendarSyncConfigs => Set<CalendarSyncConfig>();
     public DbSet<AttendanceLog> AttendanceLogs => Set<AttendanceLog>();
+    public DbSet<UserActivityLog> UserActivityLogs => Set<UserActivityLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -618,19 +619,15 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.HasIndex(a => new { a.AgentId, a.PunchIn });
         });
 
-        // ?? Attendance / Punch In-Out ????????????????????????????????????????
-        builder.Entity<AttendanceLog>(e =>
+        // ?? User Activity Log ?????????????????????????????????????????
+        builder.Entity<UserActivityLog>(e =>
         {
-            e.HasOne(a => a.Tenant).WithMany()
-             .HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(a => a.Agent).WithMany()
-             .HasForeignKey(a => a.AgentId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(a => a.PunchedInBy).WithMany()
-             .HasForeignKey(a => a.PunchedInById).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(a => a.PunchedOutBy).WithMany()
-             .HasForeignKey(a => a.PunchedOutById).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-            e.HasIndex(a => new { a.TenantId, a.AgentId });
-            e.HasIndex(a => new { a.AgentId, a.PunchIn });
+            e.HasOne(l => l.Tenant).WithMany()
+             .HasForeignKey(l => l.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.User).WithMany()
+             .HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(l => new { l.TenantId, l.CreatedAt });
+            e.HasIndex(l => new { l.TenantId, l.UserId });
         });
 
         // ?? Calendar Sync ?????????????????????????????????????????????????????

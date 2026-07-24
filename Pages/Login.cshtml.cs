@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using TelecallingCRM.Data.Models;
+using TelecallingCRM.Services;
 
 namespace TelecallingCRM.Pages;
 
@@ -10,11 +11,13 @@ public class LoginModel : PageModel
 {
     private readonly SignInManager<AppUser> _signInManager;
     private readonly UserManager<AppUser> _userManager;
+    private readonly IUserActivityLogger _logger;
 
-    public LoginModel(SignInManager<AppUser> signInManager, UserManager<AppUser> userManager)
+    public LoginModel(SignInManager<AppUser> signInManager, UserManager<AppUser> userManager, IUserActivityLogger logger)
     {
         _signInManager = signInManager;
         _userManager = userManager;
+        _logger = logger;
     }
 
     [BindProperty]
@@ -42,6 +45,13 @@ public class LoginModel : PageModel
             {
                 user.LastLoginAt = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
+
+                if (user.TenantId.HasValue)
+                    await _logger.LogAsync(user.TenantId.Value, user.Id, "Login", "Auth",
+                        $"{user.FullName} ({user.Role}) logged in",
+                        ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+                        userAgent: Request.Headers["User-Agent"].ToString());
+
                 if (user.Role == "superadmin")
                     return RedirectToPage("/SuperAdmin/Tenants");
             }
