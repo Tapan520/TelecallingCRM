@@ -1,0 +1,244 @@
+@page
+@model TelecallingCRM.Pages.Leave.ManageLeaveModel
+@{
+    ViewData["Title"] = "Leave Management";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-calendar-check text-primary me-2"></i>Leave Management</h5>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" id="filter-status" onchange="loadLeaves()">
+                    <option value="Pending">Pending</option>
+                    <option value="">All</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" id="filter-agent" onchange="loadLeaves()">
+                    <option value="">All Agents</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-3" id="summary-cards" style="display:none!important;"></div>
+
+<!-- Leave Requests Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Agent</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th>Applied On</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="leave-tbody">
+                    <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="review-title">Review Leave Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-light border mb-3" id="review-summary"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Remarks <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea class="form-control" id="review-notes" rows="3" placeholder="Add a note to the agent..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-danger" onclick="submitReview(false)">
+                    <i class="bi bi-x-circle me-1"></i> Reject
+                </button>
+                <button class="btn btn-success" onclick="submitReview(true)">
+                    <i class="bi bi-check-circle me-1"></i> Approve
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Balance Adjust Modal -->
+<div class="modal fade" id="balanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adjust Leave Balance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="bal-agent-id" />
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label fw-semibold small">Sick Leave Total</label>
+                        <input type="number" class="form-control form-control-sm" id="bal-sick" min="0" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-semibold small">Casual Leave Total</label>
+                        <input type="number" class="form-control form-control-sm" id="bal-casual" min="0" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-semibold small">Earned Leave Total</label>
+                        <input type="number" class="form-control form-control-sm" id="bal-earned" min="0" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-semibold small">Comp Off Total</label>
+                        <input type="number" class="form-control form-control-sm" id="bal-compoff" min="0" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="saveBalance()">Save Balance</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const reviewModal  = new bootstrap.Modal(document.getElementById('reviewModal'));
+const balanceModal = new bootstrap.Modal(document.getElementById('balanceModal'));
+let _currentLeaveId = null;
+
+const statusBadge = s => ({
+    Pending:   '<span class="badge bg-warning text-dark">Pending</span>',
+    Approved:  '<span class="badge bg-success">Approved</span>',
+    Rejected:  '<span class="badge bg-danger">Rejected</span>',
+    Cancelled: '<span class="badge bg-secondary">Cancelled</span>'
+}[s] ?? s);
+
+async function loadAgents() {
+    const res = await fetch('/api/admin/users?pageSize=200');
+    if (!res.ok) return;
+    const d = await res.json();
+    const sel = document.getElementById('filter-agent');
+    const users = d.users ?? d.items ?? [];
+    users.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = u.fullName ?? u.name ?? u.email;
+        sel.appendChild(opt);
+    });
+}
+
+async function loadLeaves() {
+    const status  = document.getElementById('filter-status').value;
+    const agentId = document.getElementById('filter-agent').value;
+    let url = `/api/leaves?pageSize=100`;
+    if (status)  url += `&status=${status}`;
+    if (agentId) url += `&agentId=${agentId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const d = await res.json();
+    const tbody = document.getElementById('leave-tbody');
+    if (!d.items.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No leave requests found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = d.items.map(l => `
+        <tr>
+            <td>
+                <div class="fw-semibold">${l.agentName}</div>
+                <button class="btn btn-link btn-sm p-0 text-muted" style="font-size:.7rem;" onclick="openBalance('${l.agentId}','${l.agentName}')">Adjust Balance</button>
+            </td>
+            <td><span class="badge bg-primary bg-opacity-10 text-primary">${l.leaveType.replace(/([A-Z])/g,' $1').trim()}</span></td>
+            <td>${new Date(l.fromDate).toLocaleDateString()}</td>
+            <td>${new Date(l.toDate).toLocaleDateString()}</td>
+            <td>${l.isHalfDay ? '0.5' : l.totalDays}</td>
+            <td class="text-truncate" style="max-width:140px;" title="${l.reason}">${l.reason}</td>
+            <td class="text-muted small">${new Date(l.createdAt).toLocaleDateString()}</td>
+            <td>${statusBadge(l.status)}</td>
+            <td>
+                ${l.status === 'Pending' ? `
+                <button class="btn btn-success btn-sm me-1" title="Approve" onclick="openReview('${l.id}','${l.agentName}','${l.leaveType}',${l.totalDays},${l.isHalfDay})">
+                    <i class="bi bi-check-lg"></i>
+                </button>
+                <button class="btn btn-danger btn-sm" title="Reject" onclick="openReview('${l.id}','${l.agentName}','${l.leaveType}',${l.totalDays},${l.isHalfDay})">
+                    <i class="bi bi-x-lg"></i>
+                </button>` : '<span class="text-muted">-</span>'}
+            </td>
+        </tr>`).join('');
+}
+
+function openReview(id, agent, type, days, halfDay) {
+    _currentLeaveId = id;
+    document.getElementById('review-title').textContent = `Review: ${agent}`;
+    document.getElementById('review-summary').innerHTML =
+        `<strong>${type.replace(/([A-Z])/g,' $1').trim()}</strong> &mdash; ${halfDay ? '0.5' : days} day(s)`;
+    document.getElementById('review-notes').value = '';
+    reviewModal.show();
+}
+
+async function submitReview(approve) {
+    if (!_currentLeaveId) return;
+    const res = await fetch(`/api/leaves/${_currentLeaveId}/review`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approve, notes: document.getElementById('review-notes').value })
+    });
+    if (res.ok) { reviewModal.hide(); loadLeaves(); }
+    else alert(await res.text());
+}
+
+async function openBalance(agentId, agentName) {
+    const res = await fetch(`/api/leaves/balance?agentId=${agentId}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('bal-agent-id').value = agentId;
+    document.getElementById('bal-sick').value    = d.sickLeaveTotal;
+    document.getElementById('bal-casual').value  = d.casualLeaveTotal;
+    document.getElementById('bal-earned').value  = d.earnedLeaveTotal;
+    document.getElementById('bal-compoff').value = d.compOffTotal;
+    document.querySelector('#balanceModal .modal-title').textContent = `Balance: ${agentName}`;
+    balanceModal.show();
+}
+
+async function saveBalance() {
+    const agentId = document.getElementById('bal-agent-id').value;
+    const payload = {
+        sickLeaveTotal:   parseInt(document.getElementById('bal-sick').value),
+        casualLeaveTotal: parseInt(document.getElementById('bal-casual').value),
+        earnedLeaveTotal: parseInt(document.getElementById('bal-earned').value),
+        compOffTotal:     parseInt(document.getElementById('bal-compoff').value)
+    };
+    const res = await fetch(`/api/leaves/balance/${agentId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) { balanceModal.hide(); }
+    else alert(await res.text());
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadAgents(); loadLeaves(); });
+</script>
+}

@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
 using TelecallingCRM.Services;
 
@@ -12,12 +14,14 @@ public class LoginModel : PageModel
     private readonly SignInManager<AppUser> _signInManager;
     private readonly UserManager<AppUser> _userManager;
     private readonly IUserActivityLogger _logger;
+    private readonly AppDbContext _db;
 
-    public LoginModel(SignInManager<AppUser> signInManager, UserManager<AppUser> userManager, IUserActivityLogger logger)
+    public LoginModel(SignInManager<AppUser> signInManager, UserManager<AppUser> userManager, IUserActivityLogger logger, AppDbContext db)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _logger = logger;
+        _db = db;
     }
 
     [BindProperty]
@@ -47,10 +51,35 @@ public class LoginModel : PageModel
                 await _userManager.UpdateAsync(user);
 
                 if (user.TenantId.HasValue)
+                {
                     await _logger.LogAsync(user.TenantId.Value, user.Id, "Login", "Auth",
                         $"{user.FullName} ({user.Role}) logged in",
                         ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
                         userAgent: Request.Headers["User-Agent"].ToString());
+
+                    // Auto Punch-In on login
+                    var today = DateTime.UtcNow.Date;
+                    var openEntry = await _db.AttendanceLogs
+                        .Where(a => a.AgentId == user.Id
+                                 && a.PunchIn >= today
+                                 && a.PunchIn < today.AddDays(1)
+                                 && a.PunchOut == null)
+                        .FirstOrDefaultAsync();
+
+                    if (openEntry == null)
+                    {
+                        _db.AttendanceLogs.Add(new AttendanceLog
+                        {
+                            TenantId      = user.TenantId.Value,
+                            AgentId       = user.Id,
+                            PunchIn       = DateTime.UtcNow,
+                            PunchedInById = user.Id,
+                            IsManualEntry = false,
+                            Notes         = "Auto punch-in on login"
+                        });
+                        await _db.SaveChangesAsync();
+                    }
+                }
 
                 if (user.Role == "superadmin")
                     return RedirectToPage("/SuperAdmin/Tenants");

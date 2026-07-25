@@ -1,0 +1,214 @@
+@page
+@model TelecallingCRM.Pages.Leave.MyLeaveModel
+@{
+    ViewData["Title"] = "My Leaves";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-calendar-x text-danger me-2"></i>My Leaves</h5>
+    <button class="btn btn-primary btn-sm" onclick="openApplyModal()">
+        <i class="bi bi-plus-lg me-1"></i> Apply Leave
+    </button>
+</div>
+
+<!-- Balance Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+            <div class="fw-bold fs-4 text-primary" id="bal-sick">-</div>
+            <div class="text-muted small">Sick Leave Remaining</div>
+            <div class="text-muted" style="font-size:.7rem;" id="bal-sick-used"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+            <div class="fw-bold fs-4 text-success" id="bal-casual">-</div>
+            <div class="text-muted small">Casual Leave Remaining</div>
+            <div class="text-muted" style="font-size:.7rem;" id="bal-casual-used"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+            <div class="fw-bold fs-4 text-warning" id="bal-earned">-</div>
+            <div class="text-muted small">Earned Leave Remaining</div>
+            <div class="text-muted" style="font-size:.7rem;" id="bal-earned-used"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center p-3">
+            <div class="fw-bold fs-4 text-info" id="bal-compoff">-</div>
+            <div class="text-muted small">Comp Off Remaining</div>
+            <div class="text-muted" style="font-size:.7rem;" id="bal-compoff-used"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Leave Requests Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">My Leave Requests</span>
+        <select class="form-select form-select-sm w-auto" id="filter-status" onchange="loadLeaves()">
+            <option value="">All</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Cancelled">Cancelled</option>
+        </select>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="leave-tbody">
+                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Apply Leave Modal -->
+<div class="modal fade" id="applyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-calendar-plus me-2"></i>Apply for Leave</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Leave Type</label>
+                    <select class="form-select" id="leave-type">
+                        <option value="SickLeave">Sick Leave</option>
+                        <option value="CasualLeave">Casual Leave</option>
+                        <option value="EarnedLeave">Earned Leave</option>
+                        <option value="CompOff">Comp Off</option>
+                        <option value="UnpaidLeave">Unpaid Leave</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col">
+                        <label class="form-label fw-semibold">From Date</label>
+                        <input type="date" class="form-control" id="leave-from" />
+                    </div>
+                    <div class="col">
+                        <label class="form-label fw-semibold">To Date</label>
+                        <input type="date" class="form-control" id="leave-to" />
+                    </div>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="leave-halfday" />
+                    <label class="form-check-label" for="leave-halfday">Half Day</label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Reason</label>
+                    <textarea class="form-control" id="leave-reason" rows="3" placeholder="Describe your reason..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="submitLeave()">
+                    <i class="bi bi-send me-1"></i> Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const applyModal = new bootstrap.Modal(document.getElementById('applyModal'));
+
+function openApplyModal() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('leave-from').value = today;
+    document.getElementById('leave-to').value = today;
+    document.getElementById('leave-reason').value = '';
+    document.getElementById('leave-halfday').checked = false;
+    applyModal.show();
+}
+
+async function loadBalance() {
+    const res = await fetch('/api/leaves/balance');
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('bal-sick').textContent    = d.sickLeaveRemaining;
+    document.getElementById('bal-casual').textContent  = d.casualLeaveRemaining;
+    document.getElementById('bal-earned').textContent  = d.earnedLeaveRemaining;
+    document.getElementById('bal-compoff').textContent = d.compOffRemaining;
+    document.getElementById('bal-sick-used').textContent    = `Used: ${d.sickLeaveUsed} / ${d.sickLeaveTotal}`;
+    document.getElementById('bal-casual-used').textContent  = `Used: ${d.casualLeaveUsed} / ${d.casualLeaveTotal}`;
+    document.getElementById('bal-earned-used').textContent  = `Used: ${d.earnedLeaveUsed} / ${d.earnedLeaveTotal}`;
+    document.getElementById('bal-compoff-used').textContent = `Used: ${d.compOffUsed} / ${d.compOffTotal}`;
+}
+
+const statusBadge = s => ({
+    Pending:   '<span class="badge bg-warning text-dark">Pending</span>',
+    Approved:  '<span class="badge bg-success">Approved</span>',
+    Rejected:  '<span class="badge bg-danger">Rejected</span>',
+    Cancelled: '<span class="badge bg-secondary">Cancelled</span>'
+}[s] ?? s);
+
+async function loadLeaves() {
+    const status = document.getElementById('filter-status').value;
+    const url = `/api/leaves?pageSize=50${status ? '&status=' + status : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const d = await res.json();
+    const tbody = document.getElementById('leave-tbody');
+    if (!d.items.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No leave requests found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = d.items.map(l => `
+        <tr>
+            <td><span class="badge bg-primary bg-opacity-10 text-primary">${l.leaveType.replace(/([A-Z])/g,' $1').trim()}</span></td>
+            <td>${new Date(l.fromDate).toLocaleDateString()}</td>
+            <td>${new Date(l.toDate).toLocaleDateString()}</td>
+            <td>${l.isHalfDay ? '0.5' : l.totalDays}</td>
+            <td class="text-truncate" style="max-width:160px;" title="${l.reason}">${l.reason}</td>
+            <td>${statusBadge(l.status)}</td>
+            <td class="text-muted small">${l.reviewerNotes ?? '-'}</td>
+            <td>${l.status === 'Pending' ? `<button class="btn btn-outline-danger btn-sm" onclick="cancelLeave('${l.id}')"><i class="bi bi-x-lg"></i></button>` : ''}</td>
+        </tr>`).join('');
+}
+
+async function submitLeave() {
+    const payload = {
+        leaveType: document.getElementById('leave-type').value,
+        fromDate:  document.getElementById('leave-from').value,
+        toDate:    document.getElementById('leave-to').value,
+        isHalfDay: document.getElementById('leave-halfday').checked,
+        reason:    document.getElementById('leave-reason').value.trim()
+    };
+    if (!payload.reason) { alert('Please enter a reason.'); return; }
+    const res = await fetch('/api/leaves', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) { applyModal.hide(); loadLeaves(); loadBalance(); }
+    else alert(await res.text());
+}
+
+async function cancelLeave(id) {
+    if (!confirm('Cancel this leave request?')) return;
+    const res = await fetch(`/api/leaves/${id}`, { method: 'DELETE' });
+    if (res.ok) { loadLeaves(); loadBalance(); }
+    else alert(await res.text());
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadBalance(); loadLeaves(); });
+</script>
+}

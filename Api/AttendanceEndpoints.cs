@@ -171,6 +171,40 @@ public static class AttendanceEndpoints
             return Results.Ok(new { log.Id, log.PunchIn, log.PunchOut, log.WorkMinutes, log.Status });
         });
 
+        // POST auto punch-out on browser close (called via sendBeacon)
+        group.MapPost("/auto-punch-out", async (TenantContext tc, AppDbContext db, HttpContext http) =>
+        {
+            if (!tc.HasTenant) return Results.Ok(); // silent fail
+            var userIdStr = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.Ok();
+
+            var today = DateTime.UtcNow.Date;
+            var openEntry = await db.AttendanceLogs
+                .Where(a => a.TenantId == tc.TenantId && a.AgentId == userId
+                         && a.PunchIn >= today && a.PunchIn < today.AddDays(1)
+                         && a.PunchOut == null)
+                .OrderByDescending(a => a.PunchIn)
+                .FirstOrDefaultAsync();
+
+            if (openEntry != null)
+            {
+                var now = DateTime.UtcNow;
+                openEntry.PunchOut       = now;
+                openEntry.WorkMinutes    = (int)(now - openEntry.PunchIn).TotalMinutes;
+                openEntry.PunchedOutById = userId;
+                openEntry.UpdatedAt      = now;
+                openEntry.Notes          = string.IsNullOrEmpty(openEntry.Notes)
+                    ? "Auto punch-out on browser close"
+                    : openEntry.Notes + " [Auto punch-out on browser close]";
+                openEntry.Status         = openEntry.WorkMinutes >= 240 ? AttendanceStatus.Present
+                                         : openEntry.WorkMinutes >= 60  ? AttendanceStatus.HalfDay
+                                         : AttendanceStatus.Present;
+                await db.SaveChangesAsync();
+            }
+
+            return Results.Ok();
+        });
+
         // GET attendance list - admin/manager sees all, agent sees own
         group.MapGet("/", async (TenantContext tc, AppDbContext db, HttpContext http,
             [FromQuery] Guid? agentId, [FromQuery] string? from, [FromQuery] string? to,

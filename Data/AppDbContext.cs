@@ -66,6 +66,8 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<CalendarSyncConfig> CalendarSyncConfigs => Set<CalendarSyncConfig>();
     public DbSet<AttendanceLog> AttendanceLogs => Set<AttendanceLog>();
     public DbSet<UserActivityLog> UserActivityLogs => Set<UserActivityLog>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -630,12 +632,34 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.HasIndex(l => new { l.TenantId, l.UserId });
         });
 
-        // ?? Calendar Sync ?????????????????????????????????????????????????????
+        // ?? Calendar Sync
         builder.Entity<CalendarSyncConfig>(e =>
         {
             e.HasOne(c => c.User).WithMany()
              .HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(c => c.UserId).IsUnique();
+        });
+
+        // ?? Leave Management
+        builder.Entity<LeaveRequest>(e =>
+        {
+            e.HasOne(l => l.Tenant).WithMany()
+             .HasForeignKey(l => l.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(l => l.Agent).WithMany()
+             .HasForeignKey(l => l.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(l => l.ReviewedBy).WithMany()
+             .HasForeignKey(l => l.ReviewedById).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(l => new { l.TenantId, l.AgentId });
+            e.HasIndex(l => new { l.TenantId, l.Status });
+        });
+
+        builder.Entity<LeaveBalance>(e =>
+        {
+            e.HasOne(b => b.Tenant).WithMany()
+             .HasForeignKey(b => b.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(b => b.Agent).WithMany()
+             .HasForeignKey(b => b.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(b => new { b.TenantId, b.AgentId, b.Year }).IsUnique();
         });
     }
 }

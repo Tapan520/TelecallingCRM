@@ -298,6 +298,9 @@
                         <a class="@NavClass("/Attendance/MyAttendance")" asp-page="/Attendance/MyAttendance">
                             <i class="bi bi-person-check text-success"></i> My Attendance
                         </a>
+                        <a class="@NavClass("/Leave/MyLeave")" asp-page="/Leave/MyLeave">
+                            <i class="bi bi-calendar-x text-danger"></i> My Leaves
+                        </a>
                     </div>
 
                     @* Analytics *@
@@ -353,6 +356,9 @@
                             </a>
                             <a class="@NavClass("/Attendance/Index")" asp-page="/Attendance/Index">
                                 <i class="bi bi-person-check text-success"></i> Attendance
+                            </a>
+                            <a class="@NavClass("/Leave/ManageLeave")" asp-page="/Leave/ManageLeave">
+                                <i class="bi bi-calendar-check text-primary"></i> Leave Management
                             </a>
                             <a class="@NavClass("/Compliance/Dnc")" asp-page="/Compliance/Dnc">
                                 <i class="bi bi-slash-circle text-danger"></i> DNC List
@@ -656,11 +662,10 @@
         const hasStoredPrefs = localStorage.getItem(STORAGE_KEY) !== null;
         let collapsed = getCollapsed();
 
-        // On first visit (no stored prefs), collapse all sections by default
+        // On first visit (no stored prefs), collapse ALL sections by default
         if (!hasStoredPrefs) {
             const allSections = Array.from(document.querySelectorAll('.nav-section-group'))
-                .map(g => g.id.replace('sec-', ''))
-                .filter(id => id !== activeSectionId);
+                .map(g => g.id.replace('sec-', ''));
             saveCollapsed(allSections);
             collapsed = allSections;
         }
@@ -670,16 +675,7 @@
             // Set initial max-height so CSS transition works
             group.style.maxHeight = group.scrollHeight + 'px';
 
-            // If this section contains the active page, always keep it open
-            if (sectionId === activeSectionId) {
-                group.classList.remove('collapsed');
-                group.previousElementSibling?.classList.remove('collapsed');
-                // Remove from collapsed list if it was there
-                const list = collapsed.filter(s => s !== sectionId);
-                saveCollapsed(list);
-                return;
-            }
-
+            // Collapse all sections that are in the collapsed list
             if (collapsed.includes(sectionId)) {
                 group.classList.add('collapsed');
                 group.previousElementSibling?.classList.add('collapsed');
@@ -754,5 +750,19 @@
     }
     document.addEventListener('DOMContentLoaded', initPunchButton);
     </script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <script>
+        // Auto punch-out when browser tab/window is closed
+        window.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') {
+                navigator.sendBeacon('/api/attendance/auto-punch-out');
+            }
+        });
+        window.addEventListener('pagehide', function () {
+            navigator.sendBeacon('/api/attendance/auto-punch-out');
+        });
+        </script>
+    }
 </body>
 </html>
