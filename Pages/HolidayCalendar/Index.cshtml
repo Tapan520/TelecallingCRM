@@ -1,0 +1,137 @@
+@page
+@model TelecallingCRM.Pages.HolidayCalendar.IndexModel
+@{
+    ViewData["Title"] = "Holiday Calendar";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-calendar-heart text-danger me-2"></i>Holiday Calendar</h5>
+    @if (User.IsInRole("admin"))
+    {
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addModal">
+            <i class="bi bi-plus-lg me-1"></i> Add Holiday
+        </button>
+    }
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-auto">
+        <select class="form-select form-select-sm" id="year-select" onchange="loadHolidays()">
+        </select>
+    </div>
+</div>
+
+<div class="row g-3" id="holiday-list">
+    <div class="col-12 text-center text-muted py-5">Loading...</div>
+</div>
+
+@if (User.IsInRole("admin"))
+{
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Holiday</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Holiday Name</label>
+                        <input type="text" class="form-control" id="h-name" placeholder="e.g. Diwali" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Date</label>
+                        <input type="date" class="form-control" id="h-date" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Type</label>
+                        <select class="form-select" id="h-type">
+                            <option value="Public">Public Holiday</option>
+                            <option value="Company">Company Holiday</option>
+                            <option value="Optional">Optional</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <input type="text" class="form-control" id="h-desc" />
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="h-recurring" />
+                        <label class="form-check-label" for="h-recurring">Repeat every year</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" onclick="addHoliday()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+const typeBadge = t => ({ Public: 'bg-danger', Company: 'bg-primary', Optional: 'bg-warning text-dark' }[t] ?? 'bg-secondary');
+
+function populateYears() {
+    const sel = document.getElementById('year-select');
+    const cur = new Date().getFullYear();
+    for (let y = cur - 1; y <= cur + 2; y++) {
+        const o = document.createElement('option');
+        o.value = y; o.textContent = y;
+        if (y === cur) o.selected = true;
+        sel.appendChild(o);
+    }
+}
+
+async function loadHolidays() {
+    const year = document.getElementById('year-select').value;
+    const res = await fetch(`/api/holidays?year=${year}`);
+    if (!res.ok) return;
+    const items = await res.json();
+    const container = document.getElementById('holiday-list');
+    if (!items.length) {
+        container.innerHTML = '<div class="col-12 text-center text-muted py-5">No holidays found for this year.</div>';
+        return;
+    }
+    container.innerHTML = items.map(h => `
+        <div class="col-md-4">
+            <div class="card p-3 d-flex flex-row align-items-center gap-3">
+                <div class="text-center bg-light rounded p-2" style="min-width:54px;">
+                    <div class="fw-bold fs-5 text-danger">${new Date(h.date).getDate()}</div>
+                    <div class="small text-muted">${new Date(h.date).toLocaleString('default',{month:'short'})}</div>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold">${h.name}</div>
+                    <div class="small text-muted">${h.description ?? ''}</div>
+                    <span class="badge ${typeBadge(h.type)} mt-1">${h.type}</span>
+                    ${h.isRecurringYearly ? '<span class="badge bg-info ms-1">Recurring</span>' : ''}
+                </div>
+                ${@(User.IsInRole("admin") ? "true" : "false") ? `<button class="btn btn-outline-danger btn-sm" onclick="deleteHoliday('${h.id}')"><i class="bi bi-trash"></i></button>` : ''}
+            </div>
+        </div>`).join('');
+}
+
+async function addHoliday() {
+    const payload = {
+        name: document.getElementById('h-name').value.trim(),
+        date: document.getElementById('h-date').value,
+        type: document.getElementById('h-type').value,
+        description: document.getElementById('h-desc').value,
+        isRecurringYearly: document.getElementById('h-recurring').checked
+    };
+    if (!payload.name || !payload.date) { alert('Name and date are required.'); return; }
+    const res = await fetch('/api/holidays', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('addModal')).hide(); loadHolidays(); }
+    else alert(await res.text());
+}
+
+async function deleteHoliday(id) {
+    if (!confirm('Delete this holiday?')) return;
+    const res = await fetch(`/api/holidays/${id}`, { method: 'DELETE' });
+    if (res.ok) loadHolidays();
+}
+
+document.addEventListener('DOMContentLoaded', () => { populateYears(); loadHolidays(); });
+</script>
+}

@@ -1,0 +1,142 @@
+@page
+@model TelecallingCRM.Pages.Gamification.IndexModel
+@{
+    ViewData["Title"] = "Leaderboard & Badges";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-trophy-fill text-warning me-2"></i>Leaderboard & Badges</h5>
+    @if (User.IsInRole("admin") || User.IsInRole("manager"))
+    {
+        <button class="btn btn-warning btn-sm text-dark" data-bs-toggle="modal" data-bs-target="#awardModal">
+            <i class="bi bi-award me-1"></i> Award Badge
+        </button>
+    }
+</div>
+
+<!-- Leaderboard -->
+<div class="card mb-4">
+    <div class="card-header fw-semibold"><i class="bi bi-bar-chart-fill me-2"></i>Points Leaderboard</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr><th>#</th><th>Agent</th><th>Total Points</th><th>Badges Earned</th><th>Badges</th></tr>
+                </thead>
+                <tbody id="leaderboard-tbody">
+                    <tr><td colspan="5" class="text-center text-muted py-4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- My Badges -->
+<div class="card">
+    <div class="card-header fw-semibold"><i class="bi bi-award me-2"></i>My Badges</div>
+    <div class="card-body">
+        <div class="row g-3" id="my-badges">
+            <div class="col-12 text-center text-muted py-3">Loading...</div>
+        </div>
+    </div>
+</div>
+
+@if (User.IsInRole("admin") || User.IsInRole("manager"))
+{
+    <div class="modal fade" id="awardModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-award me-2"></i>Award a Badge</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Agent</label>
+                        <select class="form-select" id="award-agent"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Badge</label>
+                        <select class="form-select" id="award-badge">
+                            <option value="FirstCall">?? First Call (10 pts)</option>
+                            <option value="HundredCalls">?? 100 Calls (50 pts)</option>
+                            <option value="FirstSale">?? First Sale (25 pts)</option>
+                            <option value="TopPerformerWeek">? Top Performer Week (100 pts)</option>
+                            <option value="TopPerformerMonth">?? Top Performer Month (200 pts)</option>
+                            <option value="PerfectAttendance">? Perfect Attendance (75 pts)</option>
+                            <option value="FastResponder">? Fast Responder (30 pts)</option>
+                            <option value="LeadConvertor">?? Lead Convertor (40 pts)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Notes <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="text" class="form-control" id="award-notes" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-warning text-dark" onclick="awardBadge()"><i class="bi bi-award me-1"></i>Award</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+const medalColor = rank => rank === 1 ? 'text-warning' : rank === 2 ? 'text-secondary' : rank === 3 ? 'text-danger' : 'text-muted';
+const medalIcon  = rank => rank <= 3 ? 'bi-trophy-fill' : 'bi-person';
+
+async function loadLeaderboard() {
+    const res = await fetch('/api/gamification/leaderboard');
+    if (!res.ok) return;
+    const items = await res.json();
+    document.getElementById('leaderboard-tbody').innerHTML = items.length ? items.map((a, i) => `
+        <tr>
+            <td><i class="bi ${medalIcon(i+1)} ${medalColor(i+1)}"></i> ${i+1}</td>
+            <td class="fw-semibold">${a.agentName}</td>
+            <td><span class="badge bg-warning text-dark fs-6">${a.totalPoints} pts</span></td>
+            <td>${a.totalBadges}</td>
+            <td>${(a.badges ?? []).map(b => `<span class="badge bg-light text-dark border me-1">${b}</span>`).join('')}</td>
+        </tr>`).join('') :
+        '<tr><td colspan="5" class="text-center text-muted py-4">No badges awarded yet.</td></tr>';
+}
+
+async function loadMyBadges() {
+    const res = await fetch('/api/gamification/badges');
+    if (!res.ok) return;
+    const badges = await res.json();
+    const container = document.getElementById('my-badges');
+    if (!badges.length) { container.innerHTML = '<div class="col-12 text-center text-muted py-3">No badges earned yet. Keep going!</div>'; return; }
+    container.innerHTML = badges.map(b => `
+        <div class="col-6 col-md-3">
+            <div class="card text-center p-3 border-warning border-2">
+                <i class="bi bi-award-fill text-warning fs-2 mb-2"></i>
+                <div class="fw-semibold small">${b.badge}</div>
+                <div class="badge bg-warning text-dark mt-1">${b.points} pts</div>
+                <div class="text-muted" style="font-size:.7rem;">${new Date(b.earnedAt).toLocaleDateString()}</div>
+            </div>
+        </div>`).join('');
+}
+
+async function loadAgents() {
+    const res = await fetch('/api/admin/users?pageSize=200');
+    if (!res.ok) return;
+    const d = await res.json();
+    const sel = document.getElementById('award-agent');
+    if (!sel) return;
+    (d.users ?? d.items ?? []).forEach(u => {
+        const o = document.createElement('option'); o.value = u.id; o.textContent = u.fullName ?? u.email; sel.appendChild(o);
+    });
+}
+
+async function awardBadge() {
+    const payload = { agentId: document.getElementById('award-agent').value, badge: document.getElementById('award-badge').value, notes: document.getElementById('award-notes').value };
+    const res = await fetch('/api/gamification/award', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('awardModal')).hide(); loadLeaderboard(); }
+    else alert(await res.text());
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadLeaderboard(); loadMyBadges(); loadAgents(); });
+</script>
+}

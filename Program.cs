@@ -290,6 +290,13 @@ app.MapDispositionFormEndpoints();
 app.MapNpsSurveyEndpoints();
 app.MapCalendarSyncEndpoints();
 app.MapLeaveEndpoints();
+app.MapHolidayEndpoints();
+app.MapAnnouncementEndpoints();
+app.MapCallQualityEndpoints();
+app.MapExpenseEndpoints();
+app.MapGamificationEndpoints();
+app.MapOnboardingEndpoints();
+app.MapShiftSwapEndpoints();
 
 // ?? SignalR + Health + Razor Pages ????????????????????????????????????????????
 app.MapHub<CrmHub>("/hubs/crm");

@@ -69,6 +69,17 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
 
+    // Phase 2 modules
+    public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
+    public DbSet<AnnouncementRead> AnnouncementReads => Set<AnnouncementRead>();
+    public DbSet<CallQualityScore> CallQualityScores => Set<CallQualityScore>();
+    public DbSet<Expense> Expenses => Set<Expense>();
+    public DbSet<AgentBadge> AgentBadges => Set<AgentBadge>();
+    public DbSet<OnboardingChecklist> OnboardingChecklists => Set<OnboardingChecklist>();
+    public DbSet<ShiftSwapRequest> ShiftSwapRequests => Set<ShiftSwapRequest>();
+    public DbSet<WorkModeLog> WorkModeLogs => Set<WorkModeLog>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -660,6 +671,103 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.HasOne(b => b.Agent).WithMany()
              .HasForeignKey(b => b.AgentId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(b => new { b.TenantId, b.AgentId, b.Year }).IsUnique();
+        });
+
+        // ?? Holiday Calendar
+        builder.Entity<Holiday>(e =>
+        {
+            e.HasOne(h => h.Tenant).WithMany()
+             .HasForeignKey(h => h.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(h => new { h.TenantId, h.Date });
+        });
+
+        // ?? Announcements
+        builder.Entity<Announcement>(e =>
+        {
+            e.HasOne(a => a.Tenant).WithMany()
+             .HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.CreatedBy).WithMany()
+             .HasForeignKey(a => a.CreatedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(a => new { a.TenantId, a.IsActive });
+        });
+
+        builder.Entity<AnnouncementRead>(e =>
+        {
+            e.HasOne(r => r.Announcement).WithMany(a => a.Reads)
+             .HasForeignKey(r => r.AnnouncementId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.User).WithMany()
+             .HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(r => new { r.AnnouncementId, r.UserId }).IsUnique();
+        });
+
+        // ?? Call Quality Scoring
+        builder.Entity<CallQualityScore>(e =>
+        {
+            e.HasOne(q => q.Tenant).WithMany()
+             .HasForeignKey(q => q.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(q => q.Call).WithMany()
+             .HasForeignKey(q => q.CallId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(q => q.Agent).WithMany()
+             .HasForeignKey(q => q.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(q => q.ReviewedBy).WithMany()
+             .HasForeignKey(q => q.ReviewedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(q => new { q.TenantId, q.AgentId });
+        });
+
+        // ?? Expense Management
+        builder.Entity<Expense>(e =>
+        {
+            e.HasOne(x => x.Tenant).WithMany()
+             .HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Agent).WithMany()
+             .HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ReviewedBy).WithMany()
+             .HasForeignKey(x => x.ReviewedById).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            e.HasIndex(x => new { x.TenantId, x.AgentId });
+        });
+
+        // ?? Agent Badges / Gamification
+        builder.Entity<AgentBadge>(e =>
+        {
+            e.HasOne(b => b.Tenant).WithMany()
+             .HasForeignKey(b => b.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(b => b.Agent).WithMany()
+             .HasForeignKey(b => b.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(b => new { b.TenantId, b.AgentId });
+        });
+
+        // ?? Onboarding Checklist
+        builder.Entity<OnboardingChecklist>(e =>
+        {
+            e.HasOne(o => o.Tenant).WithMany()
+             .HasForeignKey(o => o.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(o => o.Agent).WithMany()
+             .HasForeignKey(o => o.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(o => new { o.TenantId, o.AgentId });
+        });
+
+        // ?? Shift Swap & WFH
+        builder.Entity<ShiftSwapRequest>(e =>
+        {
+            e.HasOne(s => s.Tenant).WithMany()
+             .HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(s => s.RequestedBy).WithMany()
+             .HasForeignKey(s => s.RequestedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(s => s.SwapWithAgent).WithMany()
+             .HasForeignKey(s => s.SwapWithAgentId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(s => s.ReviewedBy).WithMany()
+             .HasForeignKey(s => s.ReviewedById).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(s => new { s.TenantId, s.Status });
+        });
+
+        builder.Entity<WorkModeLog>(e =>
+        {
+            e.HasOne(w => w.Tenant).WithMany()
+             .HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(w => w.Agent).WithMany()
+             .HasForeignKey(w => w.AgentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(w => new { w.TenantId, w.AgentId, w.Date }).IsUnique();
         });
     }
 }

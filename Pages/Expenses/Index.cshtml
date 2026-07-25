@@ -1,0 +1,185 @@
+@page
+@model TelecallingCRM.Pages.Expenses.IndexModel
+@{
+    ViewData["Title"] = "Expenses";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-receipt text-success me-2"></i>Expense Management</h5>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#submitModal">
+        <i class="bi bi-plus-lg me-1"></i> Submit Expense
+    </button>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-auto">
+        <select class="form-select form-select-sm" id="filter-status" onchange="loadExpenses()">
+            <option value="">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+        </select>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        @if (User.IsInRole("admin") || User.IsInRole("manager")) { <th>Agent</th> }
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="expense-tbody">
+                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Submit Expense Modal -->
+<div class="modal fade" id="submitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Submit Expense</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Category</label>
+                    <select class="form-select" id="exp-category">
+                        <option value="Travel">Travel</option>
+                        <option value="Internet">Internet</option>
+                        <option value="Food">Food</option>
+                        <option value="Equipment">Equipment</option>
+                        <option value="Training">Training</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Description</label>
+                    <input type="text" class="form-control" id="exp-desc" placeholder="Brief description..." />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col">
+                        <label class="form-label fw-semibold">Amount (?)</label>
+                        <input type="number" class="form-control" id="exp-amount" min="0" step="0.01" />
+                    </div>
+                    <div class="col">
+                        <label class="form-label fw-semibold">Expense Date</label>
+                        <input type="date" class="form-control" id="exp-date" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="submitExpense()">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Modal (admin/manager) -->
+@if (User.IsInRole("admin") || User.IsInRole("manager"))
+{
+    <div class="modal fade" id="reviewModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Review Expense</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="review-info" class="text-muted small mb-3"></p>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Remarks</label>
+                        <textarea class="form-control" id="review-notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" onclick="reviewExpense(false)"><i class="bi bi-x-circle me-1"></i>Reject</button>
+                    <button class="btn btn-success" onclick="reviewExpense(true)"><i class="bi bi-check-circle me-1"></i>Approve</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+const isAdmin = @(User.IsInRole("admin") || User.IsInRole("manager") ? "true" : "false");
+const statusBadge = s => ({ Pending: '<span class="badge bg-warning text-dark">Pending</span>', Approved: '<span class="badge bg-success">Approved</span>', Rejected: '<span class="badge bg-danger">Rejected</span>' }[s] ?? s);
+let _reviewId = null;
+const reviewModal = isAdmin ? new bootstrap.Modal(document.getElementById('reviewModal')) : null;
+
+async function loadExpenses() {
+    const status = document.getElementById('filter-status').value;
+    const res = await fetch(`/api/expenses?pageSize=50${status ? '&status=' + status : ''}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const tbody = document.getElementById('expense-tbody');
+    if (!d.items.length) { tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No expenses found.</td></tr>`; return; }
+    tbody.innerHTML = d.items.map(e => `<tr>
+        ${isAdmin ? `<td class="fw-semibold">${e.agentName}</td>` : ''}
+        <td><span class="badge bg-secondary">${e.category}</span></td>
+        <td class="text-truncate" style="max-width:140px;" title="${e.description}">${e.description}</td>
+        <td class="fw-semibold">?${e.amount.toLocaleString()}</td>
+        <td>${new Date(e.expenseDate).toLocaleDateString()}</td>
+        <td>${statusBadge(e.status)}</td>
+        <td class="text-muted small">${e.reviewerNotes ?? '-'}</td>
+        <td>
+            ${e.status === 'Pending' && isAdmin ? `<button class="btn btn-sm btn-outline-primary" onclick="openReview('${e.id}','${e.agentName}','${e.description}',${e.amount})"><i class="bi bi-pencil"></i></button>` : ''}
+            ${e.status === 'Pending' && !isAdmin ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteExpense('${e.id}')"><i class="bi bi-trash"></i></button>` : ''}
+        </td>
+    </tr>`).join('');
+}
+
+async function submitExpense() {
+    const payload = {
+        category: document.getElementById('exp-category').value,
+        description: document.getElementById('exp-desc').value.trim(),
+        amount: parseFloat(document.getElementById('exp-amount').value),
+        expenseDate: document.getElementById('exp-date').value
+    };
+    if (!payload.description || !payload.amount || !payload.expenseDate) { alert('Please fill all fields.'); return; }
+    const res = await fetch('/api/expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('submitModal')).hide(); loadExpenses(); }
+    else alert(await res.text());
+}
+
+function openReview(id, agent, desc, amount) {
+    _reviewId = id;
+    document.getElementById('review-info').textContent = `${agent} — ${desc} — ?${amount}`;
+    document.getElementById('review-notes').value = '';
+    reviewModal.show();
+}
+
+async function reviewExpense(approve) {
+    const res = await fetch(`/api/expenses/${_reviewId}/review`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approve, notes: document.getElementById('review-notes').value }) });
+    if (res.ok) { reviewModal.hide(); loadExpenses(); }
+    else alert(await res.text());
+}
+
+async function deleteExpense(id) {
+    if (!confirm('Delete this expense?')) return;
+    const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+    if (res.ok) loadExpenses();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+    loadExpenses();
+});
+</script>
+}

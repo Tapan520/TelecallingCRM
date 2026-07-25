@@ -22,7 +22,7 @@ public static class AdminEndpoints
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(q))
-                query = query.Where(u => u.FullName.Contains(q) || u.Email.Contains(q));
+                query = query.Where(u => (u.FullName != null && u.FullName.Contains(q)) || (u.Email != null && u.Email.Contains(q)));
 
             var total = await query.CountAsync();
             var users = await query

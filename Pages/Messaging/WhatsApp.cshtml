@@ -88,7 +88,7 @@ async function openConversation(id, name, phone) {
                     <div style="font-size:.9rem;">${m.body}</div>
                     <div style="font-size:.65rem;" class="text-muted text-end mt-1">
                         ${new Date(m.sentAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
-                        ${m.direction===0 ? (m.status==='Read'?'??':'?') : ''}
+                        ${m.direction===0 ? (m.status==='Read'?'<i class="bi bi-check2-all text-primary"></i>':'<i class="bi bi-check2 text-muted"></i>') : ''}
                     </div>
                 </div>
             </div>`).join('');

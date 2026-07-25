@@ -1,0 +1,125 @@
+@page
+@model TelecallingCRM.Pages.Announcements.IndexModel
+@{
+    ViewData["Title"] = "Announcements";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-megaphone-fill text-warning me-2"></i>Announcements</h5>
+    @if (User.IsInRole("admin") || User.IsInRole("manager"))
+    {
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#postModal">
+            <i class="bi bi-plus-lg me-1"></i> Post Announcement
+        </button>
+    }
+</div>
+
+<div id="ann-list">
+    <div class="text-center text-muted py-5">Loading...</div>
+</div>
+
+@if (User.IsInRole("admin") || User.IsInRole("manager"))
+{
+    <div class="modal fade" id="postModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-megaphone me-2"></i>Post Announcement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Title</label>
+                        <input type="text" class="form-control" id="ann-title" placeholder="Announcement title..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Message</label>
+                        <textarea class="form-control" id="ann-body" rows="5" placeholder="Write your announcement..."></textarea>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Priority</label>
+                            <select class="form-select" id="ann-priority">
+                                <option value="Normal">Normal</option>
+                                <option value="Important">Important</option>
+                                <option value="Urgent">Urgent</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Expires On <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="date" class="form-control" id="ann-expires" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" onclick="postAnnouncement()">
+                        <i class="bi bi-send me-1"></i> Post
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+const priorityStyle = p => ({
+    Normal:    { border: 'border-start border-4 border-primary', badge: 'bg-primary' },
+    Important: { border: 'border-start border-4 border-warning', badge: 'bg-warning text-dark' },
+    Urgent:    { border: 'border-start border-4 border-danger',  badge: 'bg-danger' }
+}[p] ?? { border: '', badge: 'bg-secondary' });
+
+async function loadAnnouncements() {
+    const res = await fetch('/api/announcements');
+    if (!res.ok) return;
+    const items = await res.json();
+    const container = document.getElementById('ann-list');
+    if (!items.length) {
+        container.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-megaphone fs-1 d-block mb-2"></i>No announcements yet.</div>';
+        return;
+    }
+    container.innerHTML = items.map(a => {
+        const style = priorityStyle(a.priority);
+        return `<div class="card mb-3 ${style.border} ${a.isRead ? '' : 'bg-light'}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="badge ${style.badge} me-2">${a.priority}</span>
+                        <strong>${a.title}</strong>
+                        ${!a.isRead ? '<span class="badge bg-danger ms-2">New</span>' : ''}
+                    </div>
+                    <small class="text-muted">${new Date(a.createdAt).toLocaleDateString()}</small>
+                </div>
+                <p class="mb-1">${a.body}</p>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <small class="text-muted">By ${a.createdBy} ${a.expiresAt ? '· Expires: ' + new Date(a.expiresAt).toLocaleDateString() : ''}</small>
+                    ${!a.isRead ? `<button class="btn btn-outline-secondary btn-sm" onclick="markRead('${a.id}')"><i class="bi bi-check2 me-1"></i>Mark Read</button>` : '<span class="text-success small"><i class="bi bi-check2-all"></i> Read</span>'}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function markRead(id) {
+    await fetch(`/api/announcements/${id}/read`, { method: 'POST' });
+    loadAnnouncements();
+}
+
+async function postAnnouncement() {
+    const expires = document.getElementById('ann-expires').value;
+    const payload = {
+        title: document.getElementById('ann-title').value.trim(),
+        body: document.getElementById('ann-body').value.trim(),
+        priority: document.getElementById('ann-priority').value,
+        expiresAt: expires || null
+    };
+    if (!payload.title || !payload.body) { alert('Title and message are required.'); return; }
+    const res = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('postModal')).hide(); loadAnnouncements(); }
+    else alert(await res.text());
+}
+
+document.addEventListener('DOMContentLoaded', loadAnnouncements);
+</script>
+}

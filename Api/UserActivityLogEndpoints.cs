@@ -37,8 +37,8 @@ public static class UserActivityLogEndpoints
                     l.Description.Contains(q) ||
                     l.Action.Contains(q) ||
                     l.Module.Contains(q) ||
-                    l.User.FullName.Contains(q) ||
-                    l.User.Email.Contains(q));
+                    (l.User.FullName != null && l.User.FullName.Contains(q)) ||
+                    (l.User.Email != null && l.User.Email.Contains(q)));
 
             if (!string.IsNullOrWhiteSpace(module))
                 query = query.Where(l => l.Module == module);

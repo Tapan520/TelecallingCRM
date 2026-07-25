@@ -1,0 +1,114 @@
+@page
+@model TelecallingCRM.Pages.CallQuality.IndexModel
+@{
+    ViewData["Title"] = "Call Quality";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-star-fill text-warning me-2"></i>Call Quality Scoring</h5>
+</div>
+
+<!-- My Score Summary -->
+<div class="row g-3 mb-4" id="score-summary">
+    <div class="col-6 col-md-3"><div class="card text-center p-3"><div class="fw-bold fs-4 text-primary" id="s-total">-</div><div class="text-muted small">Total Reviews</div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center p-3"><div class="fw-bold fs-4 text-success" id="s-rating">-</div><div class="text-muted small">Avg Rating (/ 5)</div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center p-3"><div class="fw-bold fs-4 text-info" id="s-comm">-</div><div class="text-muted small">Communication</div></div></div>
+    <div class="col-6 col-md-3"><div class="card text-center p-3"><div class="fw-bold fs-4 text-warning" id="s-prof">-</div><div class="text-muted small">Professionalism</div></div></div>
+</div>
+
+@if (User.IsInRole("admin") || User.IsInRole("manager"))
+{
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Filter</div>
+        <div class="card-body py-2">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm" id="filter-agent" onchange="loadScores()">
+                        <option value="">All Agents</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        @if (User.IsInRole("admin") || User.IsInRole("manager")) { <th>Agent</th> }
+                        <th>Rating</th>
+                        <th>Communication</th>
+                        <th>Knowledge</th>
+                        <th>Problem Solving</th>
+                        <th>Professionalism</th>
+                        <th>Feedback</th>
+                        <th>Reviewed By</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="quality-tbody">
+                    <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const stars = n => '<span class="text-warning">' + '?'.repeat(n) + '</span><span class="text-muted">' + '?'.repeat(5 - n) + '</span>';
+const isAdmin = @(User.IsInRole("admin") || User.IsInRole("manager") ? "true" : "false");
+
+async function loadAgents() {
+    if (!isAdmin) return;
+    const res = await fetch('/api/admin/users?pageSize=200');
+    if (!res.ok) return;
+    const d = await res.json();
+    const sel = document.getElementById('filter-agent');
+    (d.users ?? d.items ?? []).forEach(u => {
+        const o = document.createElement('option');
+        o.value = u.id; o.textContent = u.fullName ?? u.email;
+        sel.appendChild(o);
+    });
+}
+
+async function loadSummary() {
+    const agentId = isAdmin ? (document.getElementById('filter-agent')?.value ?? '') : '';
+    const url = `/api/call-quality/agent-summary${agentId ? '?agentId=' + agentId : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('s-total').textContent = d.totalReviews;
+    document.getElementById('s-rating').textContent = d.avgRating?.toFixed(1) ?? '-';
+    document.getElementById('s-comm').textContent = d.avgCommunication?.toFixed(1) ?? '-';
+    document.getElementById('s-prof').textContent = d.avgProfessionalism?.toFixed(1) ?? '-';
+}
+
+async function loadScores() {
+    const agentId = isAdmin ? (document.getElementById('filter-agent')?.value ?? '') : '';
+    const url = `/api/call-quality?pageSize=50${agentId ? '&agentId=' + agentId : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const d = await res.json();
+    const tbody = document.getElementById('quality-tbody');
+    if (!d.items.length) { tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No reviews yet.</td></tr>`; return; }
+    tbody.innerHTML = d.items.map(q => `<tr>
+        ${isAdmin ? `<td class="fw-semibold">${q.agentName}</td>` : ''}
+        <td class="text-warning">${stars(q.rating)}</td>
+        <td>${q.communicationScore}/5</td>
+        <td>${q.productKnowledgeScore}/5</td>
+        <td>${q.problemSolvingScore}/5</td>
+        <td>${q.professionalismScore}/5</td>
+        <td class="text-truncate" style="max-width:140px;" title="${q.feedback ?? ''}">${q.feedback ?? '-'}</td>
+        <td>${q.reviewedBy}</td>
+        <td class="text-muted small">${new Date(q.createdAt).toLocaleDateString()}</td>
+    </tr>`).join('');
+    loadSummary();
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadAgents(); loadScores(); loadSummary(); });
+</script>
+}

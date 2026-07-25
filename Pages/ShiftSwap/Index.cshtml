@@ -1,0 +1,212 @@
+@page
+@model TelecallingCRM.Pages.ShiftSwap.IndexModel
+@{
+    ViewData["Title"] = "Shift Swap & Work Mode";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-arrow-left-right text-info me-2"></i>Shift Swap & Work Mode</h5>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workModeModal">
+            <i class="bi bi-house me-1"></i> Set Work Mode
+        </button>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#swapModal">
+            <i class="bi bi-plus-lg me-1"></i> Request Swap
+        </button>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" href="#" onclick="showTab('swap')">Shift Swap Requests</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('workmode')">Work Mode Log</a></li>
+</ul>
+
+<div id="tab-swap">
+    <div class="row g-2 mb-3">
+        <div class="col-auto">
+            <select class="form-select form-select-sm" id="filter-status" onchange="loadSwaps()">
+                <option value="Pending">Pending</option>
+                <option value="">All</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th>Requested By</th><th>Swap With</th><th>Date</th><th>Reason</th><th>Status</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="swap-tbody"><tr><td colspan="6" class="text-center text-muted py-4">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="tab-workmode" style="display:none;">
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th>Date</th><th>Agent</th><th>Work Mode</th></tr>
+                    </thead>
+                    <tbody id="wm-tbody"><tr><td colspan="3" class="text-center text-muted py-4">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Request Swap Modal -->
+<div class="modal fade" id="swapModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Request Shift Swap</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Swap Date</label>
+                    <input type="date" class="form-control" id="swap-date" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Swap With Agent <span class="text-muted fw-normal">(optional)</span></label>
+                    <select class="form-select" id="swap-agent"><option value="">-- Anyone --</option></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Reason</label>
+                    <textarea class="form-control" id="swap-reason" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="requestSwap()">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Work Mode Modal -->
+<div class="modal fade" id="workModeModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Today's Work Mode</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="setWorkMode('Office')"><i class="bi bi-building me-2"></i>Office</button>
+                    <button class="btn btn-outline-success" onclick="setWorkMode('WFH')"><i class="bi bi-house-fill me-2"></i>Work From Home</button>
+                    <button class="btn btn-outline-warning" onclick="setWorkMode('Field')"><i class="bi bi-geo-alt-fill me-2"></i>Field</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Modal -->
+@if (User.IsInRole("admin") || User.IsInRole("manager"))
+{
+    <div class="modal fade" id="reviewModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Review Swap Request</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <p id="review-info" class="text-muted small mb-3"></p>
+                    <textarea class="form-control" id="review-notes" rows="3" placeholder="Remarks..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" onclick="reviewSwap(false)">Reject</button>
+                    <button class="btn btn-success" onclick="reviewSwap(true)">Approve</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+const isAdmin = @(User.IsInRole("admin") || User.IsInRole("manager") ? "true" : "false");
+const statusBadge = s => ({ Pending: '<span class="badge bg-warning text-dark">Pending</span>', Approved: '<span class="badge bg-success">Approved</span>', Rejected: '<span class="badge bg-danger">Rejected</span>' }[s] ?? s);
+const wmBadge = m => ({ Office: '<span class="badge bg-primary">Office</span>', WFH: '<span class="badge bg-success">WFH</span>', Field: '<span class="badge bg-warning text-dark">Field</span>' }[m] ?? m);
+let _swapId = null;
+const reviewModal = isAdmin ? new bootstrap.Modal(document.getElementById('reviewModal')) : null;
+
+function showTab(tab) {
+    document.getElementById('tab-swap').style.display = tab === 'swap' ? '' : 'none';
+    document.getElementById('tab-workmode').style.display = tab === 'workmode' ? '' : 'none';
+    document.querySelectorAll('.nav-link').forEach((el, i) => el.classList.toggle('active', (i === 0) === (tab === 'swap')));
+    if (tab === 'workmode') loadWorkMode();
+    return false;
+}
+
+async function loadAgents() {
+    const res = await fetch('/api/admin/users?pageSize=200');
+    if (!res.ok) return;
+    const d = await res.json();
+    const sel = document.getElementById('swap-agent');
+    (d.users ?? d.items ?? []).forEach(u => {
+        const o = document.createElement('option'); o.value = u.id; o.textContent = u.fullName ?? u.email; sel.appendChild(o);
+    });
+}
+
+async function loadSwaps() {
+    const status = document.getElementById('filter-status').value;
+    const res = await fetch(`/api/shift-swap?pageSize=50${status ? '&status=' + status : ''}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const tbody = document.getElementById('swap-tbody');
+    if (!d.items.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No requests found.</td></tr>'; return; }
+    tbody.innerHTML = d.items.map(s => `<tr>
+        <td class="fw-semibold">${s.requestedBy}</td>
+        <td>${s.swapWithAgent ?? '<span class="text-muted">Anyone</span>'}</td>
+        <td>${new Date(s.swapDate).toLocaleDateString()}</td>
+        <td class="text-truncate" style="max-width:120px;" title="${s.reason}">${s.reason}</td>
+        <td>${statusBadge(s.status)}</td>
+        <td>${s.status === 'Pending' && isAdmin ? `<button class="btn btn-sm btn-outline-primary" onclick="openReview('${s.id}','${s.requestedBy}',${JSON.stringify(new Date(s.swapDate).toLocaleDateString())})"><i class="bi bi-pencil"></i></button>` : '-'}</td>
+    </tr>`).join('');
+}
+
+async function loadWorkMode() {
+    const res = await fetch('/api/shift-swap/work-mode');
+    if (!res.ok) return;
+    const items = await res.json();
+    const tbody = document.getElementById('wm-tbody');
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No records.</td></tr>'; return; }
+    tbody.innerHTML = items.map(w => `<tr><td>${new Date(w.date).toLocaleDateString()}</td><td>${w.agentName}</td><td>${wmBadge(w.workMode)}</td></tr>`).join('');
+}
+
+async function requestSwap() {
+    const payload = { swapWithAgentId: document.getElementById('swap-agent').value || null, swapDate: document.getElementById('swap-date').value, reason: document.getElementById('swap-reason').value.trim() };
+    if (!payload.swapDate || !payload.reason) { alert('Date and reason required.'); return; }
+    const res = await fetch('/api/shift-swap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('swapModal')).hide(); loadSwaps(); }
+    else alert(await res.text());
+}
+
+async function setWorkMode(mode) {
+    const res = await fetch('/api/shift-swap/work-mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workMode: mode }) });
+    if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('workModeModal')).hide(); }
+}
+
+function openReview(id, name, date) {
+    _swapId = id;
+    document.getElementById('review-info').textContent = `${name} — ${date}`;
+    document.getElementById('review-notes').value = '';
+    reviewModal.show();
+}
+
+async function reviewSwap(approve) {
+    const res = await fetch(`/api/shift-swap/${_swapId}/review`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approve, notes: document.getElementById('review-notes').value }) });
+    if (res.ok) { reviewModal.hide(); loadSwaps(); }
+    else alert(await res.text());
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('swap-date').value = new Date().toISOString().split('T')[0];
+    loadAgents(); loadSwaps();
+});
+</script>
+}

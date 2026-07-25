@@ -10,7 +10,7 @@
         <div class="card">
             <div class="card-body text-center py-4">
                 <div class="mb-2 text-muted small fw-semibold text-uppercase">Today's Status</div>
-                <div id="today-status-icon" class="mb-2" style="font-size:3rem;">??</div>
+                <div id="today-status-icon" class="mb-2" style="font-size:3rem;line-height:1;"></div>
                 <div id="today-status-text" class="fw-bold fs-5 mb-1">Loading...</div>
                 <div id="today-punch-in"  class="text-muted small"></div>
                 <div id="today-punch-out" class="text-muted small"></div>
@@ -94,7 +94,7 @@ async function loadToday() {
     const btnOut     = document.getElementById('btn-punch-out');
 
     if (!todayLog) {
-        statusIcon.textContent = '??';
+        statusIcon.innerHTML   = '<i class="bi bi-clock text-muted"></i>';
         statusText.textContent = 'Not Punched In';
         punchInEl.textContent  = '';
         punchOutEl.textContent = '';
@@ -102,7 +102,7 @@ async function loadToday() {
         btnIn.disabled  = false;
         btnOut.disabled = true;
     } else if (!todayLog.punchOut) {
-        statusIcon.textContent = '??';
+        statusIcon.innerHTML   = '<i class="bi bi-box-arrow-in-right text-success"></i>';
         statusText.textContent = 'Currently Punched In';
         punchInEl.textContent  = 'In: ' + new Date(todayLog.punchIn).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
         punchOutEl.textContent = '';
@@ -112,7 +112,7 @@ async function loadToday() {
     } else {
         const hrs = Math.floor(todayLog.workMinutes / 60);
         const min = todayLog.workMinutes % 60;
-        statusIcon.textContent = '?';
+        statusIcon.innerHTML   = '<i class="bi bi-check-circle-fill text-success"></i>';
         statusText.textContent = todayLog.status;
         punchInEl.textContent  = 'In: '  + new Date(todayLog.punchIn).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
         punchOutEl.textContent = 'Out: ' + new Date(todayLog.punchOut).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});

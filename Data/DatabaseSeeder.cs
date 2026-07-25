@@ -58,7 +58,12 @@ public static class DatabaseSeeder
         }
 
         // Skip the rest if demo tenant data already exists
-        if (await db.Tenants.AnyAsync()) return;
+        if (await db.Tenants.AnyAsync())
+        {
+            // Still seed Phase 2 module data if not yet seeded
+            await SeedPhase2DataAsync(db);
+            return;
+        }
 
         // ?? TENANT 1 ??????????????????????????????????????????????????????????
         var apex = new Tenant
@@ -1322,6 +1327,238 @@ public static class DatabaseSeeder
                 LastSyncStatus = "Success — 12 leads synced.",
                 CreatedAt = DateTime.UtcNow.AddDays(-25), UpdatedAt = DateTime.UtcNow.AddHours(-6)
             }
+        );
+
+        await db.SaveChangesAsync();
+
+        // Seed Phase 2 data right after initial seed
+        await SeedPhase2DataAsync(db);
+    }
+
+    private static async Task SeedPhase2DataAsync(AppDbContext db)
+    {
+        // Already seeded?
+        if (await db.Holidays.AnyAsync()) return;
+
+        var apex = await db.Tenants.FirstOrDefaultAsync(t => t.Slug == "apex-sales");
+        var nova = await db.Tenants.FirstOrDefaultAsync(t => t.Slug == "nova-telecom");
+        if (apex == null || nova == null) return;
+
+        var apexAdmin   = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@apexsales.com");
+        var apexManager = await db.Users.FirstOrDefaultAsync(u => u.Email == "manager@apexsales.com");
+        var apexAlice   = await db.Users.FirstOrDefaultAsync(u => u.Email == "alice@apexsales.com");
+        var apexBob     = await db.Users.FirstOrDefaultAsync(u => u.Email == "bob@apexsales.com");
+        var novaAdmin   = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@novatelecom.com");
+        var novaRaj     = await db.Users.FirstOrDefaultAsync(u => u.Email == "raj@novatelecom.com");
+
+        if (apexAdmin == null || apexAlice == null || apexBob == null || apexManager == null
+         || novaAdmin == null || novaRaj == null) return;
+        db.Holidays.AddRange(
+            new Holiday { TenantId = apex.Id, Name = "Republic Day",    Date = new DateTime(DateTime.UtcNow.Year, 1, 26),  Type = HolidayType.Public,  IsRecurringYearly = true },
+            new Holiday { TenantId = apex.Id, Name = "Holi",            Date = new DateTime(DateTime.UtcNow.Year, 3, 25),  Type = HolidayType.Public,  IsRecurringYearly = false },
+            new Holiday { TenantId = apex.Id, Name = "Good Friday",     Date = new DateTime(DateTime.UtcNow.Year, 4, 18),  Type = HolidayType.Public,  IsRecurringYearly = false },
+            new Holiday { TenantId = apex.Id, Name = "Company Offsite", Date = new DateTime(DateTime.UtcNow.Year, 6, 15),  Type = HolidayType.Company, Description = "Annual team offsite - Goa", IsRecurringYearly = false },
+            new Holiday { TenantId = apex.Id, Name = "Independence Day",Date = new DateTime(DateTime.UtcNow.Year, 8, 15),  Type = HolidayType.Public,  IsRecurringYearly = true },
+            new Holiday { TenantId = apex.Id, Name = "Diwali",          Date = new DateTime(DateTime.UtcNow.Year, 10, 20), Type = HolidayType.Public,  IsRecurringYearly = false, Description = "Festival of Lights" },
+            new Holiday { TenantId = apex.Id, Name = "Christmas",       Date = new DateTime(DateTime.UtcNow.Year, 12, 25), Type = HolidayType.Public,  IsRecurringYearly = true },
+            new Holiday { TenantId = apex.Id, Name = "Year-End Closure",Date = new DateTime(DateTime.UtcNow.Year, 12, 31), Type = HolidayType.Company, Description = "Office closed for year-end", IsRecurringYearly = true },
+            new Holiday { TenantId = nova.Id, Name = "Republic Day",    Date = new DateTime(DateTime.UtcNow.Year, 1, 26),  Type = HolidayType.Public,  IsRecurringYearly = true },
+            new Holiday { TenantId = nova.Id, Name = "Diwali",          Date = new DateTime(DateTime.UtcNow.Year, 10, 20), Type = HolidayType.Public,  IsRecurringYearly = false },
+            new Holiday { TenantId = nova.Id, Name = "Christmas",       Date = new DateTime(DateTime.UtcNow.Year, 12, 25), Type = HolidayType.Public,  IsRecurringYearly = true },
+            new Holiday { TenantId = nova.Id, Name = "Nova Foundation Day", Date = new DateTime(DateTime.UtcNow.Year, 7, 1), Type = HolidayType.Company, Description = "Company anniversary holiday", IsRecurringYearly = true }
+        );
+
+        // ?? ANNOUNCEMENTS ?????????????????????????????????????????????????????
+        var ann1 = new Announcement
+        {
+            TenantId = apex.Id, CreatedById = apexAdmin.Id, Priority = AnnouncementPriority.Urgent,
+            Title = "?? Q3 Campaign Kickoff — All Hands Meeting Tomorrow!",
+            Body = "Team, we're launching our biggest campaign this quarter. Please join the all-hands tomorrow at 10am IST via Google Meet. Attendance is mandatory. Link will be shared on WhatsApp.",
+            ExpiresAt = DateTime.UtcNow.AddDays(3), IsActive = true,
+            CreatedAt = DateTime.UtcNow.AddHours(-5)
+        };
+        var ann2 = new Announcement
+        {
+            TenantId = apex.Id, CreatedById = apexManager.Id, Priority = AnnouncementPriority.Important,
+            Title = "?? New Lead Assignment Policy — Effective Monday",
+            Body = "Starting Monday, all new inbound leads will be distributed via Round Robin. Please ensure your shift timings are updated in your profile so the system assigns leads correctly during your active hours.",
+            ExpiresAt = DateTime.UtcNow.AddDays(10), IsActive = true,
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var ann3 = new Announcement
+        {
+            TenantId = apex.Id, CreatedById = apexAdmin.Id, Priority = AnnouncementPriority.Normal,
+            Title = "?? Congratulations Alice — Top Performer of the Month!",
+            Body = "Please join us in congratulating Alice Fernandez for closing 8 deals this month and exceeding her target by 140%! Keep it up, Alice! ??",
+            IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-3)
+        };
+        var ann4 = new Announcement
+        {
+            TenantId = apex.Id, CreatedById = apexAdmin.Id, Priority = AnnouncementPriority.Normal,
+            Title = "??? CRM Maintenance — Sunday 2am-4am",
+            Body = "The CRM system will be under scheduled maintenance this Sunday between 2am-4am IST. Please save your work before 1:45am. Apologies for the inconvenience.",
+            ExpiresAt = DateTime.UtcNow.AddDays(5), IsActive = true,
+            CreatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        var ann5 = new Announcement
+        {
+            TenantId = nova.Id, CreatedById = novaAdmin.Id, Priority = AnnouncementPriority.Important,
+            Title = "?? New Broadband Leads Batch — 500 Leads Added",
+            Body = "We've added 500 new leads for the Tier 1 cities campaign. Please start calling by 9am. Remember to use the broadband intro script and fill the disposition form after every call.",
+            IsActive = true, CreatedAt = DateTime.UtcNow.AddHours(-8)
+        };
+        var ann6 = new Announcement
+        {
+            TenantId = nova.Id, CreatedById = novaAdmin.Id, Priority = AnnouncementPriority.Normal,
+            Title = "?? Monthly Target Update — We're at 68%!",
+            Body = "Great work everyone! We're at 68% of our monthly conversion target with 10 days left. Let's push to hit 100%! Top performer this week gets a bonus.",
+            IsActive = true, CreatedAt = DateTime.UtcNow.AddDays(-4)
+        };
+        db.Announcements.AddRange(ann1, ann2, ann3, ann4, ann5, ann6);
+        await db.SaveChangesAsync();
+
+        // Mark some announcements as read
+        db.AnnouncementReads.AddRange(
+            new AnnouncementRead { AnnouncementId = ann2.Id, UserId = apexAlice.Id, ReadAt = DateTime.UtcNow.AddDays(-1) },
+            new AnnouncementRead { AnnouncementId = ann3.Id, UserId = apexAlice.Id, ReadAt = DateTime.UtcNow.AddDays(-2) },
+            new AnnouncementRead { AnnouncementId = ann3.Id, UserId = apexBob.Id,   ReadAt = DateTime.UtcNow.AddDays(-2) },
+            new AnnouncementRead { AnnouncementId = ann4.Id, UserId = apexBob.Id,   ReadAt = DateTime.UtcNow.AddDays(-1) },
+            new AnnouncementRead { AnnouncementId = ann6.Id, UserId = novaRaj.Id,   ReadAt = DateTime.UtcNow.AddDays(-3) }
+        );
+
+        // ?? CALL QUALITY SCORES ???????????????????????????????????????????????
+        var qualityCalls = await db.Calls.Where(c => c.TenantId == apex.Id).Take(8).ToListAsync();
+        var novQualityCalls = await db.Calls.Where(c => c.TenantId == nova.Id).Take(3).ToListAsync();
+
+        var qualityData = new[]
+        {
+            (CallQualityRating.Excellent, "Outstanding performance. Very confident on product knowledge.", 5, 5, 5, 5),
+            (CallQualityRating.Good,      "Good call. Handled objections well but could improve closing.", 4, 4, 4, 5),
+            (CallQualityRating.Average,   "Decent call. Needs to listen more before pitching.",           3, 4, 3, 4),
+            (CallQualityRating.Good,      "Solid call. Product knowledge impressive.",                    5, 5, 4, 4),
+            (CallQualityRating.BelowAverage, "Struggled with price objection. Needs training.",           2, 3, 2, 3),
+            (CallQualityRating.Excellent, "Perfect call. Lead converted. Excellent rapport.",              5, 5, 5, 5),
+            (CallQualityRating.Good,      "Good pacing. Recommend more open-ended questions.",            4, 4, 4, 4),
+            (CallQualityRating.Average,   "Call too short. Did not explore customer needs fully.",        3, 3, 3, 3),
+        };
+        for (int i = 0; i < Math.Min(qualityCalls.Count, qualityData.Length); i++)
+        {
+            var c = qualityCalls[i];
+            var q = qualityData[i];
+            db.CallQualityScores.Add(new CallQualityScore
+            {
+                TenantId = apex.Id, CallId = c.Id, AgentId = c.AgentId,
+                ReviewedById = apexManager.Id,
+                Rating = q.Item1, Feedback = q.Item2,
+                CommunicationScore = q.Item3, ProductKnowledgeScore = q.Item4,
+                ProblemSolvingScore = q.Item5, ProfessionalismScore = q.Item6,
+                CreatedAt = c.StartedAt.AddHours(2)
+            });
+        }
+        for (int i = 0; i < Math.Min(novQualityCalls.Count, 3); i++)
+        {
+            var c = novQualityCalls[i];
+            db.CallQualityScores.Add(new CallQualityScore
+            {
+                TenantId = nova.Id, CallId = c.Id, AgentId = c.AgentId,
+                ReviewedById = novaAdmin.Id,
+                Rating = i == 0 ? CallQualityRating.Excellent : i == 1 ? CallQualityRating.Good : CallQualityRating.Average,
+                Feedback = i == 0 ? "Great broadband pitch. Very natural." : i == 1 ? "Good but script too rigid." : "Needs improvement on objection handling.",
+                CommunicationScore = 4 + (i == 0 ? 1 : 0), ProductKnowledgeScore = 4,
+                ProblemSolvingScore = 3 + (i == 0 ? 1 : 0), ProfessionalismScore = 4,
+                CreatedAt = c.StartedAt.AddHours(1)
+            });
+        }
+
+        // ?? EXPENSES ??????????????????????????????????????????????????????????
+        db.Expenses.AddRange(
+            new Expense { TenantId = apex.Id, AgentId = apexAlice.Id, Category = ExpenseCategory.Travel,    Description = "Cab fare for client visit — TechCorp India office",       Amount = 850m,   ExpenseDate = DateTime.UtcNow.AddDays(-5),  Status = ExpenseStatus.Approved, ReviewedById = apexManager.Id, ReviewedAt = DateTime.UtcNow.AddDays(-4), ReviewerNotes = "Approved. Valid client visit.", UpdatedAt = DateTime.UtcNow.AddDays(-4) },
+            new Expense { TenantId = apex.Id, AgentId = apexAlice.Id, Category = ExpenseCategory.Food,      Description = "Team lunch during client demo day",                         Amount = 2400m,  ExpenseDate = DateTime.UtcNow.AddDays(-3),  Status = ExpenseStatus.Approved, ReviewedById = apexManager.Id, ReviewedAt = DateTime.UtcNow.AddDays(-2), ReviewerNotes = "Approved.", UpdatedAt = DateTime.UtcNow.AddDays(-2) },
+            new Expense { TenantId = apex.Id, AgentId = apexAlice.Id, Category = ExpenseCategory.Internet,  Description = "Monthly broadband reimbursement — WFH",                     Amount = 999m,   ExpenseDate = DateTime.UtcNow.AddDays(-1),  Status = ExpenseStatus.Pending, UpdatedAt = DateTime.UtcNow.AddDays(-1) },
+            new Expense { TenantId = apex.Id, AgentId = apexBob.Id,   Category = ExpenseCategory.Travel,    Description = "Train ticket to Pune client meeting",                       Amount = 1200m,  ExpenseDate = DateTime.UtcNow.AddDays(-7),  Status = ExpenseStatus.Approved, ReviewedById = apexManager.Id, ReviewedAt = DateTime.UtcNow.AddDays(-6), UpdatedAt = DateTime.UtcNow.AddDays(-6) },
+            new Expense { TenantId = apex.Id, AgentId = apexBob.Id,   Category = ExpenseCategory.Equipment, Description = "USB headset for calls",                                     Amount = 3500m,  ExpenseDate = DateTime.UtcNow.AddDays(-10), Status = ExpenseStatus.Approved, ReviewedById = apexAdmin.Id,   ReviewedAt = DateTime.UtcNow.AddDays(-9), UpdatedAt = DateTime.UtcNow.AddDays(-9) },
+            new Expense { TenantId = apex.Id, AgentId = apexBob.Id,   Category = ExpenseCategory.Training,  Description = "Online sales training course — Udemy",                      Amount = 1499m,  ExpenseDate = DateTime.UtcNow.AddDays(-2),  Status = ExpenseStatus.Pending, UpdatedAt = DateTime.UtcNow.AddDays(-2) },
+            new Expense { TenantId = apex.Id, AgentId = apexManager.Id, Category = ExpenseCategory.Travel,  Description = "Flight ticket — SaaS Summit Tokyo",                         Amount = 45000m, ExpenseDate = DateTime.UtcNow.AddDays(-15), Status = ExpenseStatus.Approved, ReviewedById = apexAdmin.Id, ReviewedAt = DateTime.UtcNow.AddDays(-14), UpdatedAt = DateTime.UtcNow.AddDays(-14) },
+            new Expense { TenantId = apex.Id, AgentId = apexManager.Id, Category = ExpenseCategory.Other,   Description = "Conference booth materials",                                Amount = 8500m,  ExpenseDate = DateTime.UtcNow.AddDays(-14), Status = ExpenseStatus.Rejected, ReviewedById = apexAdmin.Id, ReviewedAt = DateTime.UtcNow.AddDays(-13), ReviewerNotes = "Exceeds budget. Please resubmit with management approval.", UpdatedAt = DateTime.UtcNow.AddDays(-13) },
+            new Expense { TenantId = nova.Id, AgentId = novaRaj.Id,   Category = ExpenseCategory.Travel,    Description = "Bike fuel reimbursement — Field visits",                    Amount = 650m,   ExpenseDate = DateTime.UtcNow.AddDays(-4),  Status = ExpenseStatus.Approved, ReviewedById = novaAdmin.Id, ReviewedAt = DateTime.UtcNow.AddDays(-3), UpdatedAt = DateTime.UtcNow.AddDays(-3) },
+            new Expense { TenantId = nova.Id, AgentId = novaRaj.Id,   Category = ExpenseCategory.Internet,  Description = "Mobile data reimbursement — April",                         Amount = 299m,   ExpenseDate = DateTime.UtcNow.AddDays(-1),  Status = ExpenseStatus.Pending, UpdatedAt = DateTime.UtcNow.AddDays(-1) }
+        );
+
+        // ?? AGENT BADGES / GAMIFICATION ???????????????????????????????????????
+        db.AgentBadges.AddRange(
+            new AgentBadge { TenantId = apex.Id, AgentId = apexAlice.Id, Badge = BadgeType.FirstCall,          Points = 10,  Notes = "First call made on Day 1!",                EarnedAt = DateTime.UtcNow.AddDays(-88) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexAlice.Id, Badge = BadgeType.FirstSale,          Points = 25,  Notes = "Closed her first deal — Startup42",        EarnedAt = DateTime.UtcNow.AddDays(-60) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexAlice.Id, Badge = BadgeType.HundredCalls,       Points = 50,  Notes = "Reached 100 calls milestone",              EarnedAt = DateTime.UtcNow.AddDays(-40) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexAlice.Id, Badge = BadgeType.LeadConvertor,      Points = 40,  Notes = "3 conversions in a single week",           EarnedAt = DateTime.UtcNow.AddDays(-20) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexAlice.Id, Badge = BadgeType.TopPerformerMonth,  Points = 200, Notes = "Top performer — highest revenue this month", EarnedAt = DateTime.UtcNow.AddDays(-5) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexBob.Id,   Badge = BadgeType.FirstCall,          Points = 10,  Notes = "Welcome to the team!",                     EarnedAt = DateTime.UtcNow.AddDays(-85) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexBob.Id,   Badge = BadgeType.FastResponder,      Points = 30,  Notes = "Responded to 10 leads within 5 minutes",   EarnedAt = DateTime.UtcNow.AddDays(-30) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexBob.Id,   Badge = BadgeType.TopPerformerWeek,   Points = 100, Notes = "Most calls made this week",                EarnedAt = DateTime.UtcNow.AddDays(-7) },
+            new AgentBadge { TenantId = apex.Id, AgentId = apexManager.Id, Badge = BadgeType.PerfectAttendance, Points = 75, Notes = "Zero absences for 3 months straight",      EarnedAt = DateTime.UtcNow.AddDays(-2) },
+            new AgentBadge { TenantId = nova.Id, AgentId = novaRaj.Id,   Badge = BadgeType.FirstCall,          Points = 10,  Notes = "First broadband lead called",              EarnedAt = DateTime.UtcNow.AddDays(-28) },
+            new AgentBadge { TenantId = nova.Id, AgentId = novaRaj.Id,   Badge = BadgeType.FirstSale,          Points = 25,  Notes = "First annual plan conversion — Deepa Nair", EarnedAt = DateTime.UtcNow.AddDays(-10) },
+            new AgentBadge { TenantId = nova.Id, AgentId = novaRaj.Id,   Badge = BadgeType.HundredCalls,       Points = 50,  Notes = "100 calls milestone achieved",             EarnedAt = DateTime.UtcNow.AddDays(-3) }
+        );
+
+        // ?? ONBOARDING CHECKLISTS ?????????????????????????????????????????????
+        var aliceSteps = new[]
+        {
+            ("Complete Profile",      "Fill in your full name, phone and profile picture",        1, OnboardingStepStatus.Completed, DateTime.UtcNow.AddDays(-87)),
+            ("Read Company Policy",   "Read and acknowledge the company guidelines",              2, OnboardingStepStatus.Completed, DateTime.UtcNow.AddDays(-86)),
+            ("Setup CRM Access",      "Log in and explore the CRM dashboard",                    3, OnboardingStepStatus.Completed, DateTime.UtcNow.AddDays(-85)),
+            ("First Call",            "Make your first call using the dialer",                   4, OnboardingStepStatus.Completed, DateTime.UtcNow.AddDays(-84)),
+            ("Knowledge Base",        "Read at least 3 knowledge base articles",                 5, OnboardingStepStatus.Completed, DateTime.UtcNow.AddDays(-83)),
+            ("Attend Team Meeting",   "Join your first team standup meeting",                    6, OnboardingStepStatus.Completed, DateTime.UtcNow.AddDays(-82)),
+        };
+        foreach (var s in aliceSteps)
+            db.OnboardingChecklists.Add(new OnboardingChecklist { TenantId = apex.Id, AgentId = apexAlice.Id, StepName = s.Item1, Description = s.Item2, StepOrder = s.Item3, Status = s.Item4, CompletedAt = s.Item5 });
+
+        var bobSteps = new[]
+        {
+            ("Complete Profile",      "Fill in your full name, phone and profile picture",        1, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-84)),
+            ("Read Company Policy",   "Read and acknowledge the company guidelines",              2, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-83)),
+            ("Setup CRM Access",      "Log in and explore the CRM dashboard",                    3, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-82)),
+            ("First Call",            "Make your first call using the dialer",                   4, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-80)),
+            ("Knowledge Base",        "Read at least 3 knowledge base articles",                 5, OnboardingStepStatus.Pending,   (DateTime?)null),
+            ("Attend Team Meeting",   "Join your first team standup meeting",                    6, OnboardingStepStatus.Pending,   (DateTime?)null),
+        };
+        foreach (var s in bobSteps)
+            db.OnboardingChecklists.Add(new OnboardingChecklist { TenantId = apex.Id, AgentId = apexBob.Id, StepName = s.Item1, Description = s.Item2, StepOrder = s.Item3, Status = s.Item4, CompletedAt = s.Item5 });
+
+        var rajSteps = new[]
+        {
+            ("Complete Profile",      "Fill in your full name, phone and profile picture",        1, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-27)),
+            ("Read Company Policy",   "Read and acknowledge the company guidelines",              2, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-26)),
+            ("Setup CRM Access",      "Log in and explore the CRM dashboard",                    3, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-25)),
+            ("First Call",            "Make your first call using the dialer",                   4, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-24)),
+            ("Knowledge Base",        "Read at least 3 knowledge base articles",                 5, OnboardingStepStatus.Completed, (DateTime?)DateTime.UtcNow.AddDays(-22)),
+            ("Attend Team Meeting",   "Join your first team standup meeting",                    6, OnboardingStepStatus.Pending,   (DateTime?)null),
+        };
+        foreach (var s in rajSteps)
+            db.OnboardingChecklists.Add(new OnboardingChecklist { TenantId = nova.Id, AgentId = novaRaj.Id, StepName = s.Item1, Description = s.Item2, StepOrder = s.Item3, Status = s.Item4, CompletedAt = s.Item5 });
+
+        // ?? SHIFT SWAP REQUESTS ???????????????????????????????????????????????
+        db.ShiftSwapRequests.AddRange(
+            new ShiftSwapRequest { TenantId = apex.Id, RequestedById = apexAlice.Id, SwapWithAgentId = apexBob.Id, SwapDate = DateTime.UtcNow.AddDays(3).Date, Reason = "Doctor appointment in the morning. Need to swap with Bob.", Status = ShiftSwapStatus.Approved, ReviewedById = apexManager.Id, ReviewedAt = DateTime.UtcNow.AddDays(-1), ReviewerNotes = "Approved. Both agents confirmed.", CreatedAt = DateTime.UtcNow.AddDays(-2) },
+            new ShiftSwapRequest { TenantId = apex.Id, RequestedById = apexBob.Id,   SwapWithAgentId = null,       SwapDate = DateTime.UtcNow.AddDays(5).Date, Reason = "Personal event. Need a day off or swap.",                 Status = ShiftSwapStatus.Pending,  CreatedAt = DateTime.UtcNow.AddDays(-1) },
+            new ShiftSwapRequest { TenantId = apex.Id, RequestedById = apexAlice.Id, SwapWithAgentId = apexBob.Id, SwapDate = DateTime.UtcNow.AddDays(-5).Date, Reason = "Family emergency.",                                     Status = ShiftSwapStatus.Approved, ReviewedById = apexManager.Id, ReviewedAt = DateTime.UtcNow.AddDays(-6), CreatedAt = DateTime.UtcNow.AddDays(-7) },
+            new ShiftSwapRequest { TenantId = nova.Id, RequestedById = novaRaj.Id,   SwapWithAgentId = null,       SwapDate = DateTime.UtcNow.AddDays(2).Date, Reason = "Need to attend brother's wedding.",                       Status = ShiftSwapStatus.Pending,  CreatedAt = DateTime.UtcNow }
+        );
+
+        // ?? WORK MODE LOGS ????????????????????????????????????????????????????
+        db.WorkModeLogs.AddRange(
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexAlice.Id, WorkMode = WorkModeType.Office, Date = DateTime.UtcNow.Date },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexAlice.Id, WorkMode = WorkModeType.WFH,    Date = DateTime.UtcNow.Date.AddDays(-1) },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexAlice.Id, WorkMode = WorkModeType.Office, Date = DateTime.UtcNow.Date.AddDays(-2) },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexAlice.Id, WorkMode = WorkModeType.WFH,    Date = DateTime.UtcNow.Date.AddDays(-3) },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexAlice.Id, WorkMode = WorkModeType.Field,  Date = DateTime.UtcNow.Date.AddDays(-4) },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexBob.Id,   WorkMode = WorkModeType.WFH,    Date = DateTime.UtcNow.Date },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexBob.Id,   WorkMode = WorkModeType.Office, Date = DateTime.UtcNow.Date.AddDays(-1) },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexBob.Id,   WorkMode = WorkModeType.Office, Date = DateTime.UtcNow.Date.AddDays(-2) },
+            new WorkModeLog { TenantId = apex.Id, AgentId = apexBob.Id,   WorkMode = WorkModeType.Field,  Date = DateTime.UtcNow.Date.AddDays(-3) },
+            new WorkModeLog { TenantId = nova.Id, AgentId = novaRaj.Id,   WorkMode = WorkModeType.Field,  Date = DateTime.UtcNow.Date },
+            new WorkModeLog { TenantId = nova.Id, AgentId = novaRaj.Id,   WorkMode = WorkModeType.Field,  Date = DateTime.UtcNow.Date.AddDays(-1) },
+            new WorkModeLog { TenantId = nova.Id, AgentId = novaRaj.Id,   WorkMode = WorkModeType.Office, Date = DateTime.UtcNow.Date.AddDays(-2) }
         );
 
         await db.SaveChangesAsync();
