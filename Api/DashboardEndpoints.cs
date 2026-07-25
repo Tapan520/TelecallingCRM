@@ -73,7 +73,7 @@ public static class DashboardEndpoints
 
             cache.Set(cacheKey, result, TimeSpan.FromSeconds(60));
             return Results.Ok(result);
-        });
+        }).CacheOutput("dashboard");
     }
 }
 

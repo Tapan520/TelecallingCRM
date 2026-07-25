@@ -126,6 +126,98 @@ public static class ExportEndpoints
             using var ms = new MemoryStream(); wb.SaveAs(ms);
             return Results.File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"agents_{DateTime.UtcNow:yyyyMMdd}.xlsx");
         });
+
+        // ?? Activity Log exports ??????????????????????????????????????????????????????????
+        group.MapGet("/activity-logs/csv", async (TenantContext tc, AppDbContext db,
+            [FromQuery] int days = 30) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var since = DateTime.UtcNow.AddDays(-days);
+            var logs = await db.ActivityLogs
+                .Where(a => a.TenantId == tc.TenantId && a.OccurredAt >= since)
+                .OrderByDescending(a => a.OccurredAt)
+                .Select(a => new {
+                    a.Type, a.Summary, a.OccurredAt,
+                    LeadName = a.Lead.Name, By = a.User.FullName
+                })
+                .ToListAsync();
+
+            var csv = new StringBuilder();
+            csv.AppendLine("Type,Summary,OccurredAt,Lead,By");
+            foreach (var l in logs)
+                csv.AppendLine($"{l.Type},\"{l.Summary?.Replace("\"","'")}\",\"{l.OccurredAt:yyyy-MM-dd HH:mm}\",\"{l.LeadName}\",\"{l.By}\"");
+            return Results.File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"activity_log_{DateTime.UtcNow:yyyyMMdd}.csv");
+        });
+
+        group.MapGet("/activity-logs/xlsx", async (TenantContext tc, AppDbContext db,
+            [FromQuery] int days = 30) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var since = DateTime.UtcNow.AddDays(-days);
+            var logs = await db.ActivityLogs
+                .Where(a => a.TenantId == tc.TenantId && a.OccurredAt >= since)
+                .OrderByDescending(a => a.OccurredAt)
+                .Select(a => new {
+                    a.Type, a.Summary, a.OccurredAt,
+                    LeadName = a.Lead.Name, By = a.User.FullName
+                })
+                .ToListAsync();
+
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Activity Log");
+            string[] hdrs = ["Type", "Summary", "Occurred At", "Lead", "By"];
+            for (var i = 0; i < hdrs.Length; i++) { ws.Cell(1, i + 1).Value = hdrs[i]; ws.Cell(1, i + 1).Style.Font.Bold = true; }
+            for (var r = 0; r < logs.Count; r++)
+            {
+                var l = logs[r]; var row = r + 2;
+                ws.Cell(row,1).Value=l.Type.ToString(); ws.Cell(row,2).Value=l.Summary??string.Empty;
+                ws.Cell(row,3).Value=l.OccurredAt.ToString("yyyy-MM-dd HH:mm");
+                ws.Cell(row,4).Value=l.LeadName??string.Empty; ws.Cell(row,5).Value=l.By??string.Empty;
+            }
+            ws.Columns().AdjustToContents();
+            using var ms = new MemoryStream(); wb.SaveAs(ms);
+            return Results.File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"activity_log_{DateTime.UtcNow:yyyyMMdd}.xlsx");
+        });
+
+        // ?? Follow-ups export ?????????????????????????????????????????????????????????????
+        group.MapGet("/followups/xlsx", async (TenantContext tc, AppDbContext db,
+            [FromQuery] string? status) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var query = db.FollowUps
+                .Where(f => f.TenantId == tc.TenantId)
+                .AsQueryable();
+            if (!string.IsNullOrEmpty(status) && Enum.TryParse<FollowUpStatus>(status, true, out var fs))
+                query = query.Where(f => f.Status == fs);
+
+            var followUps = await query
+                .OrderByDescending(f => f.ScheduledAt)
+                .Select(f => new {
+                    LeadName    = f.Lead.Name,
+                    LeadPhone   = f.Lead.Phone,
+                    AssignedTo  = f.AssignedTo.FullName,
+                    Channel     = f.Channel, f.Status, f.Notes,
+                    f.ScheduledAt, f.CompletedAt
+                })
+                .ToListAsync();
+
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Follow-ups");
+            string[] hdrs = ["Lead", "Phone", "Assigned To", "Channel", "Status", "Notes", "Scheduled At", "Completed At"];
+            for (var i = 0; i < hdrs.Length; i++) { ws.Cell(1, i + 1).Value = hdrs[i]; ws.Cell(1, i + 1).Style.Font.Bold = true; }
+            for (var r = 0; r < followUps.Count; r++)
+            {
+                var f = followUps[r]; var row = r + 2;
+                ws.Cell(row,1).Value=f.LeadName; ws.Cell(row,2).Value=f.LeadPhone;
+                ws.Cell(row,3).Value=f.AssignedTo??string.Empty; ws.Cell(row,4).Value=f.Channel.ToString();
+                ws.Cell(row,5).Value=f.Status.ToString(); ws.Cell(row,6).Value=f.Notes??string.Empty;
+                ws.Cell(row,7).Value=f.ScheduledAt.ToString("yyyy-MM-dd HH:mm");
+                ws.Cell(row,8).Value=f.CompletedAt?.ToString("yyyy-MM-dd HH:mm")??string.Empty;
+            }
+            ws.Columns().AdjustToContents();
+            using var ms = new MemoryStream(); wb.SaveAs(ms);
+            return Results.File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"followups_{DateTime.UtcNow:yyyyMMdd}.xlsx");
+        });
     }
 
     private static IQueryable<Lead> GetLeadsQuery(TenantContext tc, AppDbContext db, string? status, string? source)

@@ -8,6 +8,19 @@ namespace TelecallingCRM.Data;
 public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    public AppDbContext(DbContextOptions<AppDbContext> options, AuditSaveChangesInterceptor auditInterceptor)
+        : base(options)
+    {
+        _auditInterceptor = auditInterceptor;
+    }
+
+    private readonly AuditSaveChangesInterceptor? _auditInterceptor;
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        if (_auditInterceptor != null)
+            optionsBuilder.AddInterceptors(_auditInterceptor);
+    }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Lead> Leads => Set<Lead>();
@@ -102,6 +115,8 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
              .HasForeignKey(l => l.CampaignId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(l => l.TenantId);
             e.HasIndex(l => new { l.TenantId, l.Status });
+            e.HasIndex(l => new { l.TenantId, l.AssignedToId }); // for agent-specific lead queries
+            e.HasIndex(l => new { l.TenantId, l.CreatedAt });   // for date-range reports
         });
 
         builder.Entity<Campaign>(e =>
@@ -119,6 +134,8 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
              .HasForeignKey(c => c.AgentId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(c => c.TenantId);
             e.HasIndex(c => c.AgentId);
+            e.HasIndex(c => c.LeadId);
+            e.HasIndex(c => new { c.TenantId, c.StartedAt }); // for date-range queries
         });
 
         builder.Entity<KnowledgeChunk>(e =>
@@ -164,6 +181,8 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.HasOne(a => a.User).WithMany(u => u.ActivityLogs)
              .HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(a => new { a.LeadId, a.OccurredAt });
+            e.HasIndex(a => new { a.TenantId, a.OccurredAt }); // for tenant-wide activity feed queries
+            e.HasIndex(a => new { a.TenantId, a.UserId });     // for per-user activity filtering
         });
 
         builder.Entity<Notification>(e =>

@@ -23,7 +23,7 @@ public static class ReportsEndpoints
                 .OrderByDescending(x => x.Count)
                 .ToListAsync();
             return Results.Ok(data);
-        });
+        }).CacheOutput("reports");
 
         // Conversion funnel
         group.MapGet("/conversion-funnel", async (TenantContext tc, AppDbContext db) =>
@@ -35,7 +35,7 @@ public static class ReportsEndpoints
                 .Select(g => new { Status = g.Key.ToString(), Count = g.Count() })
                 .ToListAsync();
             return Results.Ok(data);
-        });
+        }).CacheOutput("reports");
 
         // Per-agent performance
         group.MapGet("/agent-performance", async (TenantContext tc, AppDbContext db,
@@ -62,7 +62,7 @@ public static class ReportsEndpoints
                 .OrderByDescending(x => x.TotalCalls)
                 .ToListAsync();
             return Results.Ok(data);
-        });
+        }).CacheOutput("leaderboard");
 
         // Daily calls for the last N days
         group.MapGet("/daily-calls", async (TenantContext tc, AppDbContext db,
@@ -77,7 +77,7 @@ public static class ReportsEndpoints
                 .OrderBy(x => x.Date)
                 .ToListAsync();
             return Results.Ok(data);
-        });
+        }).CacheOutput("reports");
 
         // Campaign performance
         group.MapGet("/campaign-performance", async (TenantContext tc, AppDbContext db) =>
@@ -94,27 +94,31 @@ public static class ReportsEndpoints
                 })
                 .ToListAsync();
             return Results.Ok(data);
-        });
+        }).CacheOutput("reports");
 
         // Missed / no-answer calls
         group.MapGet("/missed-calls", async (TenantContext tc, AppDbContext db,
-            [FromQuery] int days = 7) =>
+            [FromQuery] int days = 7,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 50) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var since = DateTime.UtcNow.AddDays(-days);
-            var data = await db.Calls
+            var query = db.Calls
                 .Where(c => c.TenantId == tc.TenantId && c.StartedAt >= since
-                         && (c.Outcome == CallOutcome.NoAnswer || c.Outcome == CallOutcome.SwitchOff))
-                .Include(c => c.Lead).Include(c => c.Agent)
+                         && (c.Outcome == CallOutcome.NoAnswer || c.Outcome == CallOutcome.SwitchOff));
+
+            var total = await query.CountAsync();
+            var data = await query
                 .OrderByDescending(c => c.StartedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(c => new {
                     c.Id, c.StartedAt, c.Outcome,
                     LeadName = c.Lead.Name, LeadPhone = c.Lead.Phone, c.LeadId,
                     Agent = c.Agent.FullName
                 })
-                .Take(100)
                 .ToListAsync();
-            return Results.Ok(data);
+            return Results.Ok(new { total, page, pageSize, data });
         });
 
         // Summary stats for Reports page
@@ -134,7 +138,7 @@ public static class ReportsEndpoints
                 overdueTasks = await db.Tasks.CountAsync(t => t.TenantId == tid && t.Status == TelecallingCRM.Data.Models.TaskStatus.Overdue),
                 activeCampaigns = await db.Campaigns.CountAsync(c => c.TenantId == tid && c.Status == CampaignStatus.Active)
             });
-        });
+        }).CacheOutput("reports");
 
         // Weekly conversion rate trend over last N days
         group.MapGet("/conversion-trend", async (TenantContext tc, AppDbContext db,
@@ -159,7 +163,7 @@ public static class ReportsEndpoints
                         : 0.0
                 });
             return Results.Ok(grouped);
-        });
+        }).CacheOutput("reports");
 
         // Hourly call heatmap (hour-of-day vs count, for optimal call timing)
         group.MapGet("/hourly-heatmap", async (TenantContext tc, AppDbContext db,
@@ -182,7 +186,7 @@ public static class ReportsEndpoints
                     Converted = g.Count(c => c.Outcome == CallOutcome.Converted)
                 });
             return Results.Ok(heatmap);
-        });
+        }).CacheOutput("reports");
 
         // SuperAdmin tenant usage overview
         group.MapGet("/tenant-usage", async (AppDbContext db, HttpContext http) =>
