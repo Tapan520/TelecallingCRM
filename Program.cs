@@ -149,6 +149,7 @@ builder.Services.AddScoped<ICrmSyncService, CrmSyncService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IS3StorageService, S3StorageService>();
+builder.Services.AddScoped<ITenantModuleService, TenantModuleService>();
 builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
 builder.Services.AddHttpContextAccessor();
 
@@ -203,6 +204,7 @@ builder.Services.AddOutputCache(options =>
 builder.Services.AddMemoryCache();
 builder.Services.AddSignalR();
 builder.Services.AddRazorPages()
+.AddMvcOptions(o => o.Filters.Add<TelecallingCRM.Services.ModuleAccessFilter>())
 .AddJsonOptions(o => {
     o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     o.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;

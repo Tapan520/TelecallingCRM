@@ -5,6 +5,7 @@ using System.Security.Claims;
 namespace TelecallingCRM.Pages.Calls;
 
 [Authorize]
+[RequireModule(CrmModule.Dialer)]
 public class DialerModel : PageModel
 {
     public string CurrentUserId { get; set; } = string.Empty;

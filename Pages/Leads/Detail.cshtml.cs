@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace TelecallingCRM.Pages.Leads;
 
 [Authorize]
+[RequireModule(CrmModule.Leads)]
 public class DetailModel : PageModel
 {
     public Guid LeadId { get; private set; }

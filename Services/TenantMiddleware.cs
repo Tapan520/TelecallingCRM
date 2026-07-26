@@ -21,7 +21,7 @@ public class TenantMiddleware
     }
 
     public async Task InvokeAsync(HttpContext context, ITenantResolver resolver,
-        TenantContext tenantContext, AppDbContext db)
+        TenantContext tenantContext, AppDbContext db, ITenantModuleService moduleService)
     {
         // ?? 1. Slug-based resolution (subdomain / X-Tenant-Slug header / ?tenant=) ??
         var slug = await resolver.ResolveSlugAsync(context);
@@ -40,6 +40,7 @@ public class TenantMiddleware
             {
                 tenantContext.Tenant = slugTenant;
                 tenantContext.IsResolved = true;
+                context.Items["EnabledModules"] = await moduleService.GetEnabledModulesAsync(slugTenant.Id);
                 await _next(context);
                 return;
             }
@@ -98,6 +99,8 @@ public class TenantMiddleware
         }
 
         tenantContext.IsResolved = true;
+        if (tenantContext.Tenant != null)
+            context.Items["EnabledModules"] = await moduleService.GetEnabledModulesAsync(tenantContext.Tenant.Id);
         await _next(context);
     }
 

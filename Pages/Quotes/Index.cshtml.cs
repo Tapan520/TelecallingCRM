@@ -5,6 +5,7 @@ using System.Security.Claims;
 namespace TelecallingCRM.Pages.Quotes;
 
 [Authorize]
+[RequireModule(CrmModule.Quotations)]
 public class IndexModel : PageModel
 {
     public string CurrentUserId { get; private set; } = string.Empty;

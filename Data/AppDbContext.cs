@@ -82,6 +82,9 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
 
+    // Tenant module access control
+    public DbSet<TenantModuleAccess> TenantModuleAccess => Set<TenantModuleAccess>();
+
     // Phase 2 modules
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
@@ -787,6 +790,14 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
             e.HasOne(w => w.Agent).WithMany()
              .HasForeignKey(w => w.AgentId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(w => new { w.TenantId, w.AgentId, w.Date }).IsUnique();
+        });
+
+        // ?? Tenant Module Access Control
+        builder.Entity<TenantModuleAccess>(e =>
+        {
+            e.HasOne(m => m.Tenant).WithMany()
+             .HasForeignKey(m => m.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(m => new { m.TenantId, m.Module }).IsUnique();
         });
     }
 }

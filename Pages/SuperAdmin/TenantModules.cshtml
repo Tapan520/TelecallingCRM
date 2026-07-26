@@ -1,0 +1,80 @@
+@page "/SuperAdmin/TenantModules/{TenantId:guid}"
+@model TelecallingCRM.Pages.SuperAdmin.TenantModulesModel
+@{
+    ViewData["Title"] = $"Module Access — {Model.TenantName}";
+}
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <a asp-page="/SuperAdmin/Tenants" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Tenants
+    </a>
+    <div>
+        <h4 class="mb-0 fw-bold">?? Module Access Control</h4>
+        <div class="text-muted small">Tenant: <strong>@Model.TenantName</strong> &nbsp;·&nbsp; Slug: <code>@Model.TenantSlug</code> &nbsp;·&nbsp; Plan: <span class="badge bg-primary">@Model.TenantPlan</span></div>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-1"></i> @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<form method="post">
+    <input type="hidden" name="TenantId" value="@Model.TenantId" />
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Module Permissions</span>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAll(true)">
+                    <i class="bi bi-check-all"></i> Enable All
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="selectAll(false)">
+                    <i class="bi bi-x-lg"></i> Disable All
+                </button>
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            @foreach (var group in Model.ModuleGroups)
+            {
+                <h6 class="text-uppercase text-muted fw-semibold mb-2 mt-3" style="font-size:.7rem;letter-spacing:.06em;">
+                    @group.Key
+                </h6>
+                <div class="row g-2 mb-3">
+                    @foreach (var m in group.Value)
+                    {
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="form-check form-switch border rounded px-3 py-2 @(m.IsEnabled ? "bg-light" : "")">
+                                <input class="form-check-input module-toggle" type="checkbox"
+                                       id="mod_@m.Value" name="EnabledModules" value="@m.Name"
+                                       @(m.IsEnabled ? "checked" : "")>
+                                <label class="form-check-label small fw-medium" for="mod_@m.Value">
+                                    @m.Label
+                                </label>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div class="card-footer text-end">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Save Changes
+            </button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+function selectAll(state) {
+    document.querySelectorAll('.module-toggle').forEach(cb => cb.checked = state);
+}
+</script>
+}

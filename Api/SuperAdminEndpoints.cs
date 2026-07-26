@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
+using TelecallingCRM.Services;
 
 namespace TelecallingCRM.Api;
 
@@ -231,6 +232,44 @@ public static class SuperAdminEndpoints
             if (!result.Succeeded) return Results.BadRequest(result.Errors);
             return Results.NoContent();
         });
+
+        // ?? Module Access Control ?????????????????????????????????????????????
+
+        // GET modules for a tenant
+        group.MapGet("/tenants/{id:guid}/modules", async (Guid id, AppDbContext db, ITenantModuleService moduleSvc) =>
+        {
+            if (!await db.Tenants.AnyAsync(t => t.Id == id))
+                return Results.NotFound();
+
+            var allModules = Enum.GetValues<CrmModule>();
+            var enabled = await moduleSvc.GetEnabledModulesAsync(id);
+            var result = allModules.Select(m => new
+            {
+                module    = m.ToString(),
+                value     = (int)m,
+                isEnabled = enabled.Contains(m)
+            }).OrderBy(x => x.value);
+
+            return Results.Ok(result);
+        });
+
+        // PUT replace module configuration for a tenant
+        group.MapPut("/tenants/{id:guid}/modules", async (Guid id,
+            [FromBody] SetTenantModulesDto dto, AppDbContext db, ITenantModuleService moduleSvc) =>
+        {
+            if (!await db.Tenants.AnyAsync(t => t.Id == id))
+                return Results.NotFound();
+
+            var parsed = new List<CrmModule>();
+            foreach (var name in dto.EnabledModules)
+            {
+                if (Enum.TryParse<CrmModule>(name, true, out var m))
+                    parsed.Add(m);
+            }
+
+            await moduleSvc.SetModulesAsync(id, parsed);
+            return Results.Ok(new { updated = parsed.Count });
+        });
     }
 }
 
@@ -247,3 +286,5 @@ public record SuperAdminCreateUserDto(
 
 public record SuperAdminUpdateUserDto(
 string FullName, string Email, string? PhoneNumber, string Role, string? NewPassword);
+
+public record SetTenantModulesDto(List<string> EnabledModules);

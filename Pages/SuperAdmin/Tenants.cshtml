@@ -191,6 +191,9 @@ async function loadTenants() {
             <td><small>${new Date(t.createdAt).toLocaleDateString()}</small></td>
             <td>
                 <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary" href="/SuperAdmin/TenantModules/${t.id}" title="Module Access">
+                        <i class="bi bi-puzzle"></i>
+                    </a>
                     <button class="btn btn-outline-primary" onclick="openEdit('${t.id}','${t.plan}',${t.maxUsers},${t.maxLeads})" title="Edit plan">
                         <i class="bi bi-pencil"></i>
                     </button>

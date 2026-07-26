@@ -143,6 +143,11 @@
                 <i class="bi bi-telephone-fill text-indigo-300"></i> TelecallingCRM
             </a>
             <div class="sidebar-nav" id="sidebar-nav">
+                @{
+                    var _enabledModules = (ViewContext.HttpContext.Items["EnabledModules"] as HashSet<TelecallingCRM.Data.Models.CrmModule>)
+                        ?? new HashSet<TelecallingCRM.Data.Models.CrmModule>(Enum.GetValues<TelecallingCRM.Data.Models.CrmModule>());
+                    bool ModOn(TelecallingCRM.Data.Models.CrmModule m) => _enabledModules.Contains(m);
+                }
                 @if (User.IsInRole("superadmin"))
                 {
                     <div class="nav-section-label" onclick="toggleSection('platform')">
@@ -154,6 +159,9 @@
                         </a>
                         <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/SuperAdmin/AllUsers") == true ? "active" : "")" asp-page="/SuperAdmin/AllUsers">
                             <i class="bi bi-people"></i> All Users
+                        </a>
+                        <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/SuperAdmin/TenantModules") == true ? "active" : "")" asp-page="/SuperAdmin/Tenants" title="Select a tenant from the Tenants list to manage its modules">
+                            <i class="bi bi-puzzle text-warning"></i> Module Access
                         </a>
                     </div>
                 }
@@ -180,36 +188,51 @@
                         Sales <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
                     <div class="nav-section-group" id="sec-sales">
+                        @if (ModOn(CrmModule.Leads)) {
                         <a class="@NavClass("/Leads/Index")" asp-page="/Leads/Index">
                             <i class="bi bi-person-lines-fill"></i> Leads
                         </a>
+                        }
+                        @if (ModOn(CrmModule.LeadImport)) {
                         <a class="@NavClass("/Leads/Import")" asp-page="/Leads/Import">
                             <i class="bi bi-upload text-success"></i> Import Leads
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Pipeline)) {
                         <a class="@NavClass("/Leads/Pipeline")" asp-page="/Leads/Pipeline">
                             <i class="bi bi-kanban"></i> Pipeline
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Campaigns)) {
                         <a class="@NavClass("/Campaigns/Index")" asp-page="/Campaigns/Index">
                             <i class="bi bi-megaphone"></i> Campaigns
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Broadcast)) {
                         <a class="@NavClass("/Campaigns/Broadcast")" asp-page="/Campaigns/Broadcast">
                             <i class="bi bi-broadcast"></i> Broadcast
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Dialer)) {
                         <a class="@NavClass("/Calls/Dialer")" asp-page="/Calls/Dialer">
                             <i class="bi bi-telephone-fill"></i> Dialer
                         </a>
+                        }
+                        @if (ModOn(CrmModule.CallLog)) {
                         <a class="@NavClass("/Calls/Index")" asp-page="/Calls/Index">
                             <i class="bi bi-telephone-inbound"></i> Call Log
                         </a>
-                        @if (User.IsInRole("admin") || User.IsInRole("manager") || User.IsInRole("superadmin"))
-                        {
-                            <a class="@NavClass("/Calls/Monitor")" asp-page="/Calls/Monitor">
-                                <i class="bi bi-display text-success"></i> Live Monitor
-                            </a>
                         }
+                        @if (ModOn(CrmModule.LiveMonitor) && (User.IsInRole("admin") || User.IsInRole("manager") || User.IsInRole("superadmin"))) {
+                        <a class="@NavClass("/Calls/Monitor")" asp-page="/Calls/Monitor">
+                            <i class="bi bi-display text-success"></i> Live Monitor
+                        </a>
+                        }
+                        @if (ModOn(CrmModule.Payments)) {
                         <a class="@NavClass("/Payments/Index")" asp-page="/Payments/Index">
                             <i class="bi bi-credit-card text-success"></i> Payments
                         </a>
+                        }
                     </div>
 
                     @* Messaging *@
@@ -217,21 +240,31 @@
                         Messaging <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
                     <div class="nav-section-group" id="sec-messaging">
+                        @if (ModOn(CrmModule.WhatsApp)) {
                         <a class="@NavClass("/Messaging/WhatsApp")" asp-page="/Messaging/WhatsApp">
                             <i class="bi bi-whatsapp"></i> WhatsApp
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Sms)) {
                         <a class="@NavClass("/Messaging/Sms")" asp-page="/Messaging/Sms">
                             <i class="bi bi-chat-dots"></i> SMS
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Email)) {
                         <a class="@NavClass("/Messaging/Email")" asp-page="/Messaging/Email">
                             <i class="bi bi-envelope"></i> Email
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Templates)) {
                         <a class="@NavClass("/Messaging/Templates")" asp-page="/Messaging/Templates">
                             <i class="bi bi-collection"></i> Templates
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Inbox)) {
                         <a class="@NavClass("/Messaging/Inbox")" asp-page="/Messaging/Inbox">
                             <i class="bi bi-inbox-fill"></i> Inbox
                         </a>
+                        }
                     </div>
 
                     @* Sales Intelligence *@
@@ -239,18 +272,26 @@
                         Sales Intelligence <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
                     <div class="nav-section-group" id="sec-intelligence">
+                        @if (ModOn(CrmModule.Deals)) {
                         <a class="@NavClass("/Deals/Index")" asp-page="/Deals/Index">
                             <i class="bi bi-diagram-3 text-primary"></i> Deal Pipeline
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Quotations)) {
                         <a class="@NavClass("/Quotes/Index")" asp-page="/Quotes/Index">
                             <i class="bi bi-file-earmark-text text-info"></i> Quotations
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Invoices)) {
                         <a class="@NavClass("/Payments/Invoices")" asp-page="/Payments/Invoices">
                             <i class="bi bi-receipt text-primary"></i> Invoices
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Commissions)) {
                         <a class="@NavClass("/Commissions/Index")" asp-page="/Commissions/Index">
                             <i class="bi bi-currency-rupee text-success"></i> Commissions
                         </a>
+                        }
                     </div>
 
                     @* Automation *@
@@ -258,15 +299,21 @@
                         Automation <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
                     <div class="nav-section-group" id="sec-automation">
+                        @if (ModOn(CrmModule.DripAutomation)) {
                         <a class="@NavClass("/Automation/Index")" asp-page="/Automation/Index">
                             <i class="bi bi-arrow-repeat text-primary"></i> Drip Automation
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Disposition)) {
                         <a class="@NavClass("/Disposition/Index")" asp-page="/Disposition/Index">
                             <i class="bi bi-clipboard2-check text-warning"></i> Disposition Forms
                         </a>
+                        }
+                        @if (ModOn(CrmModule.NpsSurveys)) {
                         <a class="@NavClass("/Surveys/Index")" asp-page="/Surveys/Index">
                             <i class="bi bi-star-half text-warning"></i> NPS Surveys
                         </a>
+                        }
                     </div>
 
                     @* Productivity *@
@@ -274,51 +321,79 @@
                         Productivity <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
                     <div class="nav-section-group" id="sec-productivity">
+                        @if (ModOn(CrmModule.Meetings)) {
                         <a class="@NavClass("/Meetings/Index")" asp-page="/Meetings/Index">
                             <i class="bi bi-camera-video"></i> Meetings
                         </a>
+                        }
+                        @if (ModOn(CrmModule.FollowUps)) {
                         <a class="@NavClass("/FollowUps/Index")" asp-page="/FollowUps/Index">
                             <i class="bi bi-calendar-check"></i> Follow-ups
                         </a>
                         <a class="@NavClass("/FollowUps/Calendar")" asp-page="/FollowUps/Calendar">
                             <i class="bi bi-calendar3 text-warning"></i> FU Calendar
                         </a>
+                        }
+                        @if (ModOn(CrmModule.CalendarSync)) {
                         <a class="@NavClass("/CalendarSync/Index")" asp-page="/CalendarSync/Index">
                             <i class="bi bi-calendar2-event text-primary"></i> Calendar Sync
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Tasks)) {
                         <a class="@NavClass("/Tasks/Index")" asp-page="/Tasks/Index">
                             <i class="bi bi-check2-square"></i> Tasks
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Escalations)) {
                         <a class="@NavClass("/Escalations/Index")" asp-page="/Escalations/Index">
                             <i class="bi bi-exclamation-triangle text-warning"></i> Escalations
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Documents)) {
                         <a class="@NavClass("/Documents/Index")" asp-page="/Documents/Index">
                             <i class="bi bi-folder2-open"></i> Documents
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Attendance)) {
                         <a class="@NavClass("/Attendance/MyAttendance")" asp-page="/Attendance/MyAttendance">
                             <i class="bi bi-person-check text-success"></i> My Attendance
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Leaves)) {
                         <a class="@NavClass("/Leave/MyLeave")" asp-page="/Leave/MyLeave">
                             <i class="bi bi-calendar-x text-danger"></i> My Leaves
                         </a>
+                        }
+                        @if (ModOn(CrmModule.HolidayCalendar)) {
                         <a class="@NavClass("/HolidayCalendar/Index")" asp-page="/HolidayCalendar/Index">
                             <i class="bi bi-calendar-heart text-danger"></i> Holiday Calendar
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Announcements)) {
                         <a class="@NavClass("/Announcements/Index")" asp-page="/Announcements/Index">
                             <i class="bi bi-megaphone text-warning"></i> Announcements
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Expenses)) {
                         <a class="@NavClass("/Expenses/Index")" asp-page="/Expenses/Index">
                             <i class="bi bi-receipt text-success"></i> My Expenses
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Gamification)) {
                         <a class="@NavClass("/Gamification/Index")" asp-page="/Gamification/Index">
-                            <i class="bi bi-trophy text-warning"></i> Badges & Points
+                            <i class="bi bi-trophy text-warning"></i> Badges &amp; Points
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Onboarding)) {
                         <a class="@NavClass("/Onboarding/Index")" asp-page="/Onboarding/Index">
                             <i class="bi bi-person-check-fill text-primary"></i> Onboarding
                         </a>
+                        }
+                        @if (ModOn(CrmModule.ShiftSwap)) {
                         <a class="@NavClass("/ShiftSwap/Index")" asp-page="/ShiftSwap/Index">
                             <i class="bi bi-arrow-left-right text-info"></i> Shift Swap
                         </a>
+                        }
                     </div>
 
                     @* Analytics *@
@@ -326,18 +401,26 @@
                         Analytics <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
                     <div class="nav-section-group" id="sec-analytics">
+                        @if (ModOn(CrmModule.Reports)) {
                         <a class="@NavClass("/Reports/Index")" asp-page="/Reports/Index">
                             <i class="bi bi-bar-chart-line"></i> Reports
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Leaderboard)) {
                         <a class="@NavClass("/Reports/Leaderboard")" asp-page="/Reports/Leaderboard">
                             <i class="bi bi-trophy text-warning"></i> Leaderboard
                         </a>
+                        }
+                        @if (ModOn(CrmModule.Revenue)) {
                         <a class="@NavClass("/Reports/Revenue")" asp-page="/Reports/Revenue">
                             <i class="bi bi-currency-rupee text-success"></i> Revenue
                         </a>
+                        }
+                        @if (ModOn(CrmModule.ActivityFeed)) {
                         <a class="@NavClass("/Activity/Index")" asp-page="/Activity/Index">
                             <i class="bi bi-activity"></i> Activity Feed
                         </a>
+                        }
                     </div>
 
                     @* AI Tools *@
@@ -345,15 +428,21 @@
                         AI Tools <i class="bi bi-chevron-down section-arrow"></i>
                     </div>
                     <div class="nav-section-group" id="sec-ai">
+                        @if (ModOn(CrmModule.AiInsights)) {
                         <a class="@NavClass("/Ai/Insights")" asp-page="/Ai/Insights">
                             <i class="bi bi-lightbulb"></i> AI Insights
                         </a>
+                        }
+                        @if (ModOn(CrmModule.AiAssistant)) {
                         <a class="@NavClass("/Ai/Assistant")" asp-page="/Ai/Assistant">
                             <i class="bi bi-robot"></i> AI Assistant
                         </a>
+                        }
+                        @if (ModOn(CrmModule.KnowledgeBase)) {
                         <a class="@NavClass("/Ai/Knowledge")" asp-page="/Ai/Knowledge">
                             <i class="bi bi-book"></i> Knowledge Base
                         </a>
+                        }
                     </div>
 
                     @if (User.IsInRole("admin") || User.IsInRole("manager"))
@@ -366,48 +455,74 @@
                             <a class="@NavClass("/Admin/Users")" asp-page="/Admin/Users">
                                 <i class="bi bi-people"></i> Users
                             </a>
+                            @if (ModOn(CrmModule.AgentGoals)) {
                             <a class="@NavClass("/Goals/Index")" asp-page="/Goals/Index">
                                 <i class="bi bi-bullseye"></i> Agent Goals
                             </a>
+                            }
+                            @if (ModOn(CrmModule.AgentShifts)) {
                             <a class="@NavClass("/Admin/Shifts")" asp-page="/Admin/Shifts">
                                 <i class="bi bi-clock-history"></i> Agent Shifts
                             </a>
+                            }
+                            @if (ModOn(CrmModule.Attendance)) {
                             <a class="@NavClass("/Attendance/Index")" asp-page="/Attendance/Index">
                                 <i class="bi bi-person-check text-success"></i> Attendance
                             </a>
+                            }
+                            @if (ModOn(CrmModule.Leaves)) {
                             <a class="@NavClass("/Leave/ManageLeave")" asp-page="/Leave/ManageLeave">
                                 <i class="bi bi-calendar-check text-primary"></i> Leave Management
                             </a>
+                            }
+                            @if (ModOn(CrmModule.CallQuality)) {
                             <a class="@NavClass("/CallQuality/Index")" asp-page="/CallQuality/Index">
                                 <i class="bi bi-star-fill text-warning"></i> Call Quality
                             </a>
+                            }
+                            @if (ModOn(CrmModule.DncList)) {
                             <a class="@NavClass("/Compliance/Dnc")" asp-page="/Compliance/Dnc">
                                 <i class="bi bi-slash-circle text-danger"></i> DNC List
                             </a>
+                            }
                             @if (User.IsInRole("admin"))
                             {
+                                @if (ModOn(CrmModule.CustomFields)) {
                                 <a class="@NavClass("/Admin/CustomFields")" asp-page="/Admin/CustomFields">
                                     <i class="bi bi-layout-text-sidebar-reverse"></i> Custom Fields
                                 </a>
+                                }
+                                @if (ModOn(CrmModule.Tags)) {
                                 <a class="@NavClass("/Admin/Tags")" asp-page="/Admin/Tags">
                                     <i class="bi bi-tags-fill text-info"></i> Tags
                                 </a>
+                                }
+                                @if (ModOn(CrmModule.ApiKeys)) {
                                 <a class="@NavClass("/Admin/ApiKeys")" asp-page="/Admin/ApiKeys">
                                     <i class="bi bi-key-fill text-warning"></i> API Keys
                                 </a>
+                                }
+                                @if (ModOn(CrmModule.ExportCenter)) {
                                 <a class="@NavClass("/Admin/ExportCenter")" asp-page="/Admin/ExportCenter">
                                     <i class="bi bi-cloud-download text-success"></i> Export Center
                                 </a>
+                                }
+                                @if (ModOn(CrmModule.Integrations)) {
                                 <a class="@NavClass("/Admin/Integrations")" asp-page="/Admin/Integrations">
                                     <i class="bi bi-plug"></i> Integrations
                                 </a>
+                                }
+                                @if (ModOn(CrmModule.Webhooks)) {
                                 <a class="@NavClass("/Admin/Webhooks")" asp-page="/Admin/Webhooks">
                                     <i class="bi bi-broadcast"></i> Webhooks
                                 </a>
+                                }
+                                @if (ModOn(CrmModule.CrmSync)) {
                                 <a class="@NavClass("/Admin/CrmSync")" asp-page="/Admin/CrmSync">
                                     <i class="bi bi-arrow-left-right text-info"></i> CRM Sync
                                 </a>
-                            <a class="@NavClass("/Admin/AuditLog")" asp-page="/Admin/AuditLog">
+                                }
+                                <a class="@NavClass("/Admin/AuditLog")" asp-page="/Admin/AuditLog">
                                     <i class="bi bi-shield-check"></i> Audit Log
                                 </a>
                                 <a class="@NavClass("/Admin/UserLogs")" asp-page="/Admin/UserLogs">

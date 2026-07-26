@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace TelecallingCRM.Pages.Campaigns;
 
 [Authorize]
+[RequireModule(CrmModule.Campaigns)]
 public class AnalyticsModel : PageModel
 {
     [BindProperty(SupportsGet = true)]

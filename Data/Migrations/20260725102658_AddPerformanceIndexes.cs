@@ -10,10 +10,6 @@ namespace TelecallingCRM.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_ActivityLogs_TenantId",
-                table: "ActivityLogs");
-
             migrationBuilder.CreateIndex(
                 name: "IX_Leads_TenantId_AssignedToId",
                 table: "Leads",
@@ -63,10 +59,6 @@ namespace TelecallingCRM.Data.Migrations
                 name: "IX_ActivityLogs_TenantId_UserId",
                 table: "ActivityLogs");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_ActivityLogs_TenantId",
-                table: "ActivityLogs",
-                column: "TenantId");
         }
     }
 }

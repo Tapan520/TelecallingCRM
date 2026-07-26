@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace TelecallingCRM.Pages.CallQuality;
 
 [Authorize]
+[RequireModule(CrmModule.CallQuality)]
 public class IndexModel : PageModel
 {
     public void OnGet() { }
