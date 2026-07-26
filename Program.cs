@@ -191,7 +191,7 @@ builder.Services.AddSwaggerGen(options =>
 // ?? Output Caching (Dashboard, Leaderboard, Reports) ????????????????????????????????????
 builder.Services.AddOutputCache(options =>
 {
-    options.AddBasePolicy(policy => policy.Expire(TimeSpan.FromSeconds(0))); // default: no cache
+    options.AddBasePolicy(policy => policy.NoCache()); // default: no cache
     options.AddPolicy("dashboard", policy =>
         policy.Expire(TimeSpan.FromSeconds(60)).Tag("dashboard"));
     options.AddPolicy("leaderboard", policy =>

@@ -14,6 +14,23 @@
     </button>
 </div>
 
+<div class="row g-2 mb-3">
+    <div class="col-md-5">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="search-name" class="form-control" placeholder="Search by name or email..." oninput="applyFilters()">
+        </div>
+    </div>
+    <div class="col-md-4">
+        <select id="search-tenant" class="form-select" onchange="applyFilters()">
+            <option value="">All Tenants</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <button class="btn btn-outline-secondary w-100" onclick="clearFilters()"><i class="bi bi-x-circle"></i> Clear Filters</button>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
@@ -85,10 +102,30 @@
 const roleColors = { superadmin:'dark', admin:'danger', manager:'warning', agent:'primary' };
 let allTenants = [];
 
+function getFilters() {
+    const q = document.getElementById('search-name').value.trim();
+    const tenantId = document.getElementById('search-tenant').value;
+    return { q, tenantId };
+}
+
+function applyFilters() {
+    load();
+}
+
+function clearFilters() {
+    document.getElementById('search-name').value = '';
+    document.getElementById('search-tenant').value = '';
+    load();
+}
+
 async function load() {
+const { q, tenantId } = getFilters();
+const params = new URLSearchParams({ pageSize: '500' });
+if (q) params.set('q', q);
+if (tenantId) params.set('tenantId', tenantId);
 let res;
 try {
-    res = await fetch('/api/superadmin/users');
+    res = await fetch('/api/superadmin/users?' + params.toString());
 } catch (e) {
     document.getElementById('allusers-tbody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Network error: ${e.message}</td></tr>`;
     return;
@@ -139,6 +176,10 @@ try {
 }
     const sel = document.getElementById('sa-user-tenant');
     sel.innerHTML = '<option value="">Select tenant…</option>' +
+        allTenants.map(t => `<option value="${t.id}">${t.name} (${t.slug})</option>`).join('');
+
+    const filterSel = document.getElementById('search-tenant');
+    filterSel.innerHTML = '<option value="">All Tenants</option>' +
         allTenants.map(t => `<option value="${t.id}">${t.name} (${t.slug})</option>`).join('');
 }
 

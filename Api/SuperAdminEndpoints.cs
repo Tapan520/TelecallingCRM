@@ -125,11 +125,14 @@ public static class SuperAdminEndpoints
 
         // GET all users across all tenants
         group.MapGet("/users", async (AppDbContext db,
-            [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? q = null) =>
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? q = null,
+            [FromQuery] Guid? tenantId = null) =>
         {
             var query = db.Users.Include(u => u.Tenant).AsQueryable();
             if (!string.IsNullOrWhiteSpace(q))
                 query = query.Where(u => (u.FullName != null && u.FullName.Contains(q)) || (u.Email != null && u.Email.Contains(q)));
+            if (tenantId.HasValue)
+                query = query.Where(u => u.TenantId == tenantId.Value);
 
             var total = await query.CountAsync();
             var users = await query
