@@ -10,50 +10,348 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign In - TelecallingCRM</title>
+    <title>Sign In – TelecallingCRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <style>
-        body { background: linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4338ca 100%); min-height:100vh; display:flex; align-items:center; justify-content:center; }
-        .login-card { background:#fff; border-radius:1rem; padding:2.5rem; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
-        .brand { font-size:1.5rem; font-weight:800; color:#4f46e5; margin-bottom:0.25rem; }
-        .form-control:focus { border-color:#4f46e5; box-shadow:0 0 0 0.2rem rgba(79,70,229,0.2); }
-        .btn-primary { background:#4f46e5; border-color:#4f46e5; }
-        .btn-primary:hover { background:#3730a3; border-color:#3730a3; }
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #3730a3 0%, #4F46E5 40%, #7C3AED 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Decorative background blobs */
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.35;
+            pointer-events: none;
+        }
+        body::before {
+            width: 520px; height: 520px;
+            background: #7C3AED;
+            top: -140px; left: -140px;
+        }
+        body::after {
+            width: 420px; height: 420px;
+            background: #4F46E5;
+            bottom: -100px; right: -80px;
+        }
+
+        /* Floating dots pattern */
+        .bg-pattern {
+            position: absolute; inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+        }
+
+        .login-wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 460px;
+            padding: 1rem;
+        }
+
+        .login-card {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 2.75rem 2.5rem 2.25rem;
+            box-shadow: 0 32px 80px rgba(49, 46, 129, 0.35), 0 8px 24px rgba(0,0,0,0.12);
+        }
+
+        /* Brand */
+        .brand-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px; height: 52px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #4F46E5, #7C3AED);
+            color: #fff;
+            font-size: 1.4rem;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 6px 18px rgba(79,70,229,0.45);
+        }
+
+        .brand-title {
+            font-size: 1.55rem;
+            font-weight: 800;
+            color: #1e1b4b;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+        }
+
+        .brand-subtitle {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 0.3rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Divider with label */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .section-divider span {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+        .section-divider::before, .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        /* Form controls */
+        .form-label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.4rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 0.9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 1rem;
+            pointer-events: none;
+            transition: color 0.2s;
+        }
+
+        .form-control {
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 0.65rem 0.9rem 0.65rem 2.5rem;
+            font-size: 0.9rem;
+            color: #111827;
+            background: #f9fafb;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            width: 100%;
+        }
+        .form-control::placeholder { color: #b0b7c3; }
+        .form-control:focus {
+            outline: none;
+            border-color: #4F46E5;
+            background: #fff;
+            box-shadow: 0 0 0 3.5px rgba(79,70,229,0.15);
+        }
+        .input-wrapper:focus-within .input-icon {
+            color: #4F46E5;
+        }
+
+        /* Password toggle */
+        .toggle-password {
+            position: absolute;
+            right: 0.9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .toggle-password:hover { color: #4F46E5; }
+
+        /* Remember / Forgot row */
+        .form-check-input:checked {
+            background-color: #4F46E5;
+            border-color: #4F46E5;
+        }
+        .form-check-label {
+            font-size: 0.82rem;
+            color: #6b7280;
+            cursor: pointer;
+        }
+        .forgot-link {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #4F46E5;
+            text-decoration: none;
+        }
+        .forgot-link:hover { color: #7C3AED; text-decoration: underline; }
+
+        /* Submit button */
+        .btn-signin {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.72rem 1rem;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            color: #fff;
+            font-size: 0.92rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 6px 20px rgba(79,70,229,0.4);
+            margin-top: 1.5rem;
+        }
+        .btn-signin:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 28px rgba(79,70,229,0.45);
+        }
+        .btn-signin:active { transform: translateY(0); opacity: 1; }
+        .btn-signin:disabled { opacity: 0.65; transform: none; cursor: not-allowed; }
+
+        /* Error alert */
+        .alert-login-error {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-left: 4px solid #ef4444;
+            border-radius: 10px;
+            padding: 0.75rem 0.9rem;
+            font-size: 0.83rem;
+            color: #b91c1c;
+            margin-bottom: 1.25rem;
+        }
+        .alert-login-error i { font-size: 1rem; margin-top: 1px; flex-shrink: 0; }
+
+        /* Footer note */
+        .login-footer {
+            margin-top: 1.6rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+
+        /* Validation */
+        .field-validation-error {
+            font-size: 0.78rem;
+            color: #ef4444;
+            margin-top: 0.3rem;
+            display: block;
+        }
+
+        @@media (max-width: 480px) {
+            .login-card { padding: 2rem 1.5rem 1.75rem; border-radius: 16px; }
+        }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="brand"><i class="bi bi-telephone-fill"></i> TelecallingCRM</div>
-        <p class="text-muted mb-4" style="font-size:0.875rem;">Multi-tenant Telecalling Platform</p>
+    <div class="bg-pattern"></div>
 
-        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-        {
-            <div class="alert alert-danger">@Model.ErrorMessage</div>
+    <div class="login-wrapper">
+        <div class="login-card">
+
+            <!-- Brand -->
+            <div class="brand-icon"><i class="bi bi-telephone-fill"></i></div>
+            <div class="brand-title">TelecallingCRM</div>
+            <div class="brand-subtitle">Smart Telecalling CRM for Growing Businesses</div>
+
+            <div class="section-divider"><span>Sign in to your account</span></div>
+
+            <!-- Error Message -->
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert-login-error">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    <span>@Model.ErrorMessage</span>
+                </div>
+            }
+
+            <!-- Form -->
+            <form method="post" id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label" for="Input_Email">Email address</label>
+                    <div class="input-wrapper">
+                        <i class="bi bi-envelope input-icon"></i>
+                        <input asp-for="Input.Email" id="Input_Email" class="form-control" placeholder="you@company.com" autocomplete="email" />
+                    </div>
+                    <span asp-validation-for="Input.Email" class="field-validation-error"></span>
+                </div>
+
+                <div class="mb-1">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label mb-0" for="Input_Password">Password</label>
+                        <a href="/ForgotPassword" class="forgot-link">Forgot password?</a>
+                    </div>
+                    <div class="input-wrapper">
+                        <i class="bi bi-lock input-icon"></i>
+                        <input asp-for="Input.Password" id="Input_Password" class="form-control" placeholder="Enter your password" type="password" autocomplete="current-password" style="padding-right:2.8rem;" />
+                        <button type="button" class="toggle-password" onclick="togglePassword()" tabindex="-1" aria-label="Toggle password visibility">
+                            <i class="bi bi-eye" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                    <span asp-validation-for="Input.Password" class="field-validation-error"></span>
+                </div>
+
+                <div class="d-flex align-items-center mt-3">
+                    <input class="form-check-input me-2" type="checkbox" id="rememberMe" />
+                    <label class="form-check-label" for="rememberMe">Keep me signed in</label>
+                </div>
+
+                <button type="submit" class="btn-signin" id="submitBtn">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Sign In
+                </button>
+            </form>
+
+            <div class="login-footer">
+                &copy; @DateTime.Now.Year TelecallingCRM &nbsp;·&nbsp; Secure login
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const pwd = document.getElementById('Input_Password');
+            const icon = document.getElementById('eyeIcon');
+            if (pwd.type === 'password') {
+                pwd.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                pwd.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
         }
 
-        <form method="post">
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Email</label>
-                <input asp-for="Input.Email" class="form-control" placeholder="you@company.com" autocomplete="email" />
-                <span asp-validation-for="Input.Email" class="text-danger small"></span>
-            </div>
-            <div class="mb-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label fw-semibold">Password</label>
-                    <a href="/ForgotPassword" class="text-muted small">Forgot password?</a>
-                </div>
-                <input asp-for="Input.Password" class="form-control" placeholder="Enter your password" type="password" autocomplete="current-password" />
-                <span asp-validation-for="Input.Password" class="text-danger small"></span>
-            </div>
-            <button type="submit" class="btn btn-primary w-100 py-2">Sign In</button>
-        </form>
-        <hr class="my-3" />
-        <!--
-        <div class="text-center">
-            <small class="text-muted">New organization? <a href="/Register">Create account</a></small>
-        </div>
-        -->
-    </div>
+        document.getElementById('loginForm').addEventListener('submit', function () {
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Signing in…';
+        });
+    </script>
 </body>
 </html>
