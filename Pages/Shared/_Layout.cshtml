@@ -208,7 +208,7 @@
                             <i class="bi bi-megaphone"></i> Campaigns
                         </a>
                         }
-                        @if (ModOn(CrmModule.Broadcast)) {
+                        @if (ModOn(CrmModule.Broadcast) && (User.IsInRole("admin") || User.IsInRole("manager"))) {
                         <a class="@NavClass("/Campaigns/Broadcast")" asp-page="/Campaigns/Broadcast">
                             <i class="bi bi-broadcast"></i> Broadcast
                         </a>
@@ -344,7 +344,7 @@
                             <i class="bi bi-check2-square"></i> Tasks
                         </a>
                         }
-                        @if (ModOn(CrmModule.Escalations)) {
+                        @if (ModOn(CrmModule.Escalations) && (User.IsInRole("admin") || User.IsInRole("manager"))) {
                         <a class="@NavClass("/Escalations/Index")" asp-page="/Escalations/Index">
                             <i class="bi bi-exclamation-triangle text-warning"></i> Escalations
                         </a>
