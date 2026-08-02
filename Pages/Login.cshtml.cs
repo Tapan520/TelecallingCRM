@@ -29,6 +29,12 @@ public class LoginModel : PageModel
 
     public string? ErrorMessage { get; set; }
 
+    public void OnGet(string? error = null)
+    {
+        if (error == "ratelimit")
+            ErrorMessage = "Too many login attempts. Please wait a minute and try again.";
+    }
+
     public class InputModel
     {
         [Required, EmailAddress]

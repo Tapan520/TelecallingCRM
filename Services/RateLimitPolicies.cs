@@ -6,7 +6,15 @@ namespace TelecallingCRM.Services;
 /// <summary>Login endpoint: 10 requests per minute per IP address (raised to 30 for dev).</summary>
 public class LoginRateLimitPolicy : IRateLimiterPolicy<string>
 {
-    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected => null;
+    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
+        static async (ctx, ct) =>
+        {
+            ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            // Redirect back to login page with a friendly query-string message
+            ctx.HttpContext.Response.Headers.Location = "/Login?error=ratelimit";
+            ctx.HttpContext.Response.Redirect("/Login?error=ratelimit");
+            await ctx.HttpContext.Response.CompleteAsync();
+        };
 
     public RateLimitPartition<string> GetPartition(HttpContext httpContext)
     {
@@ -26,7 +34,14 @@ public class LoginRateLimitPolicy : IRateLimiterPolicy<string>
 /// <summary>API endpoints: 120 req/min per user in prod, 600 in dev.</summary>
 public class ApiRateLimitPolicy : IRateLimiterPolicy<string>
 {
-    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected => null;
+    public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
+        static async (ctx, ct) =>
+        {
+            ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            ctx.HttpContext.Response.ContentType = "application/json";
+            await ctx.HttpContext.Response.WriteAsync(
+                "{\"error\":\"Too many requests. Please slow down and try again shortly.\"}", ct);
+        };
 
     public RateLimitPartition<string> GetPartition(HttpContext httpContext)
     {

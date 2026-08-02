@@ -290,6 +290,13 @@
                     <span>@Model.ErrorMessage</span>
                 </div>
             }
+            @if (HttpContext.Request.Query["error"] == "ratelimit" && string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert-login-error">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    <span>Too many login attempts. Please wait a minute and try again.</span>
+                </div>
+            }
 
             <!-- Form -->
             <form method="post" id="loginForm">
