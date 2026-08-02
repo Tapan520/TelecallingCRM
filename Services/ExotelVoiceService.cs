@@ -40,7 +40,7 @@ public class ExotelVoiceService : IExotelVoiceService
     {
         var cfg = await GetExotelCfgAsync(tenantId);
         if (cfg == null)
-            return (false, null, "Exotel is not configured. Go to Admin ? Integrations ? Exotel.");
+            return (false, null, "Exotel is not configured. Go to Admin > Integrations > Exotel.");
 
         if (!cfg.TryGetValue("ApiKey", out var apiKey) || string.IsNullOrWhiteSpace(apiKey))
             return (false, null, "Exotel ApiKey is missing.");
@@ -49,13 +49,18 @@ public class ExotelVoiceService : IExotelVoiceService
         if (!cfg.TryGetValue("AccountSid", out var accountSid) || string.IsNullOrWhiteSpace(accountSid))
             return (false, null, "Exotel AccountSid is missing.");
 
-        // CallerId (ExoPhone) — use lead's caller ID field or fall back to config FromNumber
+        // CallerId (ExoPhone) — use provided callerId or fall back to config FromNumber
         var from = callerId
             ?? (cfg.TryGetValue("FromNumber", out var fn) ? fn : null)
             ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(from))
             return (false, null, "Exotel FromNumber (ExoPhone) is missing.");
+
+        // Normalise Indian phone numbers to 0XXXXXXXXXX format (required by Exotel)
+        agentPhone = NormalizeIndianPhone(agentPhone);
+        leadPhone  = NormalizeIndianPhone(leadPhone);
+        from       = NormalizeIndianPhone(from);
 
         try
         {
@@ -125,6 +130,31 @@ public class ExotelVoiceService : IExotelVoiceService
     public async Task<bool> IsConfiguredAsync(Guid tenantId)
         => await _db.IntegrationConfigs
             .AnyAsync(i => i.TenantId == tenantId && i.Provider == "exotel" && i.IsEnabled);
+
+    /// <summary>
+    /// Normalises an Indian phone number to the 0XXXXXXXXXX format Exotel requires.
+    /// Handles: 9876543210, +919876543210, 919876543210, 09876543210
+    /// </summary>
+    private static string NormalizeIndianPhone(string phone)
+    {
+        // Strip all non-digit characters except leading +
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+
+        // Already in 0XXXXXXXXXX format (11 digits starting with 0)
+        if (digits.Length == 11 && digits.StartsWith('0'))
+            return digits;
+
+        // +91 or 91 prefix (12 or 12 digits)
+        if (digits.Length == 12 && digits.StartsWith("91"))
+            return "0" + digits[2..];
+
+        // 10-digit number — prepend 0
+        if (digits.Length == 10)
+            return "0" + digits;
+
+        // Return as-is if format is unrecognised (e.g. already correct)
+        return phone.Trim();
+    }
 
     private async Task<Dictionary<string, string>?> GetExotelCfgAsync(Guid tenantId)
     {
