@@ -47,59 +47,79 @@ public class LoginModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
-        var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, isPersistent: true, lockoutOnFailure: true);
-        if (result.Succeeded)
+        try
         {
-            var user = await _userManager.FindByEmailAsync(Input.Email);
-            if (user != null)
+            var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, isPersistent: true, lockoutOnFailure: true);
+            if (result.Succeeded)
             {
-                user.LastLoginAt = DateTime.UtcNow;
-                await _userManager.UpdateAsync(user);
-
-                if (user.TenantId.HasValue)
+                var user = await _userManager.FindByEmailAsync(Input.Email);
+                if (user != null)
                 {
-                    await _logger.LogAsync(user.TenantId.Value, user.Id, "Login", "Auth",
-                        $"{user.FullName} ({user.Role}) logged in",
-                        ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
-                        userAgent: Request.Headers["User-Agent"].ToString());
+                    user.LastLoginAt = DateTime.UtcNow;
+                    await _userManager.UpdateAsync(user);
 
-                    // Auto Punch-In on login
-                    var today = DateTime.UtcNow.Date;
-                    var openEntry = await _db.AttendanceLogs
-                        .Where(a => a.AgentId == user.Id
-                                 && a.PunchIn >= today
-                                 && a.PunchIn < today.AddDays(1)
-                                 && a.PunchOut == null)
-                        .FirstOrDefaultAsync();
-
-                    if (openEntry == null)
+                    if (user.TenantId.HasValue)
                     {
-                        _db.AttendanceLogs.Add(new AttendanceLog
+                        await _logger.LogAsync(user.TenantId.Value, user.Id, "Login", "Auth",
+                            $"{user.FullName} ({user.Role}) logged in",
+                            ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+                            userAgent: Request.Headers["User-Agent"].ToString());
+
+                        // Auto Punch-In on login
+                        var today = DateTime.UtcNow.Date;
+                        var openEntry = await _db.AttendanceLogs
+                            .Where(a => a.AgentId == user.Id
+                                     && a.PunchIn >= today
+                                     && a.PunchIn < today.AddDays(1)
+                                     && a.PunchOut == null)
+                            .FirstOrDefaultAsync();
+
+                        if (openEntry == null)
                         {
-                            TenantId      = user.TenantId.Value,
-                            AgentId       = user.Id,
-                            PunchIn       = DateTime.UtcNow,
-                            PunchedInById = user.Id,
-                            IsManualEntry = false,
-                            Notes         = "Auto punch-in on login"
-                        });
-                        await _db.SaveChangesAsync();
+                            _db.AttendanceLogs.Add(new AttendanceLog
+                            {
+                                TenantId      = user.TenantId.Value,
+                                AgentId       = user.Id,
+                                PunchIn       = DateTime.UtcNow,
+                                PunchedInById = user.Id,
+                                IsManualEntry = false,
+                                Notes         = "Auto punch-in on login"
+                            });
+                            await _db.SaveChangesAsync();
+                        }
                     }
+
+                    if (user.Role == "superadmin")
+                        return RedirectToPage("/SuperAdmin/Tenants");
                 }
-
-                if (user.Role == "superadmin")
-                    return RedirectToPage("/SuperAdmin/Tenants");
+                return LocalRedirect(returnUrl ?? "/Dashboard");
             }
-            return LocalRedirect(returnUrl ?? "/Dashboard");
-        }
 
-        if (result.IsLockedOut)
+            if (result.IsLockedOut)
+            {
+                ErrorMessage = "Account locked due to too many failed attempts. Try again in 5 minutes.";
+                return Page();
+            }
+
+            if (result.IsNotAllowed)
+            {
+                ErrorMessage = "Your account is not allowed to sign in. Please contact support.";
+                return Page();
+            }
+
+            if (result.RequiresTwoFactor)
+            {
+                ErrorMessage = "Two-factor authentication is required. Please contact support.";
+                return Page();
+            }
+
+            ErrorMessage = "Invalid email or password. Please check your credentials and try again.";
+        }
+        catch (Exception)
         {
-            ErrorMessage = "Account locked due to too many failed attempts. Try again in 5 minutes.";
-            return Page();
+            ErrorMessage = "An unexpected error occurred while signing in. Please try again.";
         }
 
-        ErrorMessage = "Invalid email or password.";
         return Page();
     }
 }
