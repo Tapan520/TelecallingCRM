@@ -359,6 +359,15 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Signing in…';
         });
+
+        // Restore button if user navigates back via browser back button
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) {
+                const btn = document.getElementById('submitBtn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-box-arrow-in-right"></i> Sign In';
+            }
+        });
     </script>
 </body>
 </html>

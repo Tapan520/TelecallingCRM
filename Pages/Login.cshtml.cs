@@ -49,71 +49,95 @@ public class LoginModel : PageModel
 
         try
         {
+            // ?? Step 1: Check if the email exists at all ?????????????????????
+            var user = await _userManager.FindByEmailAsync(Input.Email);
+            if (user == null)
+            {
+                ErrorMessage = "No account found with that email address. Please check and try again.";
+                return Page();
+            }
+
+            // ?? Step 2: Check if the account is active ???????????????????????
+            if (!user.IsActive)
+            {
+                ErrorMessage = "Your account has been deactivated. Please contact your administrator.";
+                return Page();
+            }
+
+            // ?? Step 3: Attempt sign-in ??????????????????????????????????????
             var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, isPersistent: true, lockoutOnFailure: true);
+
             if (result.Succeeded)
             {
-                var user = await _userManager.FindByEmailAsync(Input.Email);
-                if (user != null)
+                user.LastLoginAt = DateTime.UtcNow;
+                await _userManager.UpdateAsync(user);
+
+                if (user.TenantId.HasValue)
                 {
-                    user.LastLoginAt = DateTime.UtcNow;
-                    await _userManager.UpdateAsync(user);
+                    await _logger.LogAsync(user.TenantId.Value, user.Id, "Login", "Auth",
+                        $"{user.FullName} ({user.Role}) logged in",
+                        ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+                        userAgent: Request.Headers["User-Agent"].ToString());
 
-                    if (user.TenantId.HasValue)
+                    // Auto Punch-In on login
+                    var today = DateTime.UtcNow.Date;
+                    var openEntry = await _db.AttendanceLogs
+                        .Where(a => a.AgentId == user.Id
+                                 && a.PunchIn >= today
+                                 && a.PunchIn < today.AddDays(1)
+                                 && a.PunchOut == null)
+                        .FirstOrDefaultAsync();
+
+                    if (openEntry == null)
                     {
-                        await _logger.LogAsync(user.TenantId.Value, user.Id, "Login", "Auth",
-                            $"{user.FullName} ({user.Role}) logged in",
-                            ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
-                            userAgent: Request.Headers["User-Agent"].ToString());
-
-                        // Auto Punch-In on login
-                        var today = DateTime.UtcNow.Date;
-                        var openEntry = await _db.AttendanceLogs
-                            .Where(a => a.AgentId == user.Id
-                                     && a.PunchIn >= today
-                                     && a.PunchIn < today.AddDays(1)
-                                     && a.PunchOut == null)
-                            .FirstOrDefaultAsync();
-
-                        if (openEntry == null)
+                        _db.AttendanceLogs.Add(new AttendanceLog
                         {
-                            _db.AttendanceLogs.Add(new AttendanceLog
-                            {
-                                TenantId      = user.TenantId.Value,
-                                AgentId       = user.Id,
-                                PunchIn       = DateTime.UtcNow,
-                                PunchedInById = user.Id,
-                                IsManualEntry = false,
-                                Notes         = "Auto punch-in on login"
-                            });
-                            await _db.SaveChangesAsync();
-                        }
+                            TenantId      = user.TenantId.Value,
+                            AgentId       = user.Id,
+                            PunchIn       = DateTime.UtcNow,
+                            PunchedInById = user.Id,
+                            IsManualEntry = false,
+                            Notes         = "Auto punch-in on login"
+                        });
+                        await _db.SaveChangesAsync();
                     }
-
-                    if (user.Role == "superadmin")
-                        return RedirectToPage("/SuperAdmin/Tenants");
                 }
+
+                if (user.Role == "superadmin")
+                    return RedirectToPage("/SuperAdmin/Tenants");
+
                 return LocalRedirect(returnUrl ?? "/Dashboard");
             }
 
             if (result.IsLockedOut)
             {
-                ErrorMessage = "Account locked due to too many failed attempts. Try again in 5 minutes.";
+                ErrorMessage = "Account temporarily locked due to too many failed attempts. Please try again in 5 minutes.";
                 return Page();
             }
 
             if (result.IsNotAllowed)
             {
-                ErrorMessage = "Your account is not allowed to sign in. Please contact support.";
+                ErrorMessage = "Sign-in is not allowed for this account. Please contact your administrator.";
                 return Page();
             }
 
             if (result.RequiresTwoFactor)
             {
-                ErrorMessage = "Two-factor authentication is required. Please contact support.";
+                ErrorMessage = "Two-factor authentication is required. Please contact your administrator.";
                 return Page();
             }
 
-            ErrorMessage = "Invalid email or password. Please check your credentials and try again.";
+            // ?? Step 4: Password was wrong ???????????????????????????????????
+            // Check remaining attempts and warn the user
+            var failCount  = await _userManager.GetAccessFailedCountAsync(user);
+            var maxAttempts = 5; // matches Lockout.MaxFailedAccessAttempts in Program.cs
+            var remaining  = maxAttempts - failCount;
+
+            ErrorMessage = remaining > 1
+                ? $"Incorrect password. {remaining} attempt{(remaining == 1 ? "" : "s")} remaining before account lockout."
+                : remaining == 1
+                    ? "Incorrect password. 1 attempt remaining — your account will be locked after the next failed attempt."
+                    : "Incorrect password. Please try again.";
         }
         catch (Exception)
         {
