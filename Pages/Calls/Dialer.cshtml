@@ -373,6 +373,18 @@ async function saveDisposition() {
 loadQueue();
 checkDialerStatus();
 
+// Auto-select lead passed via query string (e.g. from Lead Detail page)
+(async function autoSelectLead() {
+    const preloadId = '@(Model.LeadId?.ToString() ?? string.Empty)';
+    if (!preloadId) return;
+    const res = await fetch(`/api/leads/${preloadId}`);
+    if (!res.ok) return;
+    const lead = await res.json();
+    await selectLead(lead.id, lead.name, lead.phone);
+})();
+
+
+
 
 </script>
 <style>

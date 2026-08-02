@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Security.Claims;
 
@@ -9,6 +10,9 @@ namespace TelecallingCRM.Pages.Calls;
 public class DialerModel : PageModel
 {
     public string CurrentUserId { get; set; } = string.Empty;
+
+    [BindProperty(SupportsGet = true)]
+    public Guid? LeadId { get; set; }
 
     public void OnGet()
     {

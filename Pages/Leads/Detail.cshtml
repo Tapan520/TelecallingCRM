@@ -143,7 +143,7 @@ async function loadLead() {
         <span class="badge bg-${statusColors[lead.status]}">${statusNames[lead.status]}</span>
         <span class="badge ${priorityBadge}">${priorityLabel}</span>
         <div class="d-flex gap-2 ms-auto flex-wrap">
-            <a href="/Calls/Dialer" class="btn btn-success btn-sm"><i class="bi bi-telephone-fill"></i> Call</a>
+            <a href="/Calls/Dialer?leadId=${leadId}" class="btn btn-success btn-sm"><i class="bi bi-telephone-fill"></i> Call</a>
             <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#fuModal"><i class="bi bi-calendar-check"></i> Follow-up</button>
             <button class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#taskModal"><i class="bi bi-check2-square"></i> Task</button>
             <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#noteModal"><i class="bi bi-sticky"></i> Note</button>
