@@ -150,6 +150,7 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IS3StorageService, S3StorageService>();
 builder.Services.AddScoped<ITenantModuleService, TenantModuleService>();
+builder.Services.AddScoped<ITwilioVoiceService, TwilioVoiceService>();
 builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
 builder.Services.AddHttpContextAccessor();
 
@@ -263,6 +264,7 @@ ScheduledJobService.RegisterRecurringJobs();
 app.MapAuthEndpoints();
 app.MapLeadsEndpoints();
 app.MapCallsEndpoints();
+app.MapDialerEndpoints();
 app.MapCampaignsEndpoints();
 app.MapAiEndpoints();
 app.MapAiInsightsEndpoints();

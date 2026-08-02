@@ -139,6 +139,8 @@
 </div>
 
 @section Scripts {
+<!-- Twilio Voice JS SDK -->
+<script src="https://sdk.twilio.com/js/client/releases/2.4.1/twilio.min.js"></script>
 <script>
 let currentCallId = null;
 let currentLeadId = null;
@@ -149,6 +151,32 @@ let isMuted = false;
 let isOnHold = false;
 let isRecording = false;
 let selectedDisposition = null;
+
+// ?? Twilio Device ??????????????????????????????????????????????????????????
+let twilioDevice = null;
+let twilioCall = null;
+
+async function initTwilioDevice() {
+    const res = await fetch('/api/dialer/token');
+    if (!res.ok) {
+        console.warn('Twilio not configured – calls will be logged only (no live audio).');
+        return;
+    }
+    const { token } = await res.json();
+    twilioDevice = new Twilio.Device(token, {
+        codecPreferences: ['opus', 'pcmu'],
+        enableRingingState: true
+    });
+    twilioDevice.on('ready', () => console.log('Twilio Device ready'));
+    twilioDevice.on('error', e => console.error('Twilio error', e));
+    twilioDevice.on('connect', conn => { twilioCall = conn; });
+    twilioDevice.on('disconnect', () => {
+        twilioCall = null;
+        // Auto-show disposition panel when Twilio disconnects
+        if (document.getElementById('btn-hangup').classList.contains('d-none') === false)
+            hangUp();
+    });
+}
 
 // Load today's call queue
 async function loadQueue() {
@@ -226,13 +254,24 @@ async function selectLead(id, name, phone) {
 async function startCall() {
     if (!currentLeadId) return;
     const myUserId = '@Html.Raw(Model.CurrentUserId)';
+
+    // 1. Create the Call record in DB (DNC check happens here)
     const res = await fetch('/api/calls/start', {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ leadId: currentLeadId, agentId: myUserId })
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+        const err = await res.json();
+        alert(err.message ?? 'Failed to start call. Check DNC list.');
+        return;
+    }
     const data = await res.json();
     currentCallId = data.id;
+
+    // 2. Initiate live call via Twilio JS SDK (browser audio)
+    if (twilioDevice) {
+        twilioCall = twilioDevice.connect({ To: currentLeadPhone });
+    }
 
     // Update UI
     document.getElementById('btn-call').classList.add('d-none');
@@ -252,6 +291,10 @@ async function startCall() {
 }
 
 function hangUp() {
+    // Disconnect Twilio audio
+    if (twilioCall) { twilioCall.disconnect(); twilioCall = null; }
+    if (twilioDevice) twilioDevice.disconnectAll();
+
     clearInterval(timerInterval);
     document.getElementById('btn-hangup').classList.add('d-none');
     document.getElementById('btn-call').classList.remove('d-none');
@@ -263,6 +306,7 @@ function hangUp() {
 
 function toggleMute() {
     isMuted = !isMuted;
+    if (twilioCall) twilioCall.mute(isMuted);
     const btn = document.getElementById('btn-mute');
     btn.className = isMuted ? 'btn btn-danger btn-sm' : 'btn btn-outline-secondary btn-sm';
     btn.innerHTML = isMuted ? '<i class="bi bi-mic-mute-fill"></i> Unmute' : '<i class="bi bi-mic-mute-fill"></i> Mute';
@@ -311,6 +355,8 @@ async function saveDisposition() {
 }
 
 loadQueue();
+initTwilioDevice();
+
 </script>
 <style>
 .hover-bg:hover { background: #f8fafc; }
