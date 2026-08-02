@@ -71,11 +71,15 @@ public class ExotelVoiceService : IExotelVoiceService
             client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Basic", creds);
 
-            // Exotel supports two API base URL formats:
-            //   Old accounts : https://api.exotel.com/v1/Accounts/{sid}/Calls/connect.json
-            //   New accounts : https://{sid}.api.exotel.com/v1/Accounts/{sid}/Calls/connect.json
-            // The subdomain format is the current standard and works for both.
-            var url = $"https://{accountSid}.api.exotel.com/v1/Accounts/{accountSid}/Calls/connect.json";
+            // Build Exotel API URL using the Subdomain shown in Exotel dashboard.
+            // e.g. Subdomain = "api.exotel.com"  ? https://api.exotel.com/v1/Accounts/{sid}/Calls/connect.json
+            // e.g. Subdomain = "sg1.exotel.com"  ? https://sg1.exotel.com/v1/Accounts/{sid}/Calls/connect.json
+            // Falls back to "api.exotel.com" if not set.
+            cfg.TryGetValue("Subdomain", out var subdomain);
+            if (string.IsNullOrWhiteSpace(subdomain))
+                subdomain = "api.exotel.com"; // safe default for most India accounts
+            subdomain = subdomain.Trim().TrimStart('h','t','p','s',':','/');
+            var url = $"https://{subdomain}/v1/Accounts/{accountSid}/Calls/connect.json";
 
             // StatusCallback — Exotel will POST call result (duration, recording) back here
             var appBaseUrl = _config["AppBaseUrl"]?.TrimEnd('/')

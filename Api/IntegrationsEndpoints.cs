@@ -12,7 +12,7 @@ public static class IntegrationsEndpoints
     public static readonly Dictionary<string, string[]> SupportedProviders = new()
     {
         ["twilio"]         = ["AccountSid", "AuthToken", "FromNumber"],
-        ["exotel"]         = ["ApiKey", "ApiToken", "AccountSid", "FromNumber"],
+        ["exotel"]         = ["ApiKey", "ApiToken", "AccountSid", "Subdomain", "FromNumber"],
         ["knowlarity"]     = ["ApiKey", "CallerId", "SRNumber"],
         ["airteliq"]       = ["ClientId", "ClientSecret", "CallerId"],
         ["razorpay"]       = ["KeyId", "KeySecret", "WebhookSecret"],
