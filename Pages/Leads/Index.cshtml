@@ -341,7 +341,7 @@ async function loadLeads() {
     document.getElementById('leads-tbody').innerHTML = data.leads.map(l =>
         '<tr>' +
         '<td><input type="checkbox" class="lead-chk" value="' + l.id + '" ' + (selectedLeadIds.has(l.id) ? 'checked' : '') + ' onchange="toggleLeadSelect(this)"></td>' +
-        '<td><a href="/Leads/' + l.id + '/detail" class="fw-semibold text-decoration-none">' + priorityIcon(l.priority) + ' ' + l.name + '</a></td>' +
+        '<td><a href="/Leads/' + l.id + '" class="fw-semibold text-decoration-none">' + priorityIcon(l.priority) + ' ' + l.name + '</a></td>' +
         '<td>' + l.phone + '</td>' +
         '<td>' + (l.company || '-') + '</td>' +
         '<td>' + statusBadge(l.status) + '</td>' +
@@ -644,7 +644,7 @@ async function saveLead() {
             const data = await res.json();
             const msg = data.message + '\n\nExisting lead: ' + data.existingLeadName + ' (Status: ' + data.existingLeadStatus + ')\n\nDo you want to view the existing lead?';
             if (confirm(msg)) {
-                window.open('/Leads/' + data.existingLeadId + '/detail', '_blank');
+                window.open('/Leads/' + data.existingLeadId, '_blank');
             }
         } else {
             const msg = await res.text();
