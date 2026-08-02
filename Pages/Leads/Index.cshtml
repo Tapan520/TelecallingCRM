@@ -583,8 +583,11 @@ async function editLead(id) {
         document.getElementById('lead-notes').value = l.notes ?? '';
         document.getElementById('lead-source').value = l.source ?? '';
         document.getElementById('lead-tags').value = l.tags ?? '';
-        document.getElementById('lead-status').value = l.status;
-        document.getElementById('lead-priority').value = l.priority;
+        // API returns string enums ("New", "Contacted"…); map to numeric option values
+        const STATUS_MAP = { New:0, Contacted:1, Interested:2, NotInterested:3, FollowUp:4, Converted:5, Dead:6 };
+        const PRIORITY_MAP = { Normal:0, Low:0, High:1, Urgent:2 };
+        document.getElementById('lead-status').value   = typeof l.status   === 'number' ? l.status   : (STATUS_MAP[l.status]   ?? 0);
+        document.getElementById('lead-priority').value = typeof l.priority === 'number' ? l.priority : (PRIORITY_MAP[l.priority] ?? 0);
         document.getElementById('lead-followup').value = l.nextFollowUpAt
             ? new Date(l.nextFollowUpAt).toISOString().slice(0, 16) : '';
 
@@ -618,8 +621,8 @@ async function saveLead() {
         notes:          document.getElementById('lead-notes').value || null,
         source:         document.getElementById('lead-source').value || null,
         tags:           document.getElementById('lead-tags').value || null,
-        status:         parseInt(document.getElementById('lead-status').value),
-        priority:       parseInt(document.getElementById('lead-priority').value),
+        status:         parseInt(document.getElementById('lead-status').value)   || 0,
+        priority:       parseInt(document.getElementById('lead-priority').value) || 0,
         nextFollowUpAt: document.getElementById('lead-followup').value || null,
         assignedToId:   assigneeVal || null,
         campaignId:     document.getElementById('lead-campaign-id').value || null
