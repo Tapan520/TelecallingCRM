@@ -27,6 +27,7 @@
 
     <!-- Center: Dialer Panel -->
     <div class="col-md-4">
+        <div id="dialer-provider-banner"></div>
         <div class="card">
             <div class="card-body text-center">
                 <!-- Current Lead Info -->
@@ -125,6 +126,19 @@
     </div>
 </div>
 
+<!-- Exotel Call Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+    <div id="exotel-toast" class="toast align-items-center text-bg-success border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-telephone-fill me-2"></i>
+                <span id="exotel-toast-msg"></span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
 <!-- Transfer Modal -->
 <div class="modal fade" id="transferModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
@@ -139,43 +153,37 @@
 </div>
 
 @section Scripts {
-<!-- Twilio Voice JS SDK -->
-<script src="https://sdk.twilio.com/js/client/releases/2.4.1/twilio.min.js"></script>
 <script>
 let currentCallId = null;
 let currentLeadId = null;
 let currentLeadPhone = null;
 let timerInterval = null;
 let callSeconds = 0;
+let selectedDisposition = null;
 let isMuted = false;
 let isOnHold = false;
-let isRecording = false;
-let selectedDisposition = null;
 
-// ?? Twilio Device ??????????????????????????????????????????????????????????
-let twilioDevice = null;
-let twilioCall = null;
-
-async function initTwilioDevice() {
-    const res = await fetch('/api/dialer/token');
-    if (!res.ok) {
-        console.warn('Twilio not configured – calls will be logged only (no live audio).');
-        return;
+// ?? Check Exotel status on load ????????????????????????????????????????????
+async function checkDialerStatus() {
+    const res = await fetch('/api/dialer/status');
+    if (!res.ok) return;
+    const { configured } = await res.json();
+    if (!configured) {
+        document.getElementById('dialer-provider-banner').innerHTML = `
+            <div class="alert alert-warning mb-3 py-2 small">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                <strong>Exotel not configured.</strong>
+                Go to <a href="/Admin/Integrations">Admin ? Integrations ? Exotel</a> to set it up.
+                Calls will be logged without live audio until configured.
+            </div>`;
+    } else {
+        document.getElementById('dialer-provider-banner').innerHTML = `
+            <div class="alert alert-success mb-3 py-2 small">
+                <i class="bi bi-telephone-fill me-1"></i>
+                <strong>Exotel Click-to-Call ready.</strong>
+                When you click Call, Exotel will ring your phone first, then connect to the lead.
+            </div>`;
     }
-    const { token } = await res.json();
-    twilioDevice = new Twilio.Device(token, {
-        codecPreferences: ['opus', 'pcmu'],
-        enableRingingState: true
-    });
-    twilioDevice.on('ready', () => console.log('Twilio Device ready'));
-    twilioDevice.on('error', e => console.error('Twilio error', e));
-    twilioDevice.on('connect', conn => { twilioCall = conn; });
-    twilioDevice.on('disconnect', () => {
-        twilioCall = null;
-        // Auto-show disposition panel when Twilio disconnects
-        if (document.getElementById('btn-hangup').classList.contains('d-none') === false)
-            hangUp();
-    });
 }
 
 // Load today's call queue
@@ -253,27 +261,35 @@ async function selectLead(id, name, phone) {
 
 async function startCall() {
     if (!currentLeadId) return;
-    const myUserId = '@Html.Raw(Model.CurrentUserId)';
 
-    // 1. Create the Call record in DB (DNC check happens here)
-    const res = await fetch('/api/calls/start', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ leadId: currentLeadId, agentId: myUserId })
+    const btn = document.getElementById('btn-call');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Connecting...';
+
+    // POST to Exotel Click-to-Call endpoint
+    const res = await fetch('/api/dialer/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: currentLeadId })
     });
+
     if (!res.ok) {
-        const err = await res.json();
-        alert(err.message ?? 'Failed to start call. Check DNC list.');
+        const err = await res.json().catch(() => ({}));
+        alert(err.message ?? err.error ?? 'Failed to initiate call.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-telephone-fill"></i> Call';
         return;
     }
+
     const data = await res.json();
-    currentCallId = data.id;
+    currentCallId = data.callId;
 
-    // 2. Initiate live call via Twilio JS SDK (browser audio)
-    if (twilioDevice) {
-        twilioCall = twilioDevice.connect({ To: currentLeadPhone });
-    }
+    // Show success toast
+    const toast = document.getElementById('exotel-toast');
+    document.getElementById('exotel-toast-msg').textContent = data.message;
+    new bootstrap.Toast(toast, { delay: 6000 }).show();
 
-    // Update UI
+    // Update UI to in-call state
     document.getElementById('btn-call').classList.add('d-none');
     document.getElementById('btn-hangup').classList.remove('d-none');
     document.getElementById('in-call-controls').classList.remove('d-none');
@@ -284,20 +300,19 @@ async function startCall() {
     callSeconds = 0;
     timerInterval = setInterval(() => {
         callSeconds++;
-        const m = String(Math.floor(callSeconds/60)).padStart(2,'0');
-        const s = String(callSeconds%60).padStart(2,'0');
+        const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const s = String(callSeconds % 60).padStart(2, '0');
         document.getElementById('call-timer').textContent = `${m}:${s}`;
     }, 1000);
 }
 
 function hangUp() {
-    // Disconnect Twilio audio
-    if (twilioCall) { twilioCall.disconnect(); twilioCall = null; }
-    if (twilioDevice) twilioDevice.disconnectAll();
-
     clearInterval(timerInterval);
     document.getElementById('btn-hangup').classList.add('d-none');
-    document.getElementById('btn-call').classList.remove('d-none');
+    const btn = document.getElementById('btn-call');
+    btn.classList.remove('d-none');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-telephone-fill"></i> Call';
     document.getElementById('in-call-controls').classList.add('d-none');
     document.getElementById('call-status-badge').className = 'badge bg-warning';
     document.getElementById('call-status-badge').textContent = 'Disposition';
@@ -306,7 +321,8 @@ function hangUp() {
 
 function toggleMute() {
     isMuted = !isMuted;
-    if (twilioCall) twilioCall.mute(isMuted);
+    // With Exotel click-to-call the audio is on the agent's phone handset,
+    // so mute is handled by the phone itself. We just update the UI state.
     const btn = document.getElementById('btn-mute');
     btn.className = isMuted ? 'btn btn-danger btn-sm' : 'btn btn-outline-secondary btn-sm';
     btn.innerHTML = isMuted ? '<i class="bi bi-mic-mute-fill"></i> Unmute' : '<i class="bi bi-mic-mute-fill"></i> Mute';
@@ -355,7 +371,8 @@ async function saveDisposition() {
 }
 
 loadQueue();
-initTwilioDevice();
+checkDialerStatus();
+
 
 </script>
 <style>

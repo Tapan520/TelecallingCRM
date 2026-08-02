@@ -11,7 +11,7 @@ public static class IntegrationsEndpoints
     // All supported providers with their required config fields
     public static readonly Dictionary<string, string[]> SupportedProviders = new()
     {
-        ["twilio"]         = ["AccountSid", "AuthToken", "FromNumber", "TwimlAppSid", "ApiKeySid", "ApiKeySecret"],
+        ["twilio"]         = ["AccountSid", "AuthToken", "FromNumber"],
         ["exotel"]         = ["ApiKey", "ApiToken", "AccountSid", "FromNumber"],
         ["knowlarity"]     = ["ApiKey", "CallerId", "SRNumber"],
         ["airteliq"]       = ["ClientId", "ClientSecret", "CallerId"],

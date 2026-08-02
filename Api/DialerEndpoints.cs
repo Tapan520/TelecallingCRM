@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using TelecallingCRM.Data;
 using TelecallingCRM.Data.Models;
+using TelecallingCRM.Hubs;
 using TelecallingCRM.Services;
 
 namespace TelecallingCRM.Api;
@@ -15,57 +17,154 @@ public static class DialerEndpoints
             .RequireAuthorization()
             .RequireRateLimiting("api");
 
-        // ?? GET /api/dialer/token ????????????????????????????????????????????
-        // Returns a Twilio Access Token so the browser JS SDK can place calls.
-        group.MapGet("/token", async (TenantContext tc, HttpContext http,
-            ITwilioVoiceService voice) =>
+        // ?? GET /api/dialer/status ???????????????????????????????????????????
+        // Returns whether Exotel is configured so the UI can show the right message.
+        group.MapGet("/status", async (TenantContext tc, IExotelVoiceService exotel) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
-            var agentId = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
-            var (token, error) = await voice.GenerateAccessTokenAsync(tc.TenantId, $"agent-{agentId}");
-            if (token == null)
-                return Results.BadRequest(new { error });
-            return Results.Ok(new { token });
+            var configured = await exotel.IsConfiguredAsync(tc.TenantId);
+            return Results.Ok(new { provider = "exotel", configured });
         });
 
-        // ?? POST /api/dialer/twiml ???????????????????????????????????????????
-        // Twilio calls this webhook to get call instructions (TwiML).
-        // Must be AllowAnonymous because Twilio posts here without a session cookie.
-        app.MapPost("/api/dialer/twiml", ([FromForm] string? To, [FromForm] string? Called) =>
+        // ?? POST /api/dialer/call ????????????????????????????????????????????
+        // Initiates an Exotel Click-to-Call:
+        //   1. Exotel calls the agent's phone first
+        //   2. Agent picks up ? Exotel bridges to lead's phone
+        //   3. Call record is created in DB
+        group.MapPost("/call", async ([FromBody] DialerCallDto dto, TenantContext tc,
+            HttpContext http, AppDbContext db,
+            IExotelVoiceService exotel, IHubContext<CrmHub> hub) =>
         {
-            // 'To' is set when dialing via the JS SDK; 'Called' for REST-initiated calls
-            var number = To ?? Called ?? string.Empty;
-            var twiml = $"""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <Response>
-                    <Dial timeout="30" record="record-from-ringing" recordingStatusCallback="/api/dialer/recording-status">
-                        <Number>{System.Net.WebUtility.HtmlEncode(number)}</Number>
-                    </Dial>
-                </Response>
-                """;
-            return Results.Content(twiml, "application/xml");
-        }).AllowAnonymous().DisableAntiforgery();
+            if (!tc.HasTenant) return Results.Unauthorized();
 
-        // ?? POST /api/dialer/recording-status ????????????????????????????????
-        // Twilio posts here when a recording is ready. We save the URL to the Call record.
-        app.MapPost("/api/dialer/recording-status", async (
-            [FromForm] string? RecordingSid,
-            [FromForm] string? RecordingUrl,
-            [FromForm] string? CallSid,
-            AppDbContext db) =>
-        {
-            if (!string.IsNullOrWhiteSpace(CallSid) && !string.IsNullOrWhiteSpace(RecordingUrl))
-            {
-                var call = await db.Calls.FirstOrDefaultAsync(c => c.ProviderCallId == CallSid);
-                if (call != null)
+            var agentUserId = Guid.Parse(
+                http.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            // Load lead — validates it belongs to this tenant
+            var lead = await db.Leads
+                .FirstOrDefaultAsync(l => l.Id == dto.LeadId && l.TenantId == tc.TenantId);
+            if (lead == null)
+                return Results.NotFound(new { error = "Lead not found." });
+
+            // DNC check
+            var normPhone = new string(lead.Phone.Where(char.IsDigit).ToArray());
+            var isDnc = await db.DncEntries
+                .AnyAsync(d => d.TenantId == tc.TenantId && d.Phone == normPhone);
+            if (isDnc)
+                return Results.BadRequest(new
                 {
-                    // Twilio recording URLs need .mp3 appended
-                    call.AudioFileUrl = RecordingUrl + ".mp3";
-                    call.IsRecorded = true;
-                    await db.SaveChangesAsync();
+                    error = "DNC",
+                    message = $"Cannot call {lead.Phone} – this number is on the Do-Not-Call list."
+                });
+
+            // Agent's phone number (stored in IdentityUser.PhoneNumber)
+            var agent = await db.Users.FindAsync(agentUserId);
+            var agentPhone = dto.AgentPhone ?? agent?.PhoneNumber;
+            if (string.IsNullOrWhiteSpace(agentPhone))
+                return Results.BadRequest(new
+                {
+                    error = "AgentPhoneMissing",
+                    message = "Agent phone number is required for Click-to-Call. " +
+                              "Please update it in your Profile."
+                });
+
+            // Initiate Exotel Click-to-Call
+            var (success, callSid, callError) =
+                await exotel.ClickToCallAsync(tc.TenantId, agentPhone, lead.Phone);
+
+            if (!success)
+                return Results.BadRequest(new { error = callError });
+
+            // Save Call record to DB
+            var call = new Call
+            {
+                TenantId        = tc.TenantId,
+                LeadId          = dto.LeadId,
+                AgentId         = agentUserId,
+                Direction       = CallDirection.Outbound,
+                StartedAt       = DateTime.UtcNow,
+                ProviderCallId  = callSid
+            };
+            db.Calls.Add(call);
+
+            // Update lead status
+            if (lead.Status == LeadStatus.New)
+                lead.Status = LeadStatus.Contacted;
+            lead.LastContactedAt = DateTime.UtcNow;
+
+            db.ActivityLogs.Add(new ActivityLog
+            {
+                TenantId = tc.TenantId,
+                LeadId   = dto.LeadId,
+                UserId   = agentUserId,
+                Type     = ActivityType.CallMade,
+                Summary  = $"Click-to-Call initiated via Exotel ? {lead.Phone}"
+            });
+
+            await db.SaveChangesAsync();
+
+            await hub.Clients.Group($"tenant-{tc.TenantId}")
+                .SendAsync("CallStarted", new { call.Id, dto.LeadId, agentUserId });
+
+            return Results.Ok(new
+            {
+                callId    = call.Id,
+                exotelSid = callSid,
+                message   = $"Exotel is calling your phone ({agentPhone}). Pick up to connect to {lead.Name}."
+            });
+        });
+
+        // ?? POST /api/dialer/callback ????????????????????????????????????????
+        // Exotel posts call status updates here (PassThru URL).
+        // Must be AllowAnonymous — Exotel doesn't send auth headers.
+        app.MapPost("/api/dialer/callback", async (HttpContext http, AppDbContext db) =>
+        {
+            var form = http.Request.HasFormContentType
+                ? await http.Request.ReadFormAsync()
+                : null;
+
+            string? exotelSid    = form?["CallSid"]              ?? http.Request.Query["CallSid"];
+            string? status       = form?["Status"]               ?? http.Request.Query["Status"];
+            string? durationStr  = form?["ConversationDuration"] ?? http.Request.Query["ConversationDuration"];
+            string? recordingUrl = form?["RecordingUrl"]         ?? http.Request.Query["RecordingUrl"];
+
+            if (string.IsNullOrWhiteSpace(exotelSid))
+                return Results.BadRequest("CallSid missing");
+
+            var call = await db.Calls.FirstOrDefaultAsync(c => c.ProviderCallId == exotelSid);
+            if (call != null)
+            {
+                call.Outcome = status?.ToLowerInvariant() switch
+                {
+                    "completed" => CallOutcome.Other,   // agent will set final outcome via disposition
+                    "no-answer" => CallOutcome.NoAnswer,
+                    "busy"      => CallOutcome.Busy,
+                    "failed"    => CallOutcome.NoAnswer,
+                    _           => call.Outcome
+                };
+
+                if (int.TryParse(durationStr, out var dur))
+                {
+                    call.DurationSeconds = dur;
+                    call.EndedAt         = call.StartedAt.AddSeconds(dur);
                 }
+
+                if (!string.IsNullOrWhiteSpace(recordingUrl))
+                {
+                    call.AudioFileUrl = recordingUrl;
+                    call.IsRecorded   = true;
+                }
+
+                await db.SaveChangesAsync();
             }
+
             return Results.Ok();
         }).AllowAnonymous().DisableAntiforgery();
     }
 }
+
+public record DialerCallDto(
+    Guid LeadId,
+    /// <summary>Override agent phone. Falls back to agent's profile PhoneNumber.</summary>
+    string? AgentPhone = null
+);

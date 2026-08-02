@@ -150,7 +150,7 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IS3StorageService, S3StorageService>();
 builder.Services.AddScoped<ITenantModuleService, TenantModuleService>();
-builder.Services.AddScoped<ITwilioVoiceService, TwilioVoiceService>();
+builder.Services.AddScoped<IExotelVoiceService, ExotelVoiceService>();
 builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
 builder.Services.AddHttpContextAccessor();
 
