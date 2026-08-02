@@ -162,6 +162,7 @@ let callSeconds = 0;
 let selectedDisposition = null;
 let isMuted = false;
 let isOnHold = false;
+let isRecording = false;
 
 // ?? Check Exotel status on load ????????????????????????????????????????????
 async function checkDialerStatus() {
@@ -344,7 +345,26 @@ function toggleRecord() {
 }
 
 function openTransfer() {
+    // Load agents into the select
+    fetch('/api/admin/users?pageSize=200').then(r => r.json()).then(data => {
+        const sel = document.getElementById('transfer-agent');
+        sel.innerHTML = (data.users ?? data).map(u =>
+            `<option value="${u.phoneNumber ?? u.id}">${u.fullName}${u.phoneNumber ? ' (' + u.phoneNumber + ')' : ''}</option>`
+        ).join('');
+    }).catch(() => {});
     new bootstrap.Modal(document.getElementById('transferModal')).show();
+}
+
+async function confirmTransfer() {
+    if (!currentCallId) return;
+    const target = document.getElementById('transfer-agent').value;
+    if (!target) return;
+    await fetch(`/api/calls/${currentCallId}/controls/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetParty: target })
+    });
+    bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
 }
 
 function setDisposition(d) {

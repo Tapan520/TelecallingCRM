@@ -24,12 +24,15 @@ public class ExotelVoiceService : IExotelVoiceService
     private readonly AppDbContext _db;
     private readonly IHttpClientFactory _http;
     private readonly ILogger<ExotelVoiceService> _logger;
+    private readonly IConfiguration _config;
 
-    public ExotelVoiceService(AppDbContext db, IHttpClientFactory http, ILogger<ExotelVoiceService> logger)
+    public ExotelVoiceService(AppDbContext db, IHttpClientFactory http,
+        ILogger<ExotelVoiceService> logger, IConfiguration config)
     {
         _db = db;
         _http = http;
         _logger = logger;
+        _config = config;
     }
 
     public async Task<(bool success, string? callSid, string? error)> ClickToCallAsync(
@@ -63,19 +66,33 @@ public class ExotelVoiceService : IExotelVoiceService
             client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Basic", creds);
 
-            // Exotel Click-to-Call API
-            // POST https://api.exotel.com/v1/Accounts/{AccountSid}/Calls/connect.json
-            var url = $"https://api.exotel.com/v1/Accounts/{accountSid}/Calls/connect.json";
+            // Exotel supports two API base URL formats:
+            //   Old accounts : https://api.exotel.com/v1/Accounts/{sid}/Calls/connect.json
+            //   New accounts : https://{sid}.api.exotel.com/v1/Accounts/{sid}/Calls/connect.json
+            // The subdomain format is the current standard and works for both.
+            var url = $"https://{accountSid}.api.exotel.com/v1/Accounts/{accountSid}/Calls/connect.json";
 
-            var formData = new FormUrlEncodedContent(new Dictionary<string, string>
+            // StatusCallback — Exotel will POST call result (duration, recording) back here
+            var appBaseUrl = _config["AppBaseUrl"]?.TrimEnd('/')
+                ?? string.Empty;
+            var statusCallbackUrl = string.IsNullOrEmpty(appBaseUrl)
+                ? null
+                : $"{appBaseUrl}/api/dialer/callback";
+
+            var formParams = new Dictionary<string, string>
             {
-                ["From"]       = agentPhone,   // agent's phone — Exotel calls this first
-                ["To"]         = leadPhone,    // lead's phone — connected after agent picks up
-                ["CallerId"]   = from,         // your Exotel ExoPhone number
-                ["Record"]     = "true",
-                ["TimeLimit"]  = "3600",       // max 1 hour
-                ["TimeOut"]    = "30",         // ring timeout
-            });
+                ["From"]      = agentPhone,  // agent's phone — Exotel calls this first
+                ["To"]        = leadPhone,   // lead's phone — connected after agent picks up
+                ["CallerId"]  = from,        // your Exotel ExoPhone number
+                ["Record"]    = "true",
+                ["TimeLimit"] = "3600",      // max 1 hour
+                ["TimeOut"]   = "30",        // ring timeout seconds
+            };
+
+            if (!string.IsNullOrEmpty(statusCallbackUrl))
+                formParams["StatusCallback"] = statusCallbackUrl;
+
+            var formData = new FormUrlEncodedContent(formParams);
 
             var response = await client.PostAsync(url, formData);
             var body = await response.Content.ReadAsStringAsync();
