@@ -117,49 +117,75 @@ const statusNames = ['New','Contacted','Interested','Not Interested','Follow Up'
 const statusColors = ['primary','info','success','danger','warning','success','secondary'];
 
 async function loadLead() {
-    const [leadRes, timelineRes, payRes] = await Promise.all([
-        fetch(`/api/leads/${leadId}`),
-        fetch(`/api/timeline/${leadId}`),
-        fetch(`/api/payments?leadId=${leadId}&pageSize=100`)
-    ]);
-    if (!leadRes.ok) { document.getElementById('lead-detail-root').innerHTML = '<div class="alert alert-danger">Lead not found.</div>'; return; }
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
-    const lead = await leadRes.json();
-    const tl = timelineRes.ok ? await timelineRes.json() : { calls:[], followups:[], tasks:[], documents:[], activities:[] };
-    const payData = payRes.ok ? await payRes.json() : { items: [] };
-    const payments = payData.items ?? [];
+const [leadRes, timelineRes, payRes, dialerRes] = await Promise.all([
+    fetch(`/api/leads/${leadId}`),
+    fetch(`/api/timeline/${leadId}`),
+    fetch(`/api/payments?leadId=${leadId}&pageSize=100`),
+    fetch('/api/dialer/status')
+]);
+if (!leadRes.ok) { document.getElementById('lead-detail-root').innerHTML = '<div class="alert alert-danger">Lead not found.</div>'; return; }
 
-    const aiColor = lead.aiScore >= 70 ? 'success' : lead.aiScore >= 40 ? 'warning' : 'danger';
-    const priorityLabel = ['Normal','High','Urgent'][lead.priority] ?? 'Normal';
-    const priorityBadge = lead.priority === 2 ? 'bg-danger' : lead.priority === 1 ? 'bg-warning text-dark' : 'bg-secondary';
-    const totalRevenue = payments.filter(p => p.status === 'Captured').reduce((s, p) => s + p.amount, 0);
+const lead = await leadRes.json();
+const tl = timelineRes.ok ? await timelineRes.json() : { calls:[], followups:[], tasks:[], documents:[], activities:[] };
+const payData = payRes.ok ? await payRes.json() : { items: [] };
+const payments = payData.items ?? [];
+const exotelReady = dialerRes.ok ? (await dialerRes.json()).configured === true : false;
 
-    ViewData = lead.name;
+// Smart Call button: Exotel ? Dialer | Mobile (no Exotel) ? tel: | Desktop (no Exotel) ? Dialer
+let callButton;
+if (exotelReady) {
+    callButton = `<a href="/Calls/Dialer?leadId=${leadId}" class="btn btn-success btn-sm" title="Exotel Click-to-Call">
+        <i class="bi bi-telephone-fill"></i> Call
+        <span class="badge bg-light text-success ms-1" style="font-size:.65rem;">Exotel</span>
+    </a>`;
+} else if (isMobile) {
+    callButton = `<a href="tel:${lead.phone}" class="btn btn-success btn-sm" title="Dial ${lead.phone} from your phone">
+        <i class="bi bi-telephone-fill"></i> Call
+        <span class="badge bg-light text-success ms-1" style="font-size:.65rem;">Mobile</span>
+    </a>`;
+} else {
+    callButton = `<a href="/Calls/Dialer?leadId=${leadId}" class="btn btn-success btn-sm" title="Open Dialer">
+        <i class="bi bi-telephone-fill"></i> Call
+    </a>`;
+}
 
-    document.getElementById('lead-detail-root').innerHTML = `
-    <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
-        <a href="/Leads" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
-        <h5 class="fw-bold mb-0 flex-grow-1">${lead.name}</h5>
-        <span class="badge bg-${statusColors[lead.status]}">${statusNames[lead.status]}</span>
-        <span class="badge ${priorityBadge}">${priorityLabel}</span>
-        <div class="d-flex gap-2 ms-auto flex-wrap">
-            <a href="/Calls/Dialer?leadId=${leadId}" class="btn btn-success btn-sm"><i class="bi bi-telephone-fill"></i> Call</a>
-            <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#fuModal"><i class="bi bi-calendar-check"></i> Follow-up</button>
-            <button class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#taskModal"><i class="bi bi-check2-square"></i> Task</button>
-            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#noteModal"><i class="bi bi-sticky"></i> Note</button>
-            <button class="btn btn-outline-secondary btn-sm" onclick="openEditLead()" data-bs-toggle="modal" data-bs-target="#editLeadModal"><i class="bi bi-pencil"></i> Edit</button>
-        </div>
+const aiColor = lead.aiScore >= 70 ? 'success' : lead.aiScore >= 40 ? 'warning' : 'danger';
+const priorityLabel = ['Normal','High','Urgent'][lead.priority] ?? 'Normal';
+const priorityBadge = lead.priority === 2 ? 'bg-danger' : lead.priority === 1 ? 'bg-warning text-dark' : 'bg-secondary';
+const totalRevenue = payments.filter(p => p.status === 'Captured').reduce((s, p) => s + p.amount, 0);
+
+ViewData = lead.name;
+
+document.getElementById('lead-detail-root').innerHTML = `
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <a href="/Leads" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
+    <h5 class="fw-bold mb-0 flex-grow-1">${lead.name}</h5>
+    <span class="badge bg-${statusColors[lead.status]}">${statusNames[lead.status]}</span>
+    <span class="badge ${priorityBadge}">${priorityLabel}</span>
+    <div class="d-flex gap-2 ms-auto flex-wrap">
+        ${callButton}
+        <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#fuModal"><i class="bi bi-calendar-check"></i> Follow-up</button>
+        <button class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#taskModal"><i class="bi bi-check2-square"></i> Task</button>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#noteModal"><i class="bi bi-sticky"></i> Note</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="openEditLead()" data-bs-toggle="modal" data-bs-target="#editLeadModal"><i class="bi bi-pencil"></i> Edit</button>
     </div>
+</div>
 
-    <div class="row g-3 mb-4">
-        <!-- Left: Lead Info Card -->
-        <div class="col-lg-4">
-            <div class="card h-100">
-                <div class="card-header fw-semibold"><i class="bi bi-person-lines-fill me-2 text-primary"></i>Contact Info</div>
-                <div class="card-body">
-                    <dl class="row mb-0 small">
-                        <dt class="col-5 text-muted">Phone</dt><dd class="col-7"><a href="tel:${lead.phone}">${lead.phone}</a></dd>
-                        ${lead.alternatePhone ? `<dt class="col-5 text-muted">Alt Phone</dt><dd class="col-7">${lead.alternatePhone}</dd>` : ''}
+<div class="row g-3 mb-4">
+    <!-- Left: Lead Info Card -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header fw-semibold"><i class="bi bi-person-lines-fill me-2 text-primary"></i>Contact Info</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-muted">Phone</dt>
+                    <dd class="col-7">
+                        <a href="tel:${lead.phone}">${lead.phone}</a>
+                        ${!exotelReady && isMobile ? `<a href="tel:${lead.phone}" class="btn btn-outline-success btn-sm ms-2 py-0 px-1" title="Tap to call"><i class="bi bi-telephone-fill"></i></a>` : ''}
+                    </dd>
+                    ${lead.alternatePhone ? `<dt class="col-5 text-muted">Alt Phone</dt><dd class="col-7"><a href="tel:${lead.alternatePhone}">${lead.alternatePhone}</a></dd>` : ''}
                         ${lead.email ? `<dt class="col-5 text-muted">Email</dt><dd class="col-7"><a href="mailto:${lead.email}">${lead.email}</a></dd>` : ''}
                         ${lead.company ? `<dt class="col-5 text-muted">Company</dt><dd class="col-7">${lead.company}</dd>` : ''}
                         ${lead.industry ? `<dt class="col-5 text-muted">Industry</dt><dd class="col-7">${lead.industry}</dd>` : ''}
