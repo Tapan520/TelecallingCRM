@@ -14,17 +14,23 @@ public static class CallsEndpoints
     {
         var group = app.MapGroup("/api/calls").WithTags("Calls").RequireAuthorization().RequireRateLimiting("api");
 
-        group.MapGet("/", async (TenantContext tc, AppDbContext db,
+        group.MapGet("/", async (TenantContext tc, AppDbContext db, HttpContext http,
             [FromQuery] Guid? leadId, [FromQuery] Guid? agentId,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 25) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
+
+            var callerId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var caller = await db.Users.FindAsync(callerId);
+            var callerRole = caller?.Role ?? "agent";
+            var maskingEnabled = tc.Tenant?.PhoneMaskingEnabled ?? false;
+
             var query = db.Calls.Where(c => c.TenantId == tc.TenantId).AsQueryable();
             if (leadId.HasValue) query = query.Where(c => c.LeadId == leadId);
             if (agentId.HasValue) query = query.Where(c => c.AgentId == agentId);
 
             var total = await query.CountAsync();
-            var calls = await query
+            var rawCalls = await query
                 .OrderByDescending(c => c.StartedAt)
                 .Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(c => new
@@ -32,9 +38,19 @@ public static class CallsEndpoints
                     c.Id, c.StartedAt, c.EndedAt, c.DurationSeconds,
                     c.Outcome, c.Notes, c.AiSummary, c.AiSentiment,
                     c.TranscriptText, c.AudioFileUrl,
-                    Lead = c.Lead.Name, LeadPhone = c.Lead.Phone,
-                    Agent = c.Agent.FullName
+                    lead = c.Lead.Name, leadPhone = c.Lead.Phone,
+                    agent = c.Agent.FullName
                 }).ToListAsync();
+
+            var calls = rawCalls.Select(c => new
+            {
+                c.Id, c.StartedAt, c.EndedAt, c.DurationSeconds,
+                c.Outcome, c.Notes, c.AiSummary, c.AiSentiment,
+                c.TranscriptText, c.AudioFileUrl,
+                lead = c.lead,
+                leadPhone = PhoneNumberHelper.Mask(c.leadPhone, callerRole, maskingEnabled),
+                agent = c.agent
+            });
 
             return Results.Ok(new { total, page, pageSize, calls });
         });

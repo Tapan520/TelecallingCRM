@@ -15,11 +15,16 @@ public static class LeadsEndpoints
     {
         var group = app.MapGroup("/api/leads").WithTags("Leads").RequireAuthorization().RequireRateLimiting("api");
 
-        group.MapGet("/", async (TenantContext tc, AppDbContext db,
+        group.MapGet("/", async (TenantContext tc, AppDbContext db, HttpContext http,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 25,
             [FromQuery] string? status = null, [FromQuery] string? q = null) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
+
+            var callerId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var caller = await db.Users.FindAsync(callerId);
+            var callerRole = caller?.Role ?? "agent";
+            var maskingEnabled = tc.Tenant?.PhoneMaskingEnabled ?? false;
 
             var query = db.Leads
                 .Where(l => l.TenantId == tc.TenantId)
@@ -32,13 +37,13 @@ public static class LeadsEndpoints
                 query = query.Where(l => l.Name.Contains(q) || l.Phone.Contains(q) || (l.Email != null && l.Email.Contains(q)));
 
             var total = await query.CountAsync();
-            var leads = await query
+            var rawLeads = await query
                 .OrderByDescending(l => l.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(l => new
                 {
-                    l.Id, l.Name, l.Phone, l.Email, l.Company,
+                    l.Id, l.Name, l.Phone, l.AlternatePhone, l.Email, l.Company,
                     l.Status, l.Priority, l.Source, l.NextFollowUpAt, l.CreatedAt,
                     AssignedTo = l.AssignedTo != null ? l.AssignedTo.FullName : null,
                     Campaign = l.Campaign != null ? l.Campaign.Name : null,
@@ -46,10 +51,20 @@ public static class LeadsEndpoints
                 })
                 .ToListAsync();
 
+            var leads = rawLeads.Select(l => new
+            {
+                l.Id, l.Name,
+                Phone = PhoneNumberHelper.Mask(l.Phone, callerRole, maskingEnabled),
+                AlternatePhone = PhoneNumberHelper.Mask(l.AlternatePhone, callerRole, maskingEnabled),
+                l.Email, l.Company,
+                l.Status, l.Priority, l.Source, l.NextFollowUpAt, l.CreatedAt,
+                l.AssignedTo, l.Campaign, l.CallCount
+            });
+
             return Results.Ok(new { total, page, pageSize, leads });
         });
 
-        group.MapGet("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db) =>
+        group.MapGet("/{id:guid}", async (Guid id, TenantContext tc, AppDbContext db, HttpContext http) =>
         {
             if (!tc.HasTenant) return Results.Unauthorized();
             var lead = await db.Leads
@@ -57,9 +72,16 @@ public static class LeadsEndpoints
                 .FirstOrDefaultAsync(l => l.Id == id && l.TenantId == tc.TenantId);
             if (lead == null) return Results.NotFound();
 
+            var callerId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var caller = await db.Users.FindAsync(callerId);
+            var callerRole = caller?.Role ?? "agent";
+            var maskingEnabled = tc.Tenant?.PhoneMaskingEnabled ?? false;
+
             // Return a flat DTO — avoids circular reference with navigation properties
             return Results.Ok(new {
-                lead.Id, lead.Name, lead.Phone, lead.AlternatePhone,
+                lead.Id, lead.Name,
+                Phone = PhoneNumberHelper.Mask(lead.Phone, callerRole, maskingEnabled),
+                AlternatePhone = PhoneNumberHelper.Mask(lead.AlternatePhone, callerRole, maskingEnabled),
                 lead.Email, lead.Company, lead.Industry,
                 lead.City, lead.State, lead.Tags, lead.Notes, lead.Source,
                 lead.Status, lead.Priority,
@@ -250,6 +272,47 @@ public static class LeadsEndpoints
             }
             await db.SaveChangesAsync();
             return Results.Ok(new { updated = leads.Count });
+        });
+
+        // GET next lead to call in a campaign (predictive dialer queue)
+        group.MapGet("/next-lead", async (TenantContext tc, AppDbContext db, HttpContext http,
+            [FromQuery] Guid? campaignId) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+            var userId = Guid.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+            var caller = await db.Users.FindAsync(userId);
+            var callerRole = caller?.Role ?? "agent";
+            var maskingEnabled = tc.Tenant?.PhoneMaskingEnabled ?? false;
+
+            var query = db.Leads
+                .Where(l => l.TenantId == tc.TenantId
+                         && l.AssignedToId == userId
+                         && l.Status != LeadStatus.Converted
+                         && l.Status != LeadStatus.Dead
+                         && l.Status != LeadStatus.NotInterested)
+                .AsQueryable();
+
+            if (campaignId.HasValue)
+                query = query.Where(l => l.CampaignId == campaignId);
+
+            var lead = await query
+                .OrderByDescending(l => l.Priority)
+                .ThenByDescending(l => l.AiScore)
+                .ThenBy(l => l.LastContactedAt == null ? DateTime.MinValue : l.LastContactedAt)
+                .Select(l => new { l.Id, l.Name, l.Phone, l.AlternatePhone, l.Status, l.Priority, l.AiScore, l.AiInsight, l.NextFollowUpAt })
+                .FirstOrDefaultAsync();
+
+            if (lead == null)
+                return Results.NotFound(new { message = "No leads in queue" });
+
+            return Results.Ok(new
+            {
+                lead.Id, lead.Name,
+                Phone = PhoneNumberHelper.Mask(lead.Phone, callerRole, maskingEnabled),
+                AlternatePhone = PhoneNumberHelper.Mask(lead.AlternatePhone, callerRole, maskingEnabled),
+                lead.Status, lead.Priority, lead.AiScore, lead.AiInsight, lead.NextFollowUpAt
+            });
         });
 
         // POST /api/leads/{id}/score — trigger AI scoring on demand

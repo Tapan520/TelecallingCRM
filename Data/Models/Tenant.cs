@@ -16,6 +16,13 @@ public class Tenant
 
     public string? Industry { get; set; } // Political, Hotel, Restaurant, RealEstate, Insurance, EdTech, Travel, Hospital, BPO, NGO, Other
 
+    /// <summary>
+    /// When true, phone numbers are morphed (masked) for Manager and Agent roles.
+    /// Only Admin, SuperAdmin see the full number.
+    /// Enabled per-tenant by SuperAdmin only.
+    /// </summary>
+    public bool PhoneMaskingEnabled { get; set; } = false;
+
     public ICollection<AppUser> Users { get; set; } = new List<AppUser>();
     public ICollection<Lead> Leads { get; set; } = new List<Lead>();
     public ICollection<Campaign> Campaigns { get; set; } = new List<Campaign>();

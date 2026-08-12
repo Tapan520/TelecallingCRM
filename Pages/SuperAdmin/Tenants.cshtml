@@ -28,6 +28,7 @@
                     <th>Users</th>
                     <th>Leads</th>
                     <th>Limits</th>
+                    <th>Phone Morph</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th></th>
@@ -185,6 +186,11 @@ async function loadTenants() {
             <td>${t.userCount}</td>
             <td>${t.leadCount}</td>
             <td><small>${t.userCount}/${t.maxUsers} users &bull; ${t.leadCount}/${t.maxLeads} leads</small></td>
+            <td>
+                ${t.phoneMaskingEnabled
+                    ? '<span class="badge bg-warning text-dark"><i class="bi bi-eye-slash-fill me-1"></i>ON</span>'
+                    : '<span class="badge bg-light text-muted border"><i class="bi bi-eye me-1"></i>OFF</span>'}
+            </td>
             <td>${t.isActive
                 ? '<span class="badge bg-success">Active</span>'
                 : '<span class="badge bg-danger">Suspended</span>'}</td>
@@ -196,6 +202,10 @@ async function loadTenants() {
                     </a>
                     <button class="btn btn-outline-primary" onclick="openEdit('${t.id}','${t.plan}',${t.maxUsers},${t.maxLeads})" title="Edit plan">
                         <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-${t.phoneMaskingEnabled ? 'warning' : 'secondary'}"
+                        onclick="togglePhoneMasking('${t.id}')" title="Toggle Phone Morphing">
+                        <i class="bi bi-${t.phoneMaskingEnabled ? 'eye-slash' : 'eye'}"></i>
                     </button>
                     <button class="btn btn-outline-${t.isActive ? 'warning' : 'success'}"
                         onclick="toggleTenant('${t.id}')" title="${t.isActive ? 'Suspend' : 'Activate'}">
@@ -269,6 +279,11 @@ async function toggleTenant(id) {
 async function deleteTenant(id, name) {
     if (!confirm(`Permanently delete "${name}" and ALL its data? This cannot be undone.`)) return;
     const res = await fetch(`/api/superadmin/tenants/${id}`, { method: 'DELETE' });
+    if (res.ok) loadTenants();
+}
+
+async function togglePhoneMasking(id) {
+    const res = await fetch(`/api/superadmin/tenants/${id}/phone-masking`, { method: 'POST' });
     if (res.ok) loadTenants();
 }
 

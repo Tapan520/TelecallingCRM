@@ -30,6 +30,7 @@ public static class SuperAdminEndpoints
                 {
                     t.Id, t.Name, t.Slug, t.Plan, t.IsActive,
                     t.MaxUsers, t.MaxLeads, t.CreatedAt,
+                    t.PhoneMaskingEnabled,
                     UserCount = db.Users.Count(u => u.TenantId == t.Id),
                     LeadCount = db.Leads.Count(l => l.TenantId == t.Id)
                 })
@@ -111,6 +112,21 @@ public static class SuperAdminEndpoints
             tenant.IsActive = !tenant.IsActive;
             await db.SaveChangesAsync();
             return Results.Ok(new { tenant.IsActive });
+        });
+
+        // POST toggle phone number morphing (masking) for a tenant — SuperAdmin only
+        group.MapPost("/tenants/{id:guid}/phone-masking", async (Guid id, AppDbContext db) =>
+        {
+            var tenant = await db.Tenants.FindAsync(id);
+            if (tenant == null) return Results.NotFound();
+            tenant.PhoneMaskingEnabled = !tenant.PhoneMaskingEnabled;
+            await db.SaveChangesAsync();
+            return Results.Ok(new
+            {
+                tenantId = tenant.Id,
+                tenantName = tenant.Name,
+                phoneMaskingEnabled = tenant.PhoneMaskingEnabled
+            });
         });
 
         // DELETE permanently remove a tenant and all its data
