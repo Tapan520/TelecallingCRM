@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace TelecallingCRM.Pages.Payments;
 
-[Authorize]
+[Authorize(Roles = "admin,manager")]
 [RequireModule(CrmModule.Payments)]
 public class IndexModel : PageModel
 {

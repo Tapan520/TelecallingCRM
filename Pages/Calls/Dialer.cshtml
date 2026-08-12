@@ -169,6 +169,14 @@
 
 @section Scripts {
 <script>
+const _phoneMaskEnabled = @(Model.PhoneMaskingEnabled ? "true" : "false");
+
+function maskPhone(phone) {
+    if (!_phoneMaskEnabled || !phone) return phone;
+    if (phone.length <= 5) return '*'.repeat(phone.length);
+    return phone.substring(0, 5) + '*'.repeat(phone.length - 5);
+}
+
 let currentCallId = null;
 let currentLeadId = null;
 let currentLeadPhone = null;
@@ -242,7 +250,7 @@ async function loadQueue() {
                 <i class="bi bi-clock text-warning"></i>
                 <div>
                     <div class="fw-semibold small">${f.leadName}</div>
-                    <div class="text-muted" style="font-size:.75rem;">${f.leadPhone} · ${new Date(f.scheduledAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="text-muted" style="font-size:.75rem;">${maskPhone(f.leadPhone)} · ${new Date(f.scheduledAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
                 </div>
                 <i class="bi bi-telephone ms-auto text-success"></i>
             </div>`).join('');
@@ -264,7 +272,7 @@ document.getElementById('dialer-search').addEventListener('input', e => {
                 <i class="bi bi-person-circle text-primary"></i>
                 <div>
                     <div class="fw-semibold small">${l.name}</div>
-                    <div class="text-muted" style="font-size:.75rem;">${l.phone}</div>
+                    <div class="text-muted" style="font-size:.75rem;">${maskPhone(l.phone)}</div>
                 </div>
                 <span class="badge badge-status-${l.status} ms-auto">${l.status}</span>
             </div>`).join('') || '<div class="text-muted small p-2">No results</div>';
@@ -274,17 +282,21 @@ document.getElementById('dialer-search').addEventListener('input', e => {
 async function selectLead(id, name, phone) {
 currentLeadId = id;
 currentLeadPhone = phone;
-document.getElementById('dial-number').value = phone;
+document.getElementById('dial-number').value = maskPhone(phone);
 document.getElementById('btn-call').disabled = false;
 
-// Update tel: fallback href for mobile native dialing
+// Update tel: fallback href for mobile native dialing (hide if phone is masked)
 const telBtn = document.getElementById('btn-tel-fallback');
-telBtn.href = `tel:${phone.replace(/\s/g, '')}`;
-telBtn.classList.remove('d-none'); // always show on any device as secondary option
+if (_phoneMaskEnabled) {
+    telBtn.classList.add('d-none');
+} else {
+    telBtn.href = `tel:${phone.replace(/\s/g, '')}`;
+    telBtn.classList.remove('d-none');
+}
 
 document.getElementById('dialer-lead-info').innerHTML = `
     <div class="fw-bold">${name}</div>
-    <div class="text-muted small">${phone}</div>
+    <div class="text-muted small">${maskPhone(phone)}</div>
     <a href="/Leads/Timeline/${id}" target="_blank" class="btn btn-link btn-sm p-0">View Timeline</a>`;
 
     // Load lead detail for script + insight

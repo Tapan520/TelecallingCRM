@@ -193,7 +193,7 @@
                             <i class="bi bi-person-lines-fill"></i> Leads
                         </a>
                         }
-                        @if (ModOn(CrmModule.LeadImport)) {
+                        @if (ModOn(CrmModule.LeadImport) && User.IsInRole("admin")) {
                         <a class="@NavClass("/Leads/Import")" asp-page="/Leads/Import">
                             <i class="bi bi-upload text-success"></i> Import Leads
                         </a>
@@ -228,7 +228,7 @@
                             <i class="bi bi-display text-success"></i> Live Monitor
                         </a>
                         }
-                        @if (ModOn(CrmModule.Payments)) {
+                        @if (ModOn(CrmModule.Payments) && !User.IsInRole("agent")) {
                         <a class="@NavClass("/Payments/Index")" asp-page="/Payments/Index">
                             <i class="bi bi-credit-card text-success"></i> Payments
                         </a>

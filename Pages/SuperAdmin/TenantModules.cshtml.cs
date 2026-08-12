@@ -33,6 +33,9 @@ public class TenantModulesModel : PageModel
     [BindProperty]
     public List<string> EnabledModules { get; set; } = new();
 
+    [BindProperty]
+    public bool PhoneMaskingEnabled { get; set; }
+
     public record ModuleItem(string Name, string Label, int Value, bool IsEnabled);
 
     // Friendly display names + section grouping for every CrmModule value
@@ -103,6 +106,7 @@ public class TenantModulesModel : PageModel
         TenantName = tenant.Name;
         TenantSlug = tenant.Slug;
         TenantPlan = tenant.Plan;
+        PhoneMaskingEnabled = tenant.PhoneMaskingEnabled;
 
         var enabledSet = await _moduleSvc.GetEnabledModulesAsync(TenantId);
         BuildGroups(enabledSet);
@@ -113,6 +117,8 @@ public class TenantModulesModel : PageModel
     {
         var tenant = await _db.Tenants.FindAsync(TenantId);
         if (tenant == null) return NotFound();
+
+        tenant.PhoneMaskingEnabled = PhoneMaskingEnabled;
 
         var parsed = EnabledModules
             .Select(n => Enum.TryParse<CrmModule>(n, true, out var m) ? (CrmModule?)m : null)
