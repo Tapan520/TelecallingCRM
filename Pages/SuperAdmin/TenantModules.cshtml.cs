@@ -33,7 +33,6 @@ public class TenantModulesModel : PageModel
     [BindProperty]
     public List<string> EnabledModules { get; set; } = new();
 
-    [BindProperty]
     public bool PhoneMaskingEnabled { get; set; }
 
     public record ModuleItem(string Name, string Label, int Value, bool IsEnabled);
@@ -118,9 +117,10 @@ public class TenantModulesModel : PageModel
         var tenant = await _db.Tenants.FindAsync(TenantId);
         if (tenant == null) return NotFound();
 
-        tenant.PhoneMaskingEnabled = PhoneMaskingEnabled;
+        tenant.PhoneMaskingEnabled = EnabledModules.Contains("PhoneMorph", StringComparer.OrdinalIgnoreCase);
 
         var parsed = EnabledModules
+            .Where(n => !n.Equals("PhoneMorph", StringComparison.OrdinalIgnoreCase))
             .Select(n => Enum.TryParse<CrmModule>(n, true, out var m) ? (CrmModule?)m : null)
             .Where(m => m.HasValue)
             .Select(m => m!.Value);
@@ -143,5 +143,11 @@ public class TenantModulesModel : PageModel
             ModuleGroups[group].Add(new ModuleItem(
                 kvp.Key.ToString(), label, (int)kvp.Key, enabledSet.Contains(kvp.Key)));
         }
+
+        // Inject Phone Morph as a special toggle in Admin Tools
+        const string adminGroup = "Admin Tools";
+        if (!ModuleGroups.ContainsKey(adminGroup))
+            ModuleGroups[adminGroup] = new();
+        ModuleGroups[adminGroup].Insert(0, new ModuleItem("PhoneMorph", "Phone Morph", -1, PhoneMaskingEnabled));
     }
 }
