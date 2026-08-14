@@ -209,18 +209,25 @@ async function checkDialerStatus() {
     const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
     if (!_exotelConfigured) {
+        const phoneDisplay = _agentPhone
+            ? `Dial from your registered number: <strong>${_agentPhone}</strong>.`
+            : `?? No phone number registered. <a href="/Profile/Index" class="alert-link">Add it in your Profile</a>.`;
         document.getElementById('dialer-provider-banner').innerHTML = `
             <div class="alert alert-info mb-3 py-2 small">
                 <i class="bi bi-telephone-fill me-1"></i>
-                <strong>Manual Click-to-Call mode.</strong>
-                Exotel is not configured. Use <strong>Call via Phone</strong> to dial from your own device.
+                <strong>?? Free Mode — Manual Click-to-Call.</strong><br>
+                ${phoneDisplay}
                 The call will be logged automatically.
-                <a href="/Admin/Integrations" class="alert-link ms-1">Set up Exotel</a>
+                <a href="/Admin/Integrations" class="alert-link ms-1">Upgrade to Exotel (Paid)</a>
             </div>`;
         // Show the manual call button (works on desktop + mobile)
         document.getElementById('btn-call').classList.add('d-none');
         document.getElementById('btn-tel-fallback').classList.remove('d-none');
-        document.getElementById('btn-tel-fallback').disabled = true;
+        document.getElementById('btn-tel-fallback').disabled = true; // enabled after lead is selected
+        // If agent has no phone registered, keep button disabled with tooltip
+        if (!_agentPhone) {
+            document.getElementById('btn-tel-fallback').title = 'Please add your phone number in Profile first.';
+        }
     } else {
         const phoneNote = _agentPhone
             ? `Exotel will call <strong>${_agentPhone}</strong> first, then connect to the lead.`
@@ -228,7 +235,7 @@ async function checkDialerStatus() {
         document.getElementById('dialer-provider-banner').innerHTML = `
             <div class="alert alert-success mb-3 py-2 small">
                 <i class="bi bi-telephone-fill me-1"></i>
-                <strong>Exotel Click-to-Call ready.</strong> ${phoneNote}
+                <strong>?? Paid Mode — Exotel Click-to-Call active.</strong><br>${phoneNote}
             </div>`;
     }
 
@@ -290,7 +297,14 @@ if (_exotelConfigured) {
     document.getElementById('btn-call').disabled = false;
 } else {
     const telBtn = document.getElementById('btn-tel-fallback');
-    telBtn.removeAttribute('disabled');
+    if (!_agentPhone) {
+        // Agent has no phone registered — keep disabled
+        telBtn.disabled = true;
+        telBtn.title = 'Please add your phone number in Profile first.';
+    } else {
+        telBtn.removeAttribute('disabled');
+        telBtn.title = `Dial from your phone: ${_agentPhone}`;
+    }
     if (!_phoneMaskEnabled) {
         telBtn.href = `tel:${phone.replace(/\s/g, '')}`;
     } else {
