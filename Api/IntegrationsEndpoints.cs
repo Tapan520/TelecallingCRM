@@ -19,6 +19,9 @@ public static class IntegrationsEndpoints
         ["whatsapp_waba"]  = ["PhoneNumberId", "AccessToken", "VerifyToken"],
         ["smtp"]           = ["Host", "Port", "Username", "Password", "FromEmail", "FromName"],
         ["sendgrid"]       = ["ApiKey", "FromEmail", "FromName"],
+        // ?? Email providers: Railway-safe (HTTPS only, no SMTP ports needed) ??
+        ["resend"]         = ["ApiKey", "FromEmail", "FromName"],
+        ["mailjet"]        = ["ApiKey", "SecretKey", "FromEmail", "FromName"],
         ["google_calendar"]= ["ClientId", "ClientSecret", "RefreshToken"],
         ["facebook_leads"] = ["PageAccessToken", "AppSecret"],
     };

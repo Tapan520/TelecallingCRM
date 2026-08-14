@@ -89,34 +89,103 @@ public class ForgotPasswordModel : PageModel
 
     private async Task<bool> TrySendViaSystemSmtpAsync(string toEmail, string htmlBody)
     {
-        var host = _cfg["SystemEmail:Host"];
+        // System-level fallback using appsettings / Railway env vars.
+        // Tries Resend first (HTTPS), then Mailjet (HTTPS), then SMTP.
+
+        // System Resend (env: SystemEmail__ResendApiKey, SystemEmail__ResendFromEmail)
+        var resendKey = _cfg["SystemEmail:ResendApiKey"] ?? _cfg["SystemEmail__ResendApiKey"];
+        if (!string.IsNullOrWhiteSpace(resendKey))
+        {
+            try
+            {
+                var http = new System.Net.Http.HttpClient();
+                http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", resendKey);
+                var fromEmail = _cfg["SystemEmail:ResendFromEmail"] ?? _cfg["SystemEmail__ResendFromEmail"] ?? "noreply@telecallingcrm.app";
+                var fromName  = _cfg["SystemEmail:FromName"] ?? _cfg["SystemEmail__FromName"] ?? "TelecallingCRM";
+                var payload   = System.Text.Json.JsonSerializer.Serialize(new {
+                    from    = $"{fromName} <{fromEmail}>",
+                    to      = new[] { toEmail },
+                    subject = "Reset your TelecallingCRM password",
+                    html    = htmlBody
+                });
+                var res = await http.PostAsync("https://api.resend.com/emails",
+                    new System.Net.Http.StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
+                if (res.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("[ForgotPassword][SystemResend] Sent to {Email}", toEmail);
+                    return true;
+                }
+                _logger.LogWarning("[ForgotPassword][SystemResend] {Status}: {Body}", res.StatusCode, await res.Content.ReadAsStringAsync());
+            }
+            catch (Exception ex) { _logger.LogError(ex, "[ForgotPassword][SystemResend] error"); }
+        }
+
+        // System Mailjet (env: SystemEmail__MailjetApiKey, SystemEmail__MailjetSecretKey, SystemEmail__MailjetFromEmail)
+        var mailjetKey    = _cfg["SystemEmail:MailjetApiKey"]    ?? _cfg["SystemEmail__MailjetApiKey"];
+        var mailjetSecret = _cfg["SystemEmail:MailjetSecretKey"] ?? _cfg["SystemEmail__MailjetSecretKey"];
+        var mailjetFrom   = _cfg["SystemEmail:MailjetFromEmail"] ?? _cfg["SystemEmail__MailjetFromEmail"];
+        if (!string.IsNullOrWhiteSpace(mailjetKey) && !string.IsNullOrWhiteSpace(mailjetSecret) && !string.IsNullOrWhiteSpace(mailjetFrom))
+        {
+            try
+            {
+                var http  = new System.Net.Http.HttpClient();
+                var creds = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{mailjetKey}:{mailjetSecret}"));
+                http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+                var fromName = _cfg["SystemEmail:FromName"] ?? _cfg["SystemEmail__FromName"] ?? "TelecallingCRM";
+                var payload  = System.Text.Json.JsonSerializer.Serialize(new {
+                    Messages = new[] {
+                        new {
+                            From     = new { Email = mailjetFrom, Name = fromName },
+                            To       = new[] { new { Email = toEmail, Name = toEmail } },
+                            Subject  = "Reset your TelecallingCRM password",
+                            HTMLPart = htmlBody
+                        }
+                    }
+                });
+                var res = await http.PostAsync("https://api.mailjet.com/v3.1/send",
+                    new System.Net.Http.StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
+                if (res.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("[ForgotPassword][SystemMailjet] Sent to {Email}", toEmail);
+                    return true;
+                }
+                _logger.LogWarning("[ForgotPassword][SystemMailjet] {Status}: {Body}", res.StatusCode, await res.Content.ReadAsStringAsync());
+            }
+            catch (Exception ex) { _logger.LogError(ex, "[ForgotPassword][SystemMailjet] error"); }
+        }
+
+        // System SMTP fallback (may be blocked on Railway)
+        var host = _cfg["SystemEmail:Host"] ?? _cfg["SystemEmail__Host"];
         if (string.IsNullOrWhiteSpace(host)) return false;
         try
         {
             using var smtp = new System.Net.Mail.SmtpClient(host,
-                int.TryParse(_cfg["SystemEmail:Port"], out var p) ? p : 587)
+                int.TryParse(_cfg["SystemEmail:Port"] ?? _cfg["SystemEmail__Port"], out var p) ? p : 587)
             {
                 Credentials = new System.Net.NetworkCredential(
-                    _cfg["SystemEmail:Username"],
-                    _cfg["SystemEmail:Password"]),
+                    _cfg["SystemEmail:Username"] ?? _cfg["SystemEmail__Username"],
+                    _cfg["SystemEmail:Password"] ?? _cfg["SystemEmail__Password"]),
                 EnableSsl = true
             };
+            var fromEmail = _cfg["SystemEmail:FromEmail"] ?? _cfg["SystemEmail__FromEmail"] ?? "noreply@telecallingcrm.app";
+            var fromName  = _cfg["SystemEmail:FromName"]  ?? _cfg["SystemEmail__FromName"]  ?? "TelecallingCRM";
             var mail = new System.Net.Mail.MailMessage(
-                new System.Net.Mail.MailAddress(
-                    _cfg["SystemEmail:FromEmail"] ?? "noreply@telecallingcrm.app",
-                    _cfg["SystemEmail:FromName"] ?? "TelecallingCRM"),
+                new System.Net.Mail.MailAddress(fromEmail, fromName),
                 new System.Net.Mail.MailAddress(toEmail))
             {
                 Subject = "Reset your TelecallingCRM password",
-                Body = htmlBody,
+                Body    = htmlBody,
                 IsBodyHtml = true
             };
             await smtp.SendMailAsync(mail);
+            _logger.LogInformation("[ForgotPassword][SystemSMTP] Sent to {Email}", toEmail);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "System SMTP failed for {Email}", toEmail);
+            _logger.LogError(ex, "[ForgotPassword][SystemSMTP] Failed for {Email}", toEmail);
             return false;
         }
     }

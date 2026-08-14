@@ -33,16 +33,18 @@
 @section Scripts {
 <script>
 const providerLabels = {
-    twilio: { name:'Twilio', icon:'bi-telephone-fill', color:'red', desc:'SMS, WhatsApp & Voice calls via Twilio' },
-    exotel: { name:'Exotel', icon:'bi-telephone-outbound', color:'blue', desc:'Cloud telephony for India' },
-    knowlarity: { name:'Knowlarity', icon:'bi-headset', color:'orange', desc:'Call centre & IVR solution' },
-    airteliq: { name:'Airtel IQ', icon:'bi-broadcast', color:'red', desc:'Enterprise calling via Airtel' },
-    razorpay: { name:'Razorpay', icon:'bi-credit-card', color:'blue', desc:'Payment gateway integration' },
-    whatsapp_waba: { name:'WhatsApp Business API', icon:'bi-whatsapp', color:'green', desc:'Official WhatsApp Business messaging' },
-    smtp: { name:'SMTP Email', icon:'bi-envelope', color:'gray', desc:'Send emails via your SMTP server' },
-    sendgrid: { name:'SendGrid', icon:'bi-envelope-fill', color:'blue', desc:'Transactional email via SendGrid' },
-    google_calendar: { name:'Google Calendar', icon:'bi-calendar-event', color:'blue', desc:'Sync follow-ups with Google Calendar' },
-    facebook_leads: { name:'Facebook Lead Ads', icon:'bi-facebook', color:'blue', desc:'Auto-import leads from Facebook ads' }
+    twilio:          { name:'Twilio',                 icon:'bi-telephone-fill',       color:'red',    desc:'SMS, WhatsApp & Voice calls via Twilio' },
+    exotel:          { name:'Exotel',                 icon:'bi-telephone-outbound',   color:'blue',   desc:'Cloud telephony for India' },
+    knowlarity:      { name:'Knowlarity',             icon:'bi-headset',              color:'orange', desc:'Call centre & IVR solution' },
+    airteliq:        { name:'Airtel IQ',              icon:'bi-broadcast',            color:'red',    desc:'Enterprise calling via Airtel' },
+    razorpay:        { name:'Razorpay',               icon:'bi-credit-card',          color:'blue',   desc:'Payment gateway integration' },
+    whatsapp_waba:   { name:'WhatsApp Business API',  icon:'bi-whatsapp',             color:'green',  desc:'Official WhatsApp Business messaging' },
+    smtp:            { name:'SMTP Email',             icon:'bi-envelope',             color:'gray',   desc:'Send emails via your SMTP server' },
+    sendgrid:        { name:'SendGrid',               icon:'bi-envelope-fill',        color:'blue',   desc:'Transactional email via SendGrid' },
+    resend:          { name:'Resend',                 icon:'bi-send-fill',            color:'purple', desc:'Modern transactional email — recommended for Railway (HTTPS only)' },
+    mailjet:         { name:'Mailjet',                icon:'bi-envelope-paper-fill',  color:'blue',   desc:'Transactional email via Mailjet — works on Railway (HTTPS only)' },
+    google_calendar: { name:'Google Calendar',        icon:'bi-calendar-event',       color:'blue',   desc:'Sync follow-ups with Google Calendar' },
+    facebook_leads:  { name:'Facebook Lead Ads',      icon:'bi-facebook',             color:'blue',   desc:'Auto-import leads from Facebook ads' }
 };
 
 let currentProvider = null;
@@ -61,7 +63,7 @@ async function loadIntegrations() {
                 <div class="card-body">
                     <div class="d-flex align-items-center gap-3 mb-2">
                         <div class="rounded-circle bg-light d-flex align-items-center justify-content-center flex-shrink-0" style="width:44px;height:44px;">
-                            <i class="bi ${info.icon} fs-5 text-${info.color === 'green' ? 'success' : info.color === 'red' ? 'danger' : info.color === 'orange' ? 'warning' : 'primary'}"></i>
+                            <i class="bi ${info.icon} fs-5 text-${info.color === 'green' ? 'success' : info.color === 'red' ? 'danger' : info.color === 'orange' ? 'warning' : info.color === 'purple' ? 'purple' : 'primary'}" style="${info.color === 'purple' ? 'color:#7c3aed' : ''}"></i>
                         </div>
                         <div>
                             <div class="fw-semibold">${info.name}</div>

@@ -160,6 +160,11 @@ builder.Services.AddHttpClient("whisper");
 builder.Services.AddHttpClient("exotel");
 builder.Services.AddHttpClient("hubspot");
 builder.Services.AddHttpClient("salesforce");
+// Named HTTP clients for email providers (Railway-safe: pure HTTPS, no SMTP port blocking)
+builder.Services.AddHttpClient("resend", c =>
+    c.BaseAddress = new Uri("https://api.resend.com"));
+builder.Services.AddHttpClient("mailjet", c =>
+    c.BaseAddress = new Uri("https://api.mailjet.com"));
 builder.Services.AddHttpClient();
 
 // ?? Swagger / OpenAPI ???????????????????????????????????????????????????????
