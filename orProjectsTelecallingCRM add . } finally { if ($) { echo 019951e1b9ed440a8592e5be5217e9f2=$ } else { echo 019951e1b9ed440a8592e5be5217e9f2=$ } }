@@ -1,0 +1,10 @@
+[33mdbf37d7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: Free vs Paid dialer mode — show agent phone in banner, block call if no phone registered
+[33ma0f1aa9[m feat: manual click-to-call when Exotel not configured — logs call, starts timer, shows disposition
+[33m88cc4d1[m feat: add system-level email fallback (Resend/Mailjet) to MessageDispatcher for Railway env vars
+[33mf61d119[m Move Phone Morph toggle into Module Permissions grid (Admin Tools section)
+[33mf85164d[m Fresh build: update Dialer, Leads Import, Payments, Layout, and TenantModules pages
+[33m5416863[m Add phone masking feature, PhoneNumberHelper service, SuperAdmin tenant updates, and new migrations
+[33md879b1c[m fix: Exotel API URL - use Subdomain field from dashboard instead of AccountSid prefix
+[33mba5709d[m fix: clear login error messages - wrong email, wrong password, locked, deactivated
+[33mc5fa1b2[m fix: mobile browser support for Exotel dialer
+[33mc006aae[m fix: resolve all Exotel setup issues found in code review

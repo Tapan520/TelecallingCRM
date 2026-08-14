@@ -1,0 +1,5 @@
+[33mdbf37d7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: Free vs Paid dialer mode — show agent phone in banner, block call if no phone registered
+[33ma0f1aa9[m feat: manual click-to-call when Exotel not configured — logs call, starts timer, shows disposition
+[33m88cc4d1[m feat: add system-level email fallback (Resend/Mailjet) to MessageDispatcher for Railway env vars
+[33mf61d119[m Move Phone Morph toggle into Module Permissions grid (Admin Tools section)
+[33mf85164d[m Fresh build: update Dialer, Leads Import, Payments, Layout, and TenantModules pages
