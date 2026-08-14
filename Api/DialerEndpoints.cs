@@ -114,6 +114,71 @@ public static class DialerEndpoints
             });
         });
 
+        // ?? POST /api/dialer/manual-call ????????????????????????????????????
+        // Used when Exotel is NOT configured.
+        // Agent dials the lead manually from their own phone.
+        // This endpoint just creates the Call record + starts the timer so
+        // the disposition panel works exactly the same as the Exotel flow.
+        group.MapPost("/manual-call", async ([FromBody] DialerCallDto dto, TenantContext tc,
+            HttpContext http, AppDbContext db, IHubContext<CrmHub> hub) =>
+        {
+            if (!tc.HasTenant) return Results.Unauthorized();
+
+            var agentUserId = Guid.Parse(
+                http.User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var lead = await db.Leads
+                .FirstOrDefaultAsync(l => l.Id == dto.LeadId && l.TenantId == tc.TenantId);
+            if (lead == null)
+                return Results.NotFound(new { error = "Lead not found." });
+
+            // DNC check
+            var normPhone = new string(lead.Phone.Where(char.IsDigit).ToArray());
+            var isDnc = await db.DncEntries
+                .AnyAsync(d => d.TenantId == tc.TenantId && d.Phone == normPhone);
+            if (isDnc)
+                return Results.BadRequest(new
+                {
+                    error = "DNC",
+                    message = $"Cannot call {lead.Phone} — this number is on the Do-Not-Call list."
+                });
+
+            var call = new Call
+            {
+                TenantId   = tc.TenantId,
+                LeadId     = dto.LeadId,
+                AgentId    = agentUserId,
+                Direction  = CallDirection.Outbound,
+                StartedAt  = DateTime.UtcNow
+            };
+            db.Calls.Add(call);
+
+            if (lead.Status == LeadStatus.New)
+                lead.Status = LeadStatus.Contacted;
+            lead.LastContactedAt = DateTime.UtcNow;
+
+            db.ActivityLogs.Add(new ActivityLog
+            {
+                TenantId = tc.TenantId,
+                LeadId   = dto.LeadId,
+                UserId   = agentUserId,
+                Type     = ActivityType.CallMade,
+                Summary  = $"Manual call to {lead.Phone}"
+            });
+
+            await db.SaveChangesAsync();
+
+            await hub.Clients.Group($"tenant-{tc.TenantId}")
+                .SendAsync("CallStarted", new { call.Id, dto.LeadId, agentUserId });
+
+            return Results.Ok(new
+            {
+                callId  = call.Id,
+                phone   = lead.Phone,
+                message = $"Dial {lead.Phone} from your phone. Save disposition when done."
+            });
+        });
+
         // ?? POST /api/dialer/callback ????????????????????????????????????????
         // Exotel posts call status updates here (PassThru URL).
         // Must be AllowAnonymous — Exotel doesn't send auth headers.

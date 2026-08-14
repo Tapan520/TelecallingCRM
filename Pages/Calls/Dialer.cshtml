@@ -43,8 +43,8 @@
                 <button id="btn-call" class="btn btn-success btn-lg" onclick="startCall()" disabled>
                     <i class="bi bi-telephone-fill"></i> Call
                 </button>
-                <!-- tel: fallback shown on mobile when Exotel is not configured -->
-                <a id="btn-tel-fallback" class="btn btn-outline-success btn-lg d-none" href="#">
+                <!-- Manual click-to-call: shown when Exotel is not configured -->
+                <a id="btn-tel-fallback" class="btn btn-outline-success btn-lg d-none" href="#" onclick="startManualCall(event)">
                     <i class="bi bi-telephone"></i> Call via Phone
                 </a>
                 <button id="btn-hangup" class="btn btn-danger btn-lg d-none" onclick="hangUp()">
@@ -210,16 +210,17 @@ async function checkDialerStatus() {
 
     if (!_exotelConfigured) {
         document.getElementById('dialer-provider-banner').innerHTML = `
-            <div class="alert alert-warning mb-3 py-2 small">
-                <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                <strong>Exotel not configured.</strong>
-                Go to <a href="/Admin/Integrations">Admin &rarr; Integrations &rarr; Exotel</a> to set it up.
-                ${isMobile ? 'On mobile, use the <strong>Call via Phone</strong> button to dial directly.' : ''}
+            <div class="alert alert-info mb-3 py-2 small">
+                <i class="bi bi-telephone-fill me-1"></i>
+                <strong>Manual Click-to-Call mode.</strong>
+                Exotel is not configured. Use <strong>Call via Phone</strong> to dial from your own device.
+                The call will be logged automatically.
+                <a href="/Admin/Integrations" class="alert-link ms-1">Set up Exotel</a>
             </div>`;
-        // On mobile without Exotel, show native tel: fallback button
-        if (isMobile) {
-            document.getElementById('btn-tel-fallback').classList.remove('d-none');
-        }
+        // Show the manual call button (works on desktop + mobile)
+        document.getElementById('btn-call').classList.add('d-none');
+        document.getElementById('btn-tel-fallback').classList.remove('d-none');
+        document.getElementById('btn-tel-fallback').disabled = true;
     } else {
         const phoneNote = _agentPhone
             ? `Exotel will call <strong>${_agentPhone}</strong> first, then connect to the lead.`
@@ -231,7 +232,7 @@ async function checkDialerStatus() {
             </div>`;
     }
 
-    // Show agent phone warning if missing
+    // Show agent phone warning if missing and Exotel is on
     if (!_agentPhone && _exotelConfigured) {
         document.getElementById('agent-phone-warning').classList.remove('d-none');
     }
@@ -283,15 +284,18 @@ async function selectLead(id, name, phone) {
 currentLeadId = id;
 currentLeadPhone = phone;
 document.getElementById('dial-number').value = maskPhone(phone);
-document.getElementById('btn-call').disabled = false;
 
-// Update tel: fallback href for mobile native dialing (hide if phone is masked)
-const telBtn = document.getElementById('btn-tel-fallback');
-if (_phoneMaskEnabled) {
-    telBtn.classList.add('d-none');
+// Enable the correct call button
+if (_exotelConfigured) {
+    document.getElementById('btn-call').disabled = false;
 } else {
-    telBtn.href = `tel:${phone.replace(/\s/g, '')}`;
-    telBtn.classList.remove('d-none');
+    const telBtn = document.getElementById('btn-tel-fallback');
+    telBtn.removeAttribute('disabled');
+    if (!_phoneMaskEnabled) {
+        telBtn.href = `tel:${phone.replace(/\s/g, '')}`;
+    } else {
+        telBtn.removeAttribute('href');
+    }
 }
 
 document.getElementById('dialer-lead-info').innerHTML = `
@@ -374,14 +378,78 @@ const btn = document.getElementById('btn-call');
     }, 1000);
 }
 
+// ?? Manual call (no Exotel) ??????????????????????????????????????????????????
+// Logs the call in DB, opens tel: on mobile, then shows disposition panel.
+async function startManualCall(e) {
+    if (!currentLeadId) return;
+    e.preventDefault();
+
+    const btn = document.getElementById('btn-tel-fallback');
+    btn.setAttribute('disabled', true);
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
+
+    const res = await fetch('/api/dialer/manual-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: currentLeadId })
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message ?? err.error ?? 'Failed to start call.');
+        btn.removeAttribute('disabled');
+        btn.innerHTML = '<i class="bi bi-telephone"></i> Call via Phone';
+        return;
+    }
+
+    const data = await res.json();
+    currentCallId = data.callId;
+
+    // On mobile: open the native dialler
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile && !_phoneMaskEnabled) {
+        window.location.href = `tel:${currentLeadPhone.replace(/\s/g, '')}`;
+    }
+
+    // Show toast
+    document.getElementById('exotel-toast-msg').textContent =
+        `Dial ${_phoneMaskEnabled ? 'lead' : currentLeadPhone} from your phone. Timer started.`;
+    new bootstrap.Toast(document.getElementById('exotel-toast'), { delay: 6000 }).show();
+
+    // Switch to in-call UI
+    btn.classList.add('d-none');
+    document.getElementById('btn-hangup').classList.remove('d-none');
+    document.getElementById('in-call-controls').classList.remove('d-none');
+    document.getElementById('call-status-badge').className = 'badge bg-success';
+    document.getElementById('call-status-badge').textContent = 'In Call';
+
+    // Start timer
+    callSeconds = 0;
+    timerInterval = setInterval(() => {
+        callSeconds++;
+        const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const s = String(callSeconds % 60).padStart(2, '0');
+        document.getElementById('call-timer').textContent = `${m}:${s}`;
+    }, 1000);
+}
+
 function hangUp() {
     clearInterval(timerInterval);
     document.getElementById('btn-hangup').classList.add('d-none');
-    const btn = document.getElementById('btn-call');
-    btn.classList.remove('d-none');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-telephone-fill"></i> Call';
     document.getElementById('in-call-controls').classList.add('d-none');
+
+    if (_exotelConfigured) {
+        const btn = document.getElementById('btn-call');
+        btn.classList.remove('d-none');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-telephone-fill"></i> Call';
+    } else {
+        const btn = document.getElementById('btn-tel-fallback');
+        btn.classList.remove('d-none');
+        btn.removeAttribute('disabled');
+        btn.innerHTML = '<i class="bi bi-telephone"></i> Call via Phone';
+    }
+
     document.getElementById('call-status-badge').className = 'badge bg-warning';
     document.getElementById('call-status-badge').textContent = 'Disposition';
     document.getElementById('disposition-panel').classList.remove('d-none');
