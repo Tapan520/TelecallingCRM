@@ -46,4 +46,14 @@
     <Folder Include="TelecallingCRM\wwwroot\icons\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include=".ai\01-project-overview.md" />
+    <None Include=".ai\02-architecture.md" />
+    <None Include=".ai\03-domain-model.md" />
+    <None Include=".ai\04-conventions-and-dev-guide.md" />
+    <None Include=".ai\05-services-reference.md" />
+    <None Include=".ai\06-decisions-and-gotchas.md" />
+    <None Include=".ai\README.md" />
+  </ItemGroup>
+
 </Project>
